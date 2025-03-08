@@ -1,4 +1,5 @@
 #include "legate.h"
+#include "legate/timing/timing.h"
 #include "jlcxx/jlcxx.hpp"
 #include "jlcxx/stl.hpp"
 
@@ -10,7 +11,19 @@
 using namespace legate;
 
 
+struct WrapDefault {
+    template <typename TypeWrapperT>
+    void operator()(TypeWrapperT&& wrapped) {
+      typedef typename TypeWrapperT::type WrappedT;
+      wrapped.template constructor<typename WrappedT::value_type>();
+    }
+  };
+
+
 JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
+
+    using jlcxx::Parametric;
+    using jlcxx::TypeVar;
 
     wrap_type_enums(mod); // legate::Type
 
@@ -26,11 +39,31 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         .constructor<int>(); // this is technically templated, but this is easier for now
     jlcxx::stl::apply_stl<legate::Scalar>(mod); //enables std::vector<legate::Scalar> among other things
 
+    mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
+      .apply<std::optional<legate::Type>, std::optional<int64_t>>(WrapDefault());
+
+    mod.add_type<legate::Slice>("LegateSlice")
+      .constructor<std::optional<int64_t>, std::optional<int64_t>>(jlcxx::kwarg("_start") = Slice::OPEN, jlcxx::kwarg("_stop") = Slice::OPEN);
+
     mod.add_type<Library>("LegateLibrary");
 
-    // these have all the accessor methods
-    mod.add_type<LogicalStore>("LogicalStore");
-    mod.add_type<PhysicalStore>("PhysicalStore");
+    mod.add_type<LogicalStore>("LogicalStore")
+        .method("dim", &LogicalStore::dim)
+        .method("type", &LogicalStore::type)
+        .method("reinterpret_as", &LogicalStore::reinterpret_as)
+        .method("promote", &LogicalStore::promote)
+        .method("slice", &LogicalStore::slice)
+        .method("get_physical_store", &LogicalStore::get_physical_store)
+        .method("equal_storage", &LogicalStore::equal_storage);
+
+    // This has all the accessor methods
+    mod.add_type<PhysicalStore>("PhysicalStore")
+        .method("dim", &PhysicalStore::dim)
+        .method("type", &PhysicalStore::type)
+        .method("is_readable", &PhysicalStore::is_readable)
+        .method("is_writable", &PhysicalStore::is_writable)
+        .method("is_reducible", &PhysicalStore::is_reducible)
+        .method("valid", &PhysicalStore::valid);
 
     mod.add_type<PhysicalArray>("PhysicalArray")
         .method("nullable", &PhysicalArray::nullable)
@@ -41,12 +74,17 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
     mod.add_type<LogicalArray>("LogicalArray")
         .method("dim", &LogicalArray::dim)
         .method("type", &LogicalArray::type)
-        .method("shape", &LogicalArray::shape)
         .method("unbound", &LogicalArray::unbound)
         .method("nullable", &LogicalArray::nullable);
 
-    mod.add_type<AutoTask>("AutoTask");
-    mod.add_type<ManualTask>("ManualTask");
+    mod.add_type<Variable>("LegateVariable");
+
+    mod.add_type<AutoTask>("AutoTask")
+        .method("add_input", static_cast<Variable (AutoTask::*)(LogicalArray)>(&AutoTask::add_input))
+        .method("add_output", static_cast<Variable (AutoTask::*)(LogicalArray)>(&AutoTask::add_output));
+    mod.add_type<ManualTask>("ManualTask")
+        .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_input))
+        .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_output));
 
     mod.add_type<Runtime>("LegateRuntime")
         .method("create_auto_task", static_cast<AutoTask (Runtime::*)(Library, LocalTaskID)>(&Runtime::create_task))
@@ -66,7 +104,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
 
     // intialization & cleanup
-    mod.method("start", static_cast<void (*)()>(&legate::start));
+    // TODO catch the (Auto)ConfigurationError and make the Julia error nicer.
+    mod.method("start", static_cast<void (*)()>(&legate::start), jlcxx::calling_policy::std_function);
     mod.method("has_started", &legate::has_started);
     mod.method("finish", &legate::finish);
     mod.method("has_finished", &legate::has_finished);
