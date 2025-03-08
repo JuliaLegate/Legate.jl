@@ -11,7 +11,7 @@ if (NOT CMAKE_CXX_STANDARD)
 endif()
 
 
-find_package(cupynumeric REQUIRED) # for now this is how I find legate
+find_package(legate REQUIRED)
 
 execute_process(
   COMMAND julia -e "println(DEPOT_PATH[1])"
