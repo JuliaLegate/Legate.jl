@@ -1,5 +1,6 @@
 #include "legate.h"
 #include "jlcxx/jlcxx.hpp"
+#include "jlcxx/stl.hpp"
 
 #include <type_traits>
 #include <vector>
@@ -13,7 +14,6 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
     wrap_type_enums(mod); // legate::Type
 
-
     mod.map_type<LocalTaskID>("LocalTaskID");
     mod.map_type<GlobalTaskID>("GlobalTaskID");
 
@@ -24,6 +24,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         .constructor<float>() 
         .constructor<double>()
         .constructor<int>(); // this is technically templated, but this is easier for now
+    jlcxx::stl::apply_stl<legate::Scalar>(mod); //enables std::vector<legate::Scalar> among other things
 
     mod.add_type<Library>("LegateLibrary");
 
@@ -63,9 +64,18 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         .method("store_from_scalar", static_cast<LogicalStore (Runtime::*)(const Scalar&, const Shape&)>(&Runtime::create_store),
                  jlcxx::kwarg("shape") = Shape{1});
 
+
+    // intialization & cleanup
     mod.method("start", static_cast<void (*)()>(&legate::start));
     mod.method("has_started", &legate::has_started);
     mod.method("finish", &legate::finish);
     mod.method("has_finished", &legate::has_finished);
+
+
+    // timing methods
+    mod.add_type<timing::Time>("Time").method(
+        "value", &timing::Time::value);
+    mod.method("time_microseconds", &timing::measure_microseconds);
+    mod.method("time_nanoseconds", &timing::measure_nanoseconds);
 
 }
