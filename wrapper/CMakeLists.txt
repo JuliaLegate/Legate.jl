@@ -1,13 +1,28 @@
 
 cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
-project(cuNumericWrapper VERSION 0.01 LANGUAGES C CXX)
+project(LegateWrapper VERSION 25.05.00 LANGUAGES C CXX)
+
 
 # Specify C++ standard
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if (NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
+endif()
+
+
+# Ensure the LEGATE_PATH is defined
+if(NOT DEFINED LEGATE_PATH)
+  message(FATAL_ERROR "LEGATE_PATH is not set.")
+endif()
+
+if(NOT DEFINED HDF5_PATH)
+  message(FATAL_ERROR "HDF5_PATH is not set.")
+endif()
+
+if(NOT DEFINED NCCL_PATH)
+  message(FATAL_ERROR "NCCL_PATH is not set.")
 endif()
 
 
@@ -33,15 +48,21 @@ add_library(legatewrapper SHARED
               src/wrapper.cpp
               src/types.cpp)
 
-# both can be private I think
+set_target_properties(legatewrapper PROPERTIES
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "${NCCL_PATH}/lib;${HDF5_PATH}/lib;${LEGATE_PATH}/lib"
+)
+
+
 target_link_libraries(legatewrapper 
                         PRIVATE legate::legate
                         PUBLIC JlCxx::cxxwrap_julia)
 
-
 target_include_directories(legatewrapper PRIVATE 
-                            include
-                        )
+                        include
+                        ${LEGATE_PATH}/include/legate
+                        ${LEGATE_PATH}/include/legate/deps
+                    )
 
 install(TARGETS legatewrapper 
           DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/cmake-install")

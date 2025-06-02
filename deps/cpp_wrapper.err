@@ -1,0 +1,12 @@
+CMake Warning (dev) at /pool/david/tools/cmake-3.31.2-linux-x86_64/share/cmake-3.31/Modules/FindPackageHandleStandardArgs.cmake:450 (message):
+  `find_package()` specify a version range but the module CUDAToolkit does
+  not support this capability.  Only the lower endpoint of the range will be
+  used.
+Call Stack (most recent call first):
+  /pool/david/tools/cmake-3.31.2-linux-x86_64/share/cmake-3.31/Modules/FindCUDAToolkit.cmake:1058 (find_package_handle_standard_args)
+  /home/david/.julia/artifacts/bf25267cf9a6cc877f2e8311e5040e7c64e7de85/share/Legion/cmake/FindCUDAToolkit.cmake:21 (include)
+  /home/david/.julia/artifacts/bf25267cf9a6cc877f2e8311e5040e7c64e7de85/lib/cmake/legate/legate-dependencies.cmake:34 (find_package)
+  /home/david/.julia/artifacts/bf25267cf9a6cc877f2e8311e5040e7c64e7de85/lib/cmake/legate/legate-config.cmake:72 (include)
+  CMakeLists.txt:29 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+

@@ -5,29 +5,29 @@
 set -e 
 
 if [[ $# -ne 2 ]]; then
-    echo "Usage: $0 <directory> <conda_env_dir>"
+    echo "Usage: $0 <root-dir> <legate-loc>"
     exit 1
 fi
 
-REPO_ROOT_DIR=$1  # First argument
-CONDA_ENV_DIR=$2 
+LEGATE_JL_ROOT_DIR=$1  # First argument
+LEGATE_SO_LOC=$2 
 
 # Check if the provided argument is a valid directory
-if [[ ! -d "$REPO_ROOT_DIR" ]]; then
-    echo "Error: '$REPO_ROOT_DIR' is not a valid directory."
+if [[ ! -d "$LEGATE_JL_ROOT_DIR" ]]; then
+    echo "Error: '$LEGATE_JL_ROOT_DIR' is not a valid directory."
     exit 1
 fi
 
-if [[ ! -d "$CONDA_ENV_DIR" ]]; then
-    echo "Error: '$CONDA_ENV_DIR' is not a valid directory."
+if [[ ! -d "$LEGATE_SO_LOC" ]]; then
+    echo "Error: '$LEGATE_SO_LOC' is not a valid directory."
     exit 1
 fi
 
-exists=$CONDA_ENV_DIR/include/legate/deps/legion/legion_redop.inl 
-new=$REPO_ROOT_DIR/scripts/legion_redop_patch.inl
+exists=$LEGATE_SO_LOC/include/legate/deps/legion/legion_redop.inl 
+new=$LEGATE_JL_ROOT_DIR/scripts/legion_redop_patch.inl
 
-if [ -z "$REPO_ROOT_DIR" ]; then
-  echo "Error: REPO_ROOT_DIR is not set."
+if [ -z "$LEGATE_JL_ROOT_DIR" ]; then
+  echo "Error: LEGATE_JL_ROOT_DIR is not set."
   exit 1
 fi
 

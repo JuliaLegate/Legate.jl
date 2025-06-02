@@ -27,17 +27,31 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
     wrap_type_enums(mod); // legate::Type
 
-    mod.map_type<LocalTaskID>("LocalTaskID");
-    mod.map_type<GlobalTaskID>("GlobalTaskID");
+    mod.add_bits<LocalTaskID>("LocalTaskID");
+    mod.add_bits<GlobalTaskID>("GlobalTaskID");
 
     mod.add_type<Shape>("Shape")
         .constructor<std::vector<std::uint64_t>>();
-    
+
     mod.add_type<Scalar>("Scalar")
-        .constructor<float>() 
+        .constructor<float>()
         .constructor<double>()
-        .constructor<int>(); // this is technically templated, but this is easier for now
-    jlcxx::stl::apply_stl<legate::Scalar>(mod); //enables std::vector<legate::Scalar> among other things
+        .constructor<int>(); // julia lets me make with ints???
+
+    mod.add_type<std::vector<legate::Scalar>>("VectorLegateScalar")
+        .method("push_back", [](std::vector<legate::Scalar>& v, const legate::Scalar& x) {
+        v.push_back(x);
+        })
+        .method("size", [](const std::vector<legate::Scalar>& v) {
+        return v.size();
+        })
+        .method("get", [](const std::vector<legate::Scalar>& v, std::size_t i) {
+        return v.at(i);
+        })
+        .method("set", [](std::vector<legate::Scalar>& v, std::size_t i, const legate::Scalar& x) {
+        v.at(i) = x;
+        });
+
 
     mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(WrapDefault());
