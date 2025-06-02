@@ -56,10 +56,27 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
     mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(WrapDefault());
 
+    // mod.add_type<legate::Slice>("LegateSlice")
+    //   .constructor<std::optional<int64_t>, std::optional<int64_t>>(jlcxx::kwarg("_start") = Slice::OPEN, jlcxx::kwarg("_stop") = Slice::OPEN);
+    
     mod.add_type<legate::Slice>("LegateSlice")
-      .constructor<std::optional<int64_t>, std::optional<int64_t>>(jlcxx::kwarg("_start") = Slice::OPEN, jlcxx::kwarg("_stop") = Slice::OPEN);
+      .constructor<std::optional<int64_t>, std::optional<int64_t>>();
 
+    mod.add_bits<legate::mapping::StoreTarget>("StoreTarget");
+    
+    mod.add_type<Parametric<TypeVar<1>>>("StoreTargetOptional")
+      .apply<std::optional<legate::mapping::StoreTarget>, std::optional<int64_t>>(WrapDefault());
+    
     mod.add_type<Library>("LegateLibrary");
+   
+    // This has all the accessor methods
+    mod.add_type<PhysicalStore>("PhysicalStore")
+        .method("dim", &PhysicalStore::dim)
+        .method("type", &PhysicalStore::type)
+        .method("is_readable", &PhysicalStore::is_readable)
+        .method("is_writable", &PhysicalStore::is_writable)
+        .method("is_reducible", &PhysicalStore::is_reducible)
+        .method("valid", &PhysicalStore::valid);
 
     mod.add_type<LogicalStore>("LogicalStore")
         .method("dim", &LogicalStore::dim)
@@ -69,15 +86,6 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         .method("slice", &LogicalStore::slice)
         .method("get_physical_store", &LogicalStore::get_physical_store)
         .method("equal_storage", &LogicalStore::equal_storage);
-
-    // This has all the accessor methods
-    mod.add_type<PhysicalStore>("PhysicalStore")
-        .method("dim", &PhysicalStore::dim)
-        .method("type", &PhysicalStore::type)
-        .method("is_readable", &PhysicalStore::is_readable)
-        .method("is_writable", &PhysicalStore::is_writable)
-        .method("is_reducible", &PhysicalStore::is_reducible)
-        .method("valid", &PhysicalStore::valid);
 
     mod.add_type<PhysicalArray>("PhysicalArray")
         .method("nullable", &PhysicalArray::nullable)
