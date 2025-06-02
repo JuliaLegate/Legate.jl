@@ -65,7 +65,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
     mod.add_bits<legate::mapping::StoreTarget>("StoreTarget");
     
     mod.add_type<Parametric<TypeVar<1>>>("StoreTargetOptional")
-      .apply<std::optional<legate::mapping::StoreTarget>, std::optional<int64_t>>(WrapDefault());
+      .apply<std::optional<legate::mapping::StoreTarget>>(WrapDefault());
     
     mod.add_type<Library>("LegateLibrary");
    
@@ -108,22 +108,20 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_input))
         .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_output));
 
-    mod.add_type<Runtime>("LegateRuntime")
-        .method("create_auto_task", static_cast<AutoTask (Runtime::*)(Library, LocalTaskID)>(&Runtime::create_task))
-        // issues with r-value references. Probably need to wrap a function and std::move the Task object
-        // .method("submit_auto_task", static_cast<void (Runtime::*)(AutoTask&&)>(&Runtime::submit))
-        // .method("submit_manual_task", static_cast<void (Runtime::*)>(ManualTask&&)(&Runtime::submit))
-        .method("create_unbound_array", static_cast<LogicalArray (Runtime::*)(const Type&, std::uint32_t, bool)>(&Runtime::create_array),
-                 jlcxx::kwarg("dim") = 1, jlcxx::kwarg("nullable") = false)
-        .method("create_array", static_cast<LogicalArray (Runtime::*)(const Shape&, const Type&, bool, bool)>(&Runtime::create_array),
-                 jlcxx::kwarg("nullable") = false, jlcxx::kwarg("optimize_scalar") = false)
-        .method("create_unbound_store", static_cast<LogicalStore (Runtime::*)(const Type&, std::uint32_t)>(&Runtime::create_store), 
-                 jlcxx::kwarg("dim") = 1)
-        .method("create_store", static_cast<LogicalStore (Runtime::*)(const Shape&, const Type&, bool)>(&Runtime::create_store),
-                 jlcxx::kwarg("optimize_scalar") = false)
-        .method("store_from_scalar", static_cast<LogicalStore (Runtime::*)(const Scalar&, const Shape&)>(&Runtime::create_store),
-                 jlcxx::kwarg("shape") = Shape{1});
-
+    mod.add_type<Runtime>("LegateRuntime");
+    // mod.method("create_auto_task", static_cast<AutoTask (Runtime::*)(Library, LocalTaskID)>(&Runtime::create_task));
+    // mod.method("submit_auto_task", [](Runtime& self, AutoTask& task) {self.submit(std::move(task));});
+    // mod.method("submit_manual_task", [](Runtime& self, ManualTask& task) {self.submit(std::move(task));});
+    // mod.method("create_unbound_array", static_cast<LogicalArray (Runtime::*)(const Type&, std::uint32_t, bool)>(&Runtime::create_array),
+    //              jlcxx::kwarg("dim") = 1, jlcxx::kwarg("nullable") = false);
+    // mod.method("create_array", static_cast<LogicalArray (Runtime::*)(const Shape&, const Type&, bool, bool)>(&Runtime::create_array),
+    //              jlcxx::kwarg("nullable") = false, jlcxx::kwarg("optimize_scalar") = false);
+    // mod.method("create_unbound_store", static_cast<LogicalStore (Runtime::*)(const Type&, std::uint32_t)>(&Runtime::create_store), 
+    //              jlcxx::kwarg("dim") = 1);
+    // mod.method("create_store", static_cast<LogicalStore (Runtime::*)(const Shape&, const Type&, bool)>(&Runtime::create_store),
+    //              jlcxx::kwarg("optimize_scalar") = false);
+    // mod.method("store_from_scalar", static_cast<LogicalStore (Runtime::*)(const Scalar&, const Shape&)>(&Runtime::create_store),
+    //              jlcxx::kwarg("shape") = Shape{1});
 
     // intialization & cleanup
     // TODO catch the (Auto)ConfigurationError and make the Julia error nicer.
