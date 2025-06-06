@@ -1,10 +1,11 @@
 module Legate
 
-
 using CxxWrap
 
 lib = "liblegatewrapper.so"
 @wrapmodule(() -> joinpath(@__DIR__, "../", "wrapper", "build", lib))
+
+include("type.jl")
 
 function my_on_exit()
     @info "Cleaning Up Legate"
