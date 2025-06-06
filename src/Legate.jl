@@ -1,6 +1,7 @@
 module Legate
 
 using CxxWrap
+using legate_jll
 
 lib = "liblegatewrapper.so"
 @wrapmodule(() -> joinpath(@__DIR__, "../", "wrapper", "build", lib))
@@ -19,4 +20,9 @@ function __init__()
     @info "Started Legate"
     Base.atexit(my_on_exit)
 end
+
+function get_jll()
+    return legate_jll.artifact_dir
+end
+
 end 
