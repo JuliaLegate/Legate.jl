@@ -1,5 +1,29 @@
+/* Copyright 2025 Northwestern University,
+ *                   Carnegie Mellon University University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author(s): David Krasowska <krasow@u.northwestern.edu>
+ *            Ethan Meitz <emeitz@andrew.cmu.edu>
+ */
+
 #include "legate.h"
+#include "legion.h"
+
 #include "legate/timing/timing.h"
+#include "legate/mapping/machine.h"
+#include "legion/legion_config.h"
+
 #include "jlcxx/jlcxx.hpp"
 #include "jlcxx/stl.hpp"
 
@@ -21,11 +45,20 @@ struct WrapDefault {
 
 
 JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
-
+    using jlcxx::ParameterList;
     using jlcxx::Parametric;
     using jlcxx::TypeVar;
 
-    wrap_type_enums(mod); // legate::Type
+    wrap_privilege_modes(mod);
+    wrap_type_enums(mod);
+    wrap_type_getters(mod);
+
+    using privilege_modes = ParameterList<
+      std::integral_constant<legion_privilege_mode_t, LEGION_WRITE_DISCARD>,
+      std::integral_constant<legion_privilege_mode_t, LEGION_READ_ONLY>>;
+
+    mod.method("start_legate", [] { legate::start(); });  // in legate/runtime.h
+    mod.method("legate_finish", &legate::finish);  // in legate/runtime.h
 
     mod.add_bits<LocalTaskID>("LocalTaskID");
     mod.add_bits<GlobalTaskID>("GlobalTaskID");
@@ -38,7 +71,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         .constructor<double>()
         .constructor<int>(); // julia lets me make with ints???
 
-    mod.add_type<std::vector<legate::Scalar>>("VectorLegateScalar")
+    mod.add_type<std::vector<legate::Scalar>>("VectorScalar")
         .method("push_back", [](std::vector<legate::Scalar>& v, const legate::Scalar& x) {
         v.push_back(x);
         })
@@ -56,10 +89,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
     mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(WrapDefault());
 
-    // mod.add_type<legate::Slice>("LegateSlice")
+    // mod.add_type<legate::Slice>("Slice")
     //   .constructor<std::optional<int64_t>, std::optional<int64_t>>(jlcxx::kwarg("_start") = Slice::OPEN, jlcxx::kwarg("_stop") = Slice::OPEN);
     
-    mod.add_type<legate::Slice>("LegateSlice")
+    mod.add_type<legate::Slice>("Slice")
       .constructor<std::optional<int64_t>, std::optional<int64_t>>();
 
     mod.add_bits<legate::mapping::StoreTarget>("StoreTarget");
