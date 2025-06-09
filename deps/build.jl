@@ -68,7 +68,7 @@ function build_jlcxxwrap(repo_root)
     if isfile(version_path)
         version = strip(read(version_path, String))
         if version ∈ SUPPORTED_LEGATE_VERSIONS
-            @info "Found supported version: $version"
+            @info "Found supported jlcxxwrap built for Legate: $version"
             return
         else
             @info "Unsupported version found: $version. Rebuilding..."
@@ -101,23 +101,55 @@ function build_cpp_wrapper(repo_root, legate_jll_root, hdf5_jll_root, nccl_jll_r
     run_sh(`bash $build_cpp_wrapper $repo_root $legate_jll_root $hdf5_jll_root $nccl_jll_root $build_dir $nthreads`, "cpp_wrapper")
 end
 
+function parse_legate_version(legate_dir)
+    version_file = joinpath(legate_dir, "include", "legate/legate", "version.h")
+
+    version = nothing
+    open(version_file, "r") do f
+        data = readlines(f)
+        major = parse(Int, split(data[end-2])[end])
+        minor = lpad(split(data[end-1])[end], 2, '0')
+        patch = lpad(split(data[end])[end], 2, '0')
+        version = "$(major).$(minor).$(patch)"
+    end
+
+    if isnothing(version)
+        error("Failed to parse version")
+    end
+
+    return version
+end
+
 
 function build(run_legion_patch::Bool = true)
     pkg_root = abspath(joinpath(@__DIR__, "../"))
     @info "Parsed Package Dir as: $(pkg_root)"
 
-    legate_jll_root = legate_jll.artifact_dir
     hdf5_jll_root = HDF5_jll.artifact_dir
     nccl_jll_root = NCCL_jll.artifact_dir
 
-    run_legion_patch && patch_legion(pkg_root, legate_jll_root)
+    if get(ENV, "LEGATE_CUSTOM_INSTALL", "0") == "1"
+        @info "Using LEGATE_CUSTOM_INSTALL mode"
+        legate_root = get(ENV, "LEGATE_CUSTOM_INSTALL_LOCATION", nothing)
+        installed_version = parse_legate_version(legate_root)
+        if installed_version ∉ SUPPORTED_LEGATE_VERSIONS
+            @warn "Detected unsupported version of legate installed: $(installed_version). Using legate_jll"
+            legate_root = legate_jll.artifact_dir # we won't install a new version, we will fallback to legate_jll
+        else
+            @info "Found legate install at $(legate_root)"
+        end
+    else
+        legate_root = legate_jll.artifact_dir
+    end
+
+    run_legion_patch && patch_legion(pkg_root, legate_root)
 
     # We still need to build libcxxwrap from source until 
     # everything is on BinaryBuilder to ensure compiler compatability
     build_jlcxxwrap(pkg_root)
 
     # create lib_legatewrapper.so
-    build_cpp_wrapper(pkg_root, legate_jll_root, hdf5_jll_root, nccl_jll_root)
+    build_cpp_wrapper(pkg_root, legate_root, hdf5_jll_root, nccl_jll_root)
 end
 
 

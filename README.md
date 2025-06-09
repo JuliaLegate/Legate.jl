@@ -34,6 +34,13 @@ Legate.jl is not on the general registry yet. To add Legate.jl to your environme
 using Pkg; Pkg.add(url = "https://github.com/JuliaLegate/Legate.jl", rev = "main")
 ```
 
+## 2b. Use preinstalled version of [Legate](https://github.com/nv-legate/legate)
+We support using a custom install version of Legate. See https://docs.nvidia.com/legate/latest/installation.html for details about different install configurations.
+```bash
+export LEGATE_CUSTOM_INSTALL=1
+export LEGATE_CUSTOM_INSTALL_LOCATION="/home/user/path/to/legate-install-dir"
+```
+
 ## Contact
 For technical questions, please either contact 
 `krasow(at)u.northwestern.edu` OR
