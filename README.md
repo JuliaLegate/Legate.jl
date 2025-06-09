@@ -39,5 +39,5 @@ For technical questions, please either contact
 `krasow(at)u.northwestern.edu` OR
 `emeitz(at)andrew.cmu.edu`
 
-If the issue is building the package, please include the `build.log` and `.err` files found in `cuNumeric.jl/pkg/deps/` 
+If the issue is building the package, please include the `build.log` and `.err` files found in `Legate.jl/pkg/deps/` 
 
