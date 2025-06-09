@@ -62,9 +62,26 @@ end
 function build_jlcxxwrap(repo_root)
     @info "Downloading libcxxwrap"
     build_libcxxwrap = joinpath(repo_root, "scripts/install_cxxwrap.sh")
+    
+    version_path = joinpath(DEPOT_PATH[1], "dev/libcxxwrap_julia_jll/override/LEGATE_INSTALL.txt")
 
+    if isfile(version_path)
+        version = strip(read(version_path, String))
+        if version ∈ SUPPORTED_LEGATE_VERSIONS
+            @info "Found supported version: $version"
+            return
+        else
+            @info "Unsupported version found: $version. Rebuilding..."
+        end
+    else
+        @info "No version file found. Starting build..."
+    end
+  
     @info "Running libcxxwrap build script: $build_libcxxwrap"
     run_sh(`bash $build_libcxxwrap $repo_root`, "libcxxwrap")
+    open(version_path, "w") do io
+        write(io, LATEST_LEGATE_VERSION)
+    end
 end
 
 

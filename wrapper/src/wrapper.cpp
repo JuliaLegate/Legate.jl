@@ -70,7 +70,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         .constructor<float>()
         .constructor<double>()
         .constructor<int>(); // julia lets me make with ints???
-
+    
     mod.add_type<std::vector<legate::Scalar>>("VectorScalar")
         .method("push_back", [](std::vector<legate::Scalar>& v, const legate::Scalar& x) {
         v.push_back(x);
@@ -94,6 +94,12 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
     
     mod.add_type<legate::Slice>("Slice")
       .constructor<std::optional<int64_t>, std::optional<int64_t>>();
+
+
+    mod.add_type<std::vector<legate::Slice>>("VectorSlice")
+      .method("push", [](std::vector<legate::Slice>& v, legate::Slice s) {
+        v.push_back(s);
+      });
 
     mod.add_bits<legate::mapping::StoreTarget>("StoreTarget");
     
