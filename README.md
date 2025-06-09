@@ -32,6 +32,7 @@ juliaup default 1.10
 Legate.jl is not on the general registry yet. To add Legate.jl to your environment run:
 ```julia
 using Pkg; Pkg.add(url = "https://github.com/JuliaLegate/Legate.jl", rev = "main")
+```
 
 ## Contact
 For technical questions, please either contact 
