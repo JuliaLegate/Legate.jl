@@ -97,7 +97,7 @@ function build(run_legion_patch::Bool = true)
 
     # We still need to build libcxxwrap from source until 
     # everything is on BinaryBuilder to ensure compiler compatability
-    # build_jlcxxwrap(pkg_root)
+    build_jlcxxwrap(pkg_root)
 
     # create lib_legatewrapper.so
     build_cpp_wrapper(pkg_root, legate_jll_root, hdf5_jll_root, nccl_jll_root)
