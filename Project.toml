@@ -1,6 +1,6 @@
 name = "Legate"
 uuid = "1238f2cf-6593-4d60-9aca-2f5364e49909"
-version = "25.5.0"
+version = "25.05.00"
 
 [deps]
 CxxWrap = "1f15a43c-97ca-5a2a-ae31-89f07a497df4"
