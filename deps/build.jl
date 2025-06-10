@@ -52,15 +52,15 @@ end
 # patch legion. The readme below talks about our compilation error
 # https://github.com/ejmeitz/cuNumeric.jl/blob/main/scripts/README.md
 function patch_legion(repo_root::String, legate_jll_root::String)
-    @info "Patching Legion"
+    @info "Legate.jl: Patching Legion"
     
     legion_patch = joinpath(repo_root, "scripts/patch_legion.sh")
-    @info "Running legion patch script: $legion_patch"
+    @info "Legate.jl: Running legion patch script: $legion_patch"
     run_sh(`bash $legion_patch $repo_root $legate_jll_root`, "legion_patch")
 end
 
 function build_jlcxxwrap(repo_root)
-    @info "Downloading libcxxwrap"
+    @info "libcxxwrap: Downloading"
     build_libcxxwrap = joinpath(repo_root, "scripts/install_cxxwrap.sh")
     
     version_path = joinpath(DEPOT_PATH[1], "dev/libcxxwrap_julia_jll/override/LEGATE_INSTALL.txt")
@@ -68,16 +68,16 @@ function build_jlcxxwrap(repo_root)
     if isfile(version_path)
         version = strip(read(version_path, String))
         if version ∈ SUPPORTED_LEGATE_VERSIONS
-            @info "Found supported jlcxxwrap built for Legate: $version"
+            @info "libcxxwrap: Found supported version built with Legate.jl: $version"
             return
         else
-            @info "Unsupported version found: $version. Rebuilding..."
+            @info "libcxxwrap: Unsupported version found: $version. Rebuilding..."
         end
     else
-        @info "No version file found. Starting build..."
+        @info "libcxxwrap: No version file found. Starting build..."
     end
   
-    @info "Running libcxxwrap build script: $build_libcxxwrap"
+    @info "libcxxwrap: Running build script: $build_libcxxwrap"
     run_sh(`bash $build_libcxxwrap $repo_root`, "libcxxwrap")
     open(version_path, "w") do io
         write(io, LATEST_LEGATE_VERSION)
@@ -86,12 +86,12 @@ end
 
 
 function build_cpp_wrapper(repo_root, legate_jll_root, hdf5_jll_root, nccl_jll_root)
-    @info "Building C++ Wrapper Library"
+    @info "liblegatewrapper: Building C++ Wrapper Library"
     build_dir = joinpath(repo_root, "wrapper", "build")
     if !isdir(build_dir)
         mkdir(build_dir)
     else
-        @warn "Build dir exists. Deleting prior build."
+        @warn "liblegatewrapper: Build dir exists. Deleting prior build."
         rm(build_dir, recursive = true)
         mkdir(build_dir)
     end
@@ -100,6 +100,17 @@ function build_cpp_wrapper(repo_root, legate_jll_root, hdf5_jll_root, nccl_jll_r
     nthreads = Threads.nthreads()
     run_sh(`bash $build_cpp_wrapper $repo_root $legate_jll_root $hdf5_jll_root $nccl_jll_root $build_dir $nthreads`, "cpp_wrapper")
 end
+
+
+function is_legate_installed(legate_dir::String; throw_errors::Bool = false)
+    include_dir = joinpath(legate_dir, "include")
+    if !isdir(joinpath(include_dir, "legate/legate"))
+        throw_errors && @error "Legate.jl: Cannot find include/legate/legate in $(legate_dir)"
+        return false
+    end 
+    return true
+end
+
 
 function parse_legate_version(legate_dir)
     version_file = joinpath(legate_dir, "include", "legate/legate", "version.h")
@@ -114,31 +125,46 @@ function parse_legate_version(legate_dir)
     end
 
     if isnothing(version)
-        error("Failed to parse version")
+        error("Legate.jl: Failed to parse version")
     end
 
     return version
 end
 
 
+function check_prefix_install(env_var, env_loc)
+    if get(ENV, env_var, "0") == "1"
+        @info "Legate.jl: Using $(env_var) mode"
+        legate_dir = get(ENV, env_loc, nothing)
+        legate_installed = is_legate_installed(legate_dir)
+        if !legate_installed
+            error("Legate.jl: Build halted: legate not found in $legate_dir")
+        end
+        installed_version = parse_legate_version(legate_dir)
+        if installed_version ∉ SUPPORTED_LEGATE_VERSIONS
+            error("Legate.jl: Build halted: $(legate_dir) detected unsupported version $(installed_version)")
+        end
+        @info "Legate.jl: Found a valid install in: $(legate_dir)"
+        return true
+    end
+    return false
+end
+
+
 function build(run_legion_patch::Bool = true)
     pkg_root = abspath(joinpath(@__DIR__, "../"))
-    @info "Parsed Package Dir as: $(pkg_root)"
+    @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
 
     hdf5_jll_root = HDF5_jll.artifact_dir
     nccl_jll_root = NCCL_jll.artifact_dir
 
-    if get(ENV, "LEGATE_CUSTOM_INSTALL", "0") == "1"
-        @info "Using LEGATE_CUSTOM_INSTALL mode"
+    # custom install
+    if check_prefix_install("LEGATE_CUSTOM_INSTALL", "LEGATE_CUSTOM_INSTALL_LOCATION")
         legate_root = get(ENV, "LEGATE_CUSTOM_INSTALL_LOCATION", nothing)
-        installed_version = parse_legate_version(legate_root)
-        if installed_version ∉ SUPPORTED_LEGATE_VERSIONS
-            @warn "Detected unsupported version of legate installed: $(installed_version). Using legate_jll"
-            legate_root = legate_jll.artifact_dir # we won't install a new version, we will fallback to legate_jll
-        else
-            @info "Found legate install at $(legate_root)"
-        end
-    else
+    # conda install 
+    elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
+        legate_root = get(ENV, "CONDA_PREFIX", nothing)
+    else # default  
         legate_root = legate_jll.artifact_dir
     end
 
