@@ -7,6 +7,7 @@ lib = "liblegatewrapper.so"
 @wrapmodule(() -> joinpath(@__DIR__, "../", "wrapper", "build", lib))
 
 include("type.jl")
+include("../deps/deps.jl")
 
 function my_on_exit()
     @info "Cleaning Up Legate"
@@ -21,8 +22,8 @@ function __init__()
     Base.atexit(my_on_exit)
 end
 
-function get_jll()
-    return legate_jll.artifact_dir
+function get_install_liblegate()
+    return LEGATE_ROOT
 end
 
 end 

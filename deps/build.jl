@@ -51,12 +51,12 @@ end
 
 # patch legion. The readme below talks about our compilation error
 # https://github.com/ejmeitz/cuNumeric.jl/blob/main/scripts/README.md
-function patch_legion(repo_root::String, legate_jll_root::String)
+function patch_legion(repo_root::String, legate_root::String)
     @info "Legate.jl: Patching Legion"
     
     legion_patch = joinpath(repo_root, "scripts/patch_legion.sh")
     @info "Legate.jl: Running legion patch script: $legion_patch"
-    run_sh(`bash $legion_patch $repo_root $legate_jll_root`, "legion_patch")
+    run_sh(`bash $legion_patch $repo_root $legate_root`, "legion_patch")
 end
 
 function build_jlcxxwrap(repo_root)
@@ -85,7 +85,7 @@ function build_jlcxxwrap(repo_root)
 end
 
 
-function build_cpp_wrapper(repo_root, legate_jll_root, hdf5_jll_root, nccl_jll_root)
+function build_cpp_wrapper(repo_root, legate_root, hdf5_root, nccl_root)
     @info "liblegatewrapper: Building C++ Wrapper Library"
     build_dir = joinpath(repo_root, "wrapper", "build")
     if !isdir(build_dir)
@@ -98,7 +98,7 @@ function build_cpp_wrapper(repo_root, legate_jll_root, hdf5_jll_root, nccl_jll_r
 
     build_cpp_wrapper = joinpath(repo_root, "scripts/build_cpp_wrapper.sh")
     nthreads = Threads.nthreads()
-    run_sh(`bash $build_cpp_wrapper $repo_root $legate_jll_root $hdf5_jll_root $nccl_jll_root $build_dir $nthreads`, "cpp_wrapper")
+    run_sh(`bash $build_cpp_wrapper $repo_root $legate_root $hdf5_root $nccl_root $build_dir $nthreads`, "cpp_wrapper")
 end
 
 
@@ -153,10 +153,12 @@ end
 
 function build(run_legion_patch::Bool = true)
     pkg_root = abspath(joinpath(@__DIR__, "../"))
+    deps_dir = joinpath(@__DIR__)
+
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
 
-    hdf5_jll_root = HDF5_jll.artifact_dir
-    nccl_jll_root = NCCL_jll.artifact_dir
+    hdf5_root = HDF5_jll.artifact_dir
+    nccl_root = NCCL_jll.artifact_dir
 
     # custom install
     if check_prefix_install("LEGATE_CUSTOM_INSTALL", "LEGATE_CUSTOM_INSTALL_LOCATION")
@@ -175,7 +177,13 @@ function build(run_legion_patch::Bool = true)
     build_jlcxxwrap(pkg_root)
 
     # create lib_legatewrapper.so
-    build_cpp_wrapper(pkg_root, legate_root, hdf5_jll_root, nccl_jll_root)
+    open(joinpath(deps_dir, "deps.jl"), "w") do io
+        println(io, "const LEGATE_ROOT = \"$(legate_root)\"")
+        println(io, "const HDF5_ROOT = \"$(hdf5_root)\"")
+        println(io, "const NCCL_ROOT = \"$(nccl_root)\"")
+    end 
+
+    build_cpp_wrapper(pkg_root, legate_root, hdf5_root, nccl_root)
 end
 
 
