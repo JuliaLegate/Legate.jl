@@ -21,6 +21,7 @@ using Pkg
 import Base: notnothing
 
 using legate_jll
+using legate_jl_wrapper_jll
 using NCCL_jll
 using HDF5_jll
 
@@ -87,18 +88,16 @@ end
 
 function build_cpp_wrapper(repo_root, legate_root, hdf5_root, nccl_root)
     @info "liblegatewrapper: Building C++ Wrapper Library"
-    build_dir = joinpath(repo_root, "wrapper", "build")
-    if !isdir(build_dir)
-        mkdir(build_dir)
-    else
+    install_dir = joinpath(repo_root, "deps", "legate_wrapper_install")
+    if isdir(install_dir)
         @warn "liblegatewrapper: Build dir exists. Deleting prior build."
-        rm(build_dir, recursive = true)
-        mkdir(build_dir)
+        rm(install_dir, recursive = true)
+        mkdir(install_dir)
     end
 
     build_cpp_wrapper = joinpath(repo_root, "scripts/build_cpp_wrapper.sh")
     nthreads = Threads.nthreads()
-    run_sh(`bash $build_cpp_wrapper $repo_root $legate_root $hdf5_root $nccl_root $build_dir $nthreads`, "cpp_wrapper")
+    run_sh(`bash $build_cpp_wrapper $repo_root $legate_root $hdf5_root $nccl_root $install_dir $nthreads`, "cpp_wrapper")
 end
 
 
@@ -167,25 +166,27 @@ function build(run_legion_patch::Bool = true)
     elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
         legate_root = get(ENV, "CONDA_PREFIX", nothing)
     else # default  
-        legate_root = legate_jll.artifact_dir
+        legate_root = legate_jll.artifact_dir # the jll already has legate patched
+        run_legion_patch = false
     end
 
-    run_legion_patch && patch_legion(pkg_root, legate_root)
+    run_legion_patch && patch_legion(pkg_root, legate_root) # only patch if not legate_jll
 
-    # We still need to build libcxxwrap from source until 
-    # everything is on BinaryBuilder to ensure compiler compatability
-    build_jlcxxwrap(pkg_root)
+    if get(ENV, "LEGATE_DEVELOP_MODE", "0") == "1"
+        build_jlcxxwrap(pkg_root) # $pkg_root/libcxxwrap-julia 
+        build_cpp_wrapper(pkg_root, legate_root, hdf5_root, nccl_root) # $pkg_root/wrapper
+        legate_wrapper_root = joinpath(pkg_root, "deps", "legate_wrapper_install")
+    else
+        legate_wrapper_root = legate_jl_wrapper_jll.artifact_dir
+    end
 
     # create lib_legatewrapper.so
     open(joinpath(deps_dir, "deps.jl"), "w") do io
         println(io, "const LEGATE_ROOT = \"$(legate_root)\"")
+        println(io, "const LEGATE_WRAPPER_ROOT = \"$(legate_wrapper_root)\"")
         println(io, "const HDF5_ROOT = \"$(hdf5_root)\"")
         println(io, "const NCCL_ROOT = \"$(nccl_root)\"")
     end 
-
-    build_cpp_wrapper(pkg_root, legate_root, hdf5_root, nccl_root)
 end
-
-
 
 build()
