@@ -5,9 +5,9 @@ using CxxWrap
 
 function preload_libs()
     libs = [
-        joinpath(LEGATE_ROOT, "lib", "liblegate.so.25.05.00"), 
         joinpath(HDF5_ROOT, "lib", "libhdf5.so.310"),
         joinpath(NCCL_ROOT, "lib", "libnccl.so.2"),
+        joinpath(LEGATE_ROOT, "lib", "liblegate.so.25.05.00"), 
     ]
     for lib in libs
         Libdl.dlopen(lib, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
