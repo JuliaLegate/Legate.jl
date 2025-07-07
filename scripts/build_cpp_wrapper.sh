@@ -2,24 +2,24 @@ set -e
 
 # Check if exactly one argument is provided
 if [[ $# -ne 6 ]]; then
-    echo "Usage: $0 <legate-pkg> <legate-jll> <hdf5-jll> <nccl-jll> <build-dir> <nthreads>"
+    echo "Usage: $0 <legate-pkg> <legate-jll> <hdf5-jll> <nccl-jll> <install-dir> <nthreads>"
     exit 1
 fi
-LEGATE_PKG_ROOT_DIR=$1 # this is the repo root of legate.jl
-LEGATE_JLL=$2 # location of legate_jll 
+LEGATEJL_PKG_ROOT_DIR=$1 # this is the repo root of legate.jl
+LEGATE_ROOT=$2 # location of LEGATE_ROOT 
 HDF5_JLL=$3
 NCCL_JLL=$4
-BUILD_DIR=$5 # /wrapper/build
+INSTALL_DIR=$5
 NTHREADS=$6
 
 # Check if the provided argument is a valid directory
-if [[ ! -d "$LEGATE_PKG_ROOT_DIR" ]]; then
-    echo "Error: '$LEGATE_PKG_ROOT_DIR' is not a valid directory."
+if [[ ! -d "$LEGATEJL_PKG_ROOT_DIR" ]]; then
+    echo "Error: '$LEGATEJL_PKG_ROOT_DIR' is not a valid directory."
     exit 1
 fi
 
-if [[ ! -d "$LEGATE_JLL" ]]; then
-    echo "Error: '$LEGATE_JLL' is not a valid directory."
+if [[ ! -d "$LEGATE_ROOT" ]]; then
+    echo "Error: '$LEGATE_ROOT' is not a valid directory."
     exit 1
 fi
 
@@ -33,18 +33,41 @@ if [[ ! -d "$NCCL_JLL" ]]; then
     exit 1
 fi
 
-if [[ ! -d "$BUILD_DIR" ]]; then
-    echo "Error: '$BUILD_DIR' is not a valid directory."
-    exit 1
+LEGION_CMAKE_DIR=$LEGATE_ROOT/share/Legion/cmake
+LEGATE_CMAKE_DIR=$LEGATE_ROOT/lib/cmake/legate/
+
+GIT_REPO="https://github.com/JuliaLegate/legate_jl_wrapper"
+COMMIT_HASH="f00bd063be66b735fc6040b40027669337399a06"
+LEGATE_WRAPPER_SOURCE=$LEGATEJL_PKG_ROOT_DIR/deps/legate_jl_wrapper
+BUILD_DIR=$LEGATE_WRAPPER_SOURCE/build
+
+if [ ! -d "$LEGATE_WRAPPER_SOURCE" ]; then
+    cd $LEGATEJL_PKG_ROOT_DIR/deps
+    git clone $GIT_REPO
 fi
 
-LEGION_CMAKE_DIR=$LEGATE_JLL/share/Legion/cmake
-LEGATE_CMAKE_DIR=$LEGATE_JLL/lib/cmake/legate/
+cd $LEGATE_WRAPPER_SOURCE
+git fetch --tags
+git checkout $COMMIT_HASH
 
-cmake -S $LEGATE_PKG_ROOT_DIR/wrapper -B $BUILD_DIR \
+if [[ ! -d "$BUILD_DIR" ]]; then
+    mkdir $BUILD_DIR 
+fi
+
+if [[ ! -d "$INSTALL_DIR" ]]; then
+    mkdir $INSTALL_DIR 
+fi
+# patch the cmake for our custom install
+diff -u $LEGATE_WRAPPER_SOURCE/CMakeLists.txt $LEGATEJL_PKG_ROOT_DIR/deps/CMakeLists.txt > deps_install.patch  || true
+cd $LEGATE_WRAPPER_SOURCE
+patch -i $LEGATE_WRAPPER_SOURCE/deps_install.patch
+
+cmake -S $LEGATE_WRAPPER_SOURCE -B $BUILD_DIR \
     -D CMAKE_PREFIX_PATH="$LEGATE_CMAKE_DIR;$LEGION_CMAKE_DIR" \
-    -D LEGATE_PATH=$LEGATE_JLL \
+    -D LEGATE_PATH=$LEGATE_ROOT \
     -D HDF5_PATH=$HDF5_JLL \
-    -D NCCL_PATH=$NCCL_JLL
+    -D NCCL_PATH=$NCCL_JLL \
+    -D PROJECT_INSTALL_PATH=$INSTALL_DIR/lib
 
 cmake --build $BUILD_DIR  --parallel $NTHREADS --verbose
+cmake --install $BUILD_DIR

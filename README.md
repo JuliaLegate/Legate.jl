@@ -33,12 +33,13 @@ Legate.jl is not on the general registry yet. To add Legate.jl to your environme
 ```julia
 using Pkg; Pkg.add(url = "https://github.com/JuliaLegate/Legate.jl", rev = "main")
 ```
-The `rev` option can be main or any tagged version.  By default, this will use [legate_jll](https://github.com/ejmeitz/legate_jll.jl). In [2b](#2b-use-preinstalled-version-of-legate) and [2c](#2c-use-a-conda-environment-to-install-legatejl), we show different installation methods. Ensure that the enviroment variables are correctly set for custom builds.
+The `rev` option can be main or any tagged version.  By default, this will use JLLs [legate_jll](https://github.com/JuliaPackaging/Yggdrasil/tree/master/L/legate) and [legate_jl_wrapper_jll](https://github.com/JuliaPackaging/Yggdrasil/tree/master/L/legate_jl_wrapper). In [2b](#2b-use-preinstalled-version-of-legate) and [2c](#2c-use-a-conda-environment-to-install-legatejl), we show different installation methods. Ensure that the enviroment variables are correctly set for custom builds.
 
-To contribute to Legate.jl, we recommend cloning the repository and manually triggering the build process with `Pkg.build` or adding it to one of your existing environments with `Pkg.develop`.
+To contribute to Legate.jl, we recommend cloning the repository and manually triggering the build process with `Pkg.build` or adding it to one of your existing environments with `Pkg.develop`. This will install clone [libcxxwrap-julia](https://github.com/JuliaInterop/libcxxwrap-julia) and [legate_jl_wrapper_jll](https://github.com/JuliaLegate/legate_jl_wrapper) into `/deps`. This will cause the wrapper to be built from source, bypassing the `legate_jl_wrapper_jll` prebuilt binary.
 ```bash
 git clone https://github.com/JuliaLegate/Legate.jl.git
 cd Legate.jl
+export LEGATE_DEVELOP_MODE=1
 julia -e 'using Pkg; Pkg.activate(".") Pkg.resolve(); Pkg.build()'
 ```
 
@@ -74,5 +75,5 @@ For technical questions, please either contact
 `krasow(at)u.northwestern.edu` OR
 `emeitz(at)andrew.cmu.edu`
 
-If the issue is building the package, please include the `build.log` and `.err` files found in `Legate.jl/pkg/deps/` 
+If the issue is building the package, please include the `build.log` and `.err` files found in `Legate.jl/deps/` 
 
