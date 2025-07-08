@@ -26,10 +26,10 @@ else
     using HDF5_jll
     using NCCL_jll
 
-    const LEGATE_ROOT = legate_jll.artifact_dir
-    const LEGATE_WRAPPER_ROOT = legate_jl_wrapper_jll.artifact_dir
-    const HDF5_ROOT = HDF5_jll.artifact_dir
-    const NCCL_ROOT = NCCL_jll.artifact_dir
+    const LEGATE_ROOT = legate_jll.legate_jll.artifact_dir
+    const LEGATE_WRAPPER_ROOT = legate_jl_wrapper_jll.legate_jl_wrapper_jll.artifact_dir
+    const HDF5_ROOT = HDF5_jll.HDF5_jll.artifact_dir
+    const NCCL_ROOT = NCCL_jll.NCCL_jll.artifact_dir
 end
 
 preload_libs() # for precompilation
