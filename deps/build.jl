@@ -17,6 +17,8 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
 
+__precompile__(false)
+
 using Pkg
 import Base: notnothing
 
