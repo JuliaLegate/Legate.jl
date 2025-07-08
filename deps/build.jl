@@ -155,9 +155,8 @@ function build(run_legion_patch::Bool = true)
     deps_dir = joinpath(@__DIR__)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-
-    hdf5_root = HDF5_jll.artifact_dir
-    nccl_root = NCCL_jll.artifact_dir
+    hdf5_root = HDF5_jll.HDF5_jll.artifact_dir 
+    nccl_root = NCCL_jll.NCCL_jll.artifact_dir
 
     # custom install
     if check_prefix_install("LEGATE_CUSTOM_INSTALL", "LEGATE_CUSTOM_INSTALL_LOCATION")
@@ -166,7 +165,7 @@ function build(run_legion_patch::Bool = true)
     elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
         legate_root = get(ENV, "CONDA_PREFIX", nothing)
     else # default  
-        legate_root = legate_jll.artifact_dir # the jll already has legate patched
+        legate_root = legate_jll.legate_jll.artifact_dir # the jll already has legate patched
         run_legion_patch = false
     end
 
@@ -177,7 +176,7 @@ function build(run_legion_patch::Bool = true)
         build_cpp_wrapper(pkg_root, legate_root, hdf5_root, nccl_root) # $pkg_root/wrapper
         legate_wrapper_root = joinpath(pkg_root, "deps", "legate_wrapper_install")
     else
-        legate_wrapper_root = legate_jl_wrapper_jll.artifact_dir
+        legate_wrapper_root = legate_jl_wrapper_jll.legate_jl_wrapper_jll.artifact_dir
     end
 
     # create lib_legatewrapper.so
