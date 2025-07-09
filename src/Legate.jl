@@ -30,7 +30,6 @@ else
     const LEGATE_WRAPPER_ROOT = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     const HDF5_ROOT = joinpath(HDF5_jll.artifact_dir, "lib")
     const NCCL_ROOT = joinpath(NCCL_jll.artifact_dir, "lib")
-end
 
 preload_libs() # for precompilation
 @wrapmodule(() -> joinpath(LEGATE_WRAPPER_ROOT, "liblegate_jl_wrapper.so"))
