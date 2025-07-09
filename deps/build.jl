@@ -193,6 +193,7 @@ function build(run_legion_patch::Bool = true)
 
     legate_root = joinpath(legate_root, "lib")
 
+
     # create lib_legatewrapper.so
     open(joinpath(deps_dir, "deps.jl"), "w") do io
         println(io, "const LEGATE_ROOT = \"$(legate_root)\"")
