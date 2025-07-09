@@ -5,9 +5,9 @@ using CxxWrap
 
 function preload_libs()
     libs = [
-        joinpath(HDF5_ROOT, "lib", "libhdf5.so.310"),
-        joinpath(NCCL_ROOT, "lib", "libnccl.so.2"),
-        joinpath(LEGATE_ROOT, "lib", "liblegate.so.25.05.00"), 
+        joinpath(HDF5_ROOT, "libhdf5.so.310"),
+        joinpath(NCCL_ROOT, "libnccl.so.2"),
+        joinpath(LEGATE_ROOT, "liblegate.so.25.05.00"), 
     ]
     for lib in libs
         Libdl.dlopen(lib, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
@@ -26,14 +26,14 @@ else
     using HDF5_jll
     using NCCL_jll
 
-    const LEGATE_ROOT = legate_jll.legate_jll.artifact_dir
-    const LEGATE_WRAPPER_ROOT = legate_jl_wrapper_jll.legate_jl_wrapper_jll.artifact_dir
-    const HDF5_ROOT = HDF5_jll.HDF5_jll.artifact_dir
-    const NCCL_ROOT = NCCL_jll.NCCL_jll.artifact_dir
+    const LEGATE_ROOT = joinpath(legate_jll.artifact_dir, "lib")
+    const LEGATE_WRAPPER_ROOT = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
+    const HDF5_ROOT = joinpath(HDF5_jll.artifact_dir, "lib")
+    const NCCL_ROOT = joinpath(NCCL_jll.artifact_dir, "lib")
 end
 
 preload_libs() # for precompilation
-@wrapmodule(() -> joinpath(LEGATE_WRAPPER_ROOT, "lib", "liblegate_jl_wrapper.so"))
+@wrapmodule(() -> joinpath(LEGATE_WRAPPER_ROOT, "liblegate_jl_wrapper.so"))
 
 include("type.jl")
 

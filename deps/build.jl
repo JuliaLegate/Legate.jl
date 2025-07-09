@@ -16,9 +16,6 @@
  * Author(s): David Krasowska <krasow@u.northwestern.edu>
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
-
-__precompile__(false)
-
 using Pkg
 import Base: notnothing
 
@@ -132,7 +129,6 @@ function parse_legate_version(legate_dir)
     return version
 end
 
-
 function check_prefix_install(env_var, env_loc)
     if get(ENV, env_var, "0") == "1"
         @info "Legate.jl: Using $(env_var) mode"
@@ -157,8 +153,22 @@ function build(run_legion_patch::Bool = true)
     deps_dir = joinpath(@__DIR__)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-    hdf5_root = HDF5_jll.HDF5_jll.artifact_dir 
-    nccl_root = NCCL_jll.NCCL_jll.artifact_dir
+
+    hdf5_root = if HDF5_jll.is_available()
+        joinpath(HDF5_jll.artifact_dir, "lib")
+    elseif haskey(ENV, "JULIA_HDF5_PATH")
+        get(ENV, "JULIA_HDF5_PATH", "0") 
+    else
+        error("HDF5 not found via JLL or JULIA_HDF5_PATH.")
+    end
+    
+    nccl_root = if NCCL_jll.is_available()
+        joinpath(NCCL_jll.artifact_dir, "lib")
+    elseif haskey(ENV, "JULIA_NCCL_PATH")
+        get(ENV, "JULIA_NCCL_PATH", "0") 
+    else
+        error("NCCL not found via JLL or JULIA_NCCL_PATH.")
+    end
 
     # custom install
     if check_prefix_install("LEGATE_CUSTOM_INSTALL", "LEGATE_CUSTOM_INSTALL_LOCATION")
@@ -167,7 +177,7 @@ function build(run_legion_patch::Bool = true)
     elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
         legate_root = get(ENV, "CONDA_PREFIX", nothing)
     else # default  
-        legate_root = legate_jll.legate_jll.artifact_dir # the jll already has legate patched
+        legate_root = joinpath(legate_jll.artifact_dir, "lib") # the jll already has legate patched
         run_legion_patch = false
     end
 
@@ -178,7 +188,7 @@ function build(run_legion_patch::Bool = true)
         build_cpp_wrapper(pkg_root, legate_root, hdf5_root, nccl_root) # $pkg_root/wrapper
         legate_wrapper_root = joinpath(pkg_root, "deps", "legate_wrapper_install")
     else
-        legate_wrapper_root = legate_jl_wrapper_jll.legate_jl_wrapper_jll.artifact_dir
+        legate_wrapper_root = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     end
 
     # create lib_legatewrapper.so
