@@ -1,6 +1,5 @@
 module Legate
 using Libdl
-
 using CxxWrap
 
 function preload_libs()

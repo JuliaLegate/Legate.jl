@@ -177,7 +177,7 @@ function build(run_legion_patch::Bool = true)
     elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
         legate_root = get(ENV, "CONDA_PREFIX", nothing)
     else # default  
-        legate_root = joinpath(legate_jll.artifact_dir, "lib") # the jll already has legate patched
+        legate_root = legate_jll.artifact_dir # the jll already has legate patched
         run_legion_patch = false
     end
 
@@ -190,6 +190,8 @@ function build(run_legion_patch::Bool = true)
     else
         legate_wrapper_root = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     end
+
+    legate_root = joinpath(legate_root, "lib")
 
     # create lib_legatewrapper.so
     open(joinpath(deps_dir, "deps.jl"), "w") do io
