@@ -2,13 +2,13 @@ set -e
 
 # Check if exactly one argument is provided
 if [[ $# -ne 6 ]]; then
-    echo "Usage: $0 <legate-pkg> <legate-jll> <hdf5-jll> <nccl-jll> <install-dir> <nthreads>"
+    echo "Usage: $0 <legate-pkg> <legate-root> <hdf5-root> <nccl-root> <install-dir> <nthreads>"
     exit 1
 fi
 LEGATEJL_PKG_ROOT_DIR=$1 # this is the repo root of legate.jl
 LEGATE_ROOT=$2 # location of LEGATE_ROOT 
-HDF5_JLL=$3
-NCCL_JLL=$4
+HDF5_ROOT=$3
+NCCL_ROOT=$4
 INSTALL_DIR=$5
 NTHREADS=$6
 
@@ -23,13 +23,13 @@ if [[ ! -d "$LEGATE_ROOT" ]]; then
     exit 1
 fi
 
-if [[ ! -d "$HDF5_JLL" ]]; then
-    echo "Error: '$HDF5_JLL' is not a valid directory."
+if [[ ! -d "$HDF5_ROOT" ]]; then
+    echo "Error: '$HDF5_ROOT' is not a valid directory."
     exit 1
 fi
 
-if [[ ! -d "$NCCL_JLL" ]]; then
-    echo "Error: '$NCCL_JLL' is not a valid directory."
+if [[ ! -d "$NCCL_ROOT" ]]; then
+    echo "Error: '$NCCL_ROOT' is not a valid directory."
     exit 1
 fi
 
@@ -65,8 +65,8 @@ patch -i $LEGATE_WRAPPER_SOURCE/deps_install.patch
 cmake -S $LEGATE_WRAPPER_SOURCE -B $BUILD_DIR \
     -D CMAKE_PREFIX_PATH="$LEGATE_CMAKE_DIR;$LEGION_CMAKE_DIR" \
     -D LEGATE_PATH=$LEGATE_ROOT \
-    -D HDF5_PATH=$HDF5_JLL \
-    -D NCCL_PATH=$NCCL_JLL \
+    -D HDF5_PATH=$HDF5_ROOT \
+    -D NCCL_PATH=$NCCL_ROOT \
     -D PROJECT_INSTALL_PATH=$INSTALL_DIR
 
 cmake --build $BUILD_DIR  --parallel $NTHREADS --verbose

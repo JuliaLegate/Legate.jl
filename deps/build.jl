@@ -164,9 +164,13 @@ function build(run_legion_patch::Bool = true)
     deps_dir = joinpath(@__DIR__)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-    hdf5_root = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
-    nccl_root = get_library_root(NCCL_jll, "JULIA_NCCL_PATH")
-    mpi_root  = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
+
+    mpi_lib = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
+    hdf5_lib = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
+    nccl_lib = get_library_root(NCCL_jll, "JULIA_NCCL_PATH")
+
+    hdf5_root = joinpath(hdf5_lib, "..")
+    nccl_root = joinpath(nccl_lib, "..")
     
     # custom install
     if check_prefix_install("LEGATE_CUSTOM_INSTALL", "LEGATE_CUSTOM_INSTALL_LOCATION")
@@ -184,21 +188,21 @@ function build(run_legion_patch::Bool = true)
     if get(ENV, "LEGATE_DEVELOP_MODE", "0") == "1"
         build_jlcxxwrap(pkg_root) # $pkg_root/libcxxwrap-julia 
         build_cpp_wrapper(pkg_root, legate_root, hdf5_root, nccl_root) # $pkg_root/wrapper
-        legate_wrapper_root = joinpath(pkg_root, "deps", "legate_wrapper_install")
+        legate_wrapper_lib = joinpath(pkg_root, "deps", "legate_wrapper_install")
     else
-        legate_wrapper_root = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
+        legate_wrapper_lib = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     end
 
-    legate_root = joinpath(legate_root, "lib")
+    legate_lib = joinpath(legate_root, "lib")
 
 
     # create lib_legatewrapper.so
     open(joinpath(deps_dir, "deps.jl"), "w") do io
-        println(io, "const LEGATE_ROOT = \"$(legate_root)\"")
-        println(io, "const LEGATE_WRAPPER_ROOT = \"$(legate_wrapper_root)\"")
-        println(io, "const HDF5_ROOT = \"$(hdf5_root)\"")
-        println(io, "const NCCL_ROOT = \"$(nccl_root)\"")
-        println(io, "const MPI_ROOT = \"$(mpi_root)\"")
+        println(io, "const LEGATE_LIB = \"$(legate_lib)\"")
+        println(io, "const LEGATE_WRAPPER_LIB = \"$(legate_wrapper_lib)\"")
+        println(io, "const HDF5_LIB = \"$(hdf5_lib)\"")
+        println(io, "const NCCL_LIB = \"$(nccl_lib)\"")
+        println(io, "const MPI_LIB = \"$(mpi_lib)\"")
     end 
 end
 
