@@ -19,10 +19,12 @@
 using Pkg
 import Base: notnothing
 
-using legate_jll
-using legate_jl_wrapper_jll
+using MPICH_jll
 using NCCL_jll
 using HDF5_jll
+
+using legate_jll
+using legate_jl_wrapper_jll
 
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
@@ -147,29 +149,25 @@ function check_prefix_install(env_var, env_loc)
     return false
 end
 
+function get_library_root(jll_module, env_var::String)
+    if haskey(ENV, env_var)
+        return get(ENV, env_var, "0")
+    elseif jll_module.is_available()
+        return joinpath(jll_module.artifact_dir, "lib")
+    else
+        error("$env_var not found via environment or JLL.")
+    end
+end
 
 function build(run_legion_patch::Bool = true)
     pkg_root = abspath(joinpath(@__DIR__, "../"))
     deps_dir = joinpath(@__DIR__)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-
-    hdf5_root = if HDF5_jll.is_available()
-        joinpath(HDF5_jll.artifact_dir, "lib")
-    elseif haskey(ENV, "JULIA_HDF5_PATH")
-        get(ENV, "JULIA_HDF5_PATH", "0") 
-    else
-        error("HDF5 not found via JLL or JULIA_HDF5_PATH.")
-    end
+    hdf5_root = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
+    nccl_root = get_library_root(NCCL_jll, "JULIA_NCCL_PATH")
+    mpi_root  = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
     
-    nccl_root = if NCCL_jll.is_available()
-        joinpath(NCCL_jll.artifact_dir, "lib")
-    elseif haskey(ENV, "JULIA_NCCL_PATH")
-        get(ENV, "JULIA_NCCL_PATH", "0") 
-    else
-        error("NCCL not found via JLL or JULIA_NCCL_PATH.")
-    end
-
     # custom install
     if check_prefix_install("LEGATE_CUSTOM_INSTALL", "LEGATE_CUSTOM_INSTALL_LOCATION")
         legate_root = get(ENV, "LEGATE_CUSTOM_INSTALL_LOCATION", nothing)
@@ -200,6 +198,7 @@ function build(run_legion_patch::Bool = true)
         println(io, "const LEGATE_WRAPPER_ROOT = \"$(legate_wrapper_root)\"")
         println(io, "const HDF5_ROOT = \"$(hdf5_root)\"")
         println(io, "const NCCL_ROOT = \"$(nccl_root)\"")
+        println(io, "const MPI_ROOT = \"$(mpi_root)\"")
     end 
 end
 
