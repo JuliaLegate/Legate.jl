@@ -1,20 +1,20 @@
 module Legate
+using OpenSSL_jll
 using Libdl
 using CxxWrap
 
 function preload_libs()
     libs = [
-        joinpath(MPI_ROOT, "libmpicxx.so"),
-        joinpath(MPI_ROOT, "libmpi.so"),
-        joinpath(NCCL_ROOT, "libnccl.so"),
-        joinpath(HDF5_ROOT, "libhdf5.so"),
-        joinpath(LEGATE_ROOT, "liblegate.so"), 
+        joinpath(MPI_LIB, "libmpicxx.so"),
+        joinpath(MPI_LIB, "libmpi.so"),
+        joinpath(NCCL_LIB, "libnccl.so"),
+        joinpath(HDF5_LIB, "libhdf5.so"),
+        joinpath(LEGATE_LIB, "liblegate.so"), 
     ]
     for lib in libs
         Libdl.dlopen(lib, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     end
 end 
-
 
 deps_path = joinpath(@__DIR__, "../deps/deps.jl")
 
@@ -28,15 +28,15 @@ else
     using NCCL_jll
     using MPICH_jll
 
-    const LEGATE_ROOT = joinpath(legate_jll.artifact_dir, "lib")
-    const LEGATE_WRAPPER_ROOT = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
-    const HDF5_ROOT = joinpath(HDF5_jll.artifact_dir, "lib")
-    const NCCL_ROOT = joinpath(NCCL_jll.artifact_dir, "lib")
-    const MPI_ROOT  = joinpath(MPICH_jll.artifact_dir, "lib")
+    const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
+    const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
+    const HDF5_LIB = joinpath(HDF5_jll.artifact_dir, "lib")
+    const NCCL_LIB = joinpath(NCCL_jll.artifact_dir, "lib")
+    const MPI_LIB  = joinpath(MPICH_jll.artifact_dir, "lib")
 end
 
 preload_libs() # for precompilation
-@wrapmodule(() -> joinpath(LEGATE_WRAPPER_ROOT, "liblegate_jl_wrapper.so"))
+@wrapmodule(() -> joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so"))
 
 include("type.jl")
 
@@ -55,19 +55,19 @@ function __init__()
 end
 
 function get_install_liblegate()
-    return LEGATE_ROOT
+    return LEGATE_LIB
 end
 
 function get_install_libnccl()
-    return NCCL_ROOT
+    return NCCL_LIB
 end
 
 function get_install_libmpi()
-    return MPI_ROOT
+    return MPI_LIB
 end
 
 function get_install_libhdf5()
-    return HDF5_ROOT
+    return HDF5_LIB
 end
 
 end 
