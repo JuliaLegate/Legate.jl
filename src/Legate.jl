@@ -4,9 +4,11 @@ using CxxWrap
 
 function preload_libs()
     libs = [
-        joinpath(HDF5_ROOT, "libhdf5.so.310"),
-        joinpath(NCCL_ROOT, "libnccl.so.2"),
-        joinpath(LEGATE_ROOT, "liblegate.so.25.05.00"), 
+        joinpath(MPI_ROOT, "libmpicxx.so"),
+        joinpath(MPI_ROOT, "libmpi.so"),
+        joinpath(NCCL_ROOT, "libnccl.so"),
+        joinpath(HDF5_ROOT, "libhdf5.so"),
+        joinpath(LEGATE_ROOT, "liblegate.so"), 
     ]
     for lib in libs
         Libdl.dlopen(lib, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
@@ -24,11 +26,13 @@ else
     using legate_jl_wrapper_jll
     using HDF5_jll
     using NCCL_jll
+    using MPICH_jll
 
     const LEGATE_ROOT = joinpath(legate_jll.artifact_dir, "lib")
     const LEGATE_WRAPPER_ROOT = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     const HDF5_ROOT = joinpath(HDF5_jll.artifact_dir, "lib")
     const NCCL_ROOT = joinpath(NCCL_jll.artifact_dir, "lib")
+    const MPI_ROOT  = joinpath(MPICH_jll.artifact_dir, "lib")
 end
 
 preload_libs() # for precompilation
@@ -52,6 +56,18 @@ end
 
 function get_install_liblegate()
     return LEGATE_ROOT
+end
+
+function get_install_libnccl()
+    return NCCL_ROOT
+end
+
+function get_install_libmpi()
+    return MPI_ROOT
+end
+
+function get_install_libhdf5()
+    return HDF5_ROOT
 end
 
 end 
