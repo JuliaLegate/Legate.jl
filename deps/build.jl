@@ -164,6 +164,7 @@ function build(run_legion_patch::Bool = true)
     deps_dir = joinpath(@__DIR__)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
+
     mpi_lib = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
     hdf5_lib = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
     nccl_lib = get_library_root(NCCL_jll, "JULIA_NCCL_PATH")
