@@ -18,7 +18,7 @@
 =#
 using Pkg
 import Base: notnothing
-
+using OpenSSL_jll
 using MPICH_jll
 using NCCL_jll
 using HDF5_jll
