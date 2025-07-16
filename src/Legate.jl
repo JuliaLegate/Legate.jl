@@ -70,16 +70,4 @@ function get_install_libhdf5()
     return HDF5_LIB
 end
 
-function get_install_libnccl()
-    return NCCL_ROOT
-end
-
-function get_install_libmpi()
-    return MPI_ROOT
-end
-
-function get_install_libhdf5()
-    return HDF5_ROOT
-end
-
 end 
