@@ -16,6 +16,18 @@
  * Author(s): David Krasowska <krasow@u.northwestern.edu>
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
+
+function get_library_root(jll_module, env_var::String)
+    if haskey(ENV, env_var)
+        return get(ENV, env_var, "0")
+    elseif jll_module.is_available()
+        return joinpath(jll_module.artifact_dir, "lib")
+    else
+        error("$env_var not found via environment or JLL.")
+    end
+end
+
+
 using Pkg
 import Base: notnothing
 
@@ -157,15 +169,6 @@ function check_prefix_install(env_var, env_loc)
     return false
 end
 
-function get_library_root(jll_module, env_var::String)
-    if haskey(ENV, env_var)
-        return get(ENV, env_var, "0")
-    elseif jll_module.is_available()
-        return joinpath(jll_module.artifact_dir, "lib")
-    else
-        error("$env_var not found via environment or JLL.")
-    end
-end
 
 function build(run_legion_patch::Bool = true)
     pkg_root = abspath(joinpath(@__DIR__, "../"))
