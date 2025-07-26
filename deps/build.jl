@@ -18,6 +18,9 @@
 =#
 using Pkg
 import Base: notnothing
+
+using CUDA_Driver_jll
+
 using OpenSSL_jll
 using MPICH_jll
 using NCCL_jll
@@ -164,7 +167,7 @@ function build(run_legion_patch::Bool = true)
     deps_dir = joinpath(@__DIR__)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-
+    cuda_driver_lib = get_library_root(CUDA_Driver_jll, "JULIA_CUDA_DRIVER_PATH")
     mpi_lib = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
     hdf5_lib = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
     nccl_lib = get_library_root(NCCL_jll, "JULIA_NCCL_PATH")
@@ -203,6 +206,7 @@ function build(run_legion_patch::Bool = true)
         println(io, "const HDF5_LIB = \"$(hdf5_lib)\"")
         println(io, "const NCCL_LIB = \"$(nccl_lib)\"")
         println(io, "const MPI_LIB = \"$(mpi_lib)\"")
+        println(io, "const CUDA_DRIVER_LIB = \"$(cuda_driver_lib)\"")
     end 
 end
 
