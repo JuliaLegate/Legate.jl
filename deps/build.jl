@@ -24,6 +24,8 @@ using OpenSSL_jll
 using Libdl
 
 using CUDA_Driver_jll
+const cuda_driver_lib = get_library_root(CUDA_Driver_jll, "JULIA_CUDA_DRIVER_PATH")
+Libdl.dlopen(joinpath(cuda_driver_lib, "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
 using MPICH_jll
 using NCCL_jll
@@ -170,9 +172,6 @@ function build(run_legion_patch::Bool = true)
     deps_dir = joinpath(@__DIR__)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-    cuda_driver_lib = get_library_root(CUDA_Driver_jll, "JULIA_CUDA_DRIVER_PATH")
-    Libdl.dlopen(joinpath(cuda_driver_lib, "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-
     mpi_lib = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
     hdf5_lib = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
     nccl_lib = get_library_root(NCCL_jll, "JULIA_NCCL_PATH")
