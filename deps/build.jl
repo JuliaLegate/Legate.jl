@@ -27,10 +27,8 @@ function get_library_root(jll_module, env_var::String)
     end
 end
 
-
 using Pkg
 import Base: notnothing
-
 
 using OpenSSL_jll
 using Libdl
@@ -38,6 +36,9 @@ using Libdl
 using CUDA_Driver_jll
 const cuda_driver_lib = get_library_root(CUDA_Driver_jll, "JULIA_CUDA_DRIVER_PATH")
 Libdl.dlopen(joinpath(cuda_driver_lib, "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+
+using CUDA
+CUDA.precompile_runtime()
 
 using MPICH_jll
 using NCCL_jll
