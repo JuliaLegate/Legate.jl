@@ -1,13 +1,13 @@
 module Legate
 using OpenSSL_jll
+using libaec_jll
 using Libdl
 using CxxWrap
 
-using libaec_jll
-Libdl.dlopen(libaec_jll.get_libsz_path(), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
 function preload_libs()
     libs = [
+        libaec_jll.get_libsz_path(),
         joinpath(MPI_LIB, "libmpicxx.so"),
         joinpath(MPI_LIB, "libmpi.so"),
         joinpath(NCCL_LIB, "libnccl.so"),
