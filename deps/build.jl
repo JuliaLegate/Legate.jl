@@ -33,13 +33,7 @@ import Base: notnothing
 using OpenSSL_jll
 using Libdl
 
-using CUDA_Driver_jll
-const cuda_driver_lib = get_library_root(CUDA_Driver_jll, "JULIA_CUDA_DRIVER_PATH")
-Libdl.dlopen(joinpath(cuda_driver_lib, "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-
 using CUDA
-CUDA.precompile_runtime()
-
 using MPICH_jll
 using NCCL_jll
 using HDF5_jll
@@ -67,6 +61,9 @@ function run_sh(cmd::Cmd, filename::String)
         run(pipeline(cmd, stdout = build_log, stderr = err_log, append = false))
     catch e
         println("stderr log generated: ", err_log, '\n')
+        println("---- Begin stderr log ----")
+        println(read(err_log, String))
+        println("---- End stderr log ----")
         exit(-1)
     end
 
@@ -214,7 +211,6 @@ function build(run_legion_patch::Bool = true)
         println(io, "const HDF5_LIB = \"$(hdf5_lib)\"")
         println(io, "const NCCL_LIB = \"$(nccl_lib)\"")
         println(io, "const MPI_LIB = \"$(mpi_lib)\"")
-        println(io, "const CUDA_DRIVER_LIB = \"$(cuda_driver_lib)\"")
     end 
 end
 
