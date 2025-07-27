@@ -1,16 +1,14 @@
 module Legate
 using OpenSSL_jll
 using libaec_jll
+using CUDA_Driver_jll
 using Libdl
 using CxxWrap
-
-using CUDA_Driver_jll
-
 
 function preload_libs()
     libs = [
         libaec_jll.get_libsz_path(),
-        CUDA_Driver_jll.libcuda()
+        CUDA_Driver_jll.libcuda(),
         joinpath(MPI_LIB, "libmpicxx.so"),
         joinpath(MPI_LIB, "libmpi.so"),
         joinpath(NCCL_LIB, "libnccl.so"),
