@@ -34,6 +34,8 @@ using OpenSSL_jll
 using Libdl
 
 using libaec_jll
+Libdl.dlopen(libaec_jll.get_libsz_path(), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+
 using MPICH_jll
 using NCCL_jll
 using HDF5_jll

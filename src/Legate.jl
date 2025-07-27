@@ -3,6 +3,9 @@ using OpenSSL_jll
 using Libdl
 using CxxWrap
 
+using libaec_jll
+Libdl.dlopen(libaec_jll.get_libsz_path(), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+
 function preload_libs()
     libs = [
         joinpath(MPI_LIB, "libmpicxx.so"),
