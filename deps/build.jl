@@ -33,7 +33,7 @@ import Base: notnothing
 using OpenSSL_jll
 using Libdl
 
-using CUDA
+using libaec_jll
 using MPICH_jll
 using NCCL_jll
 using HDF5_jll
