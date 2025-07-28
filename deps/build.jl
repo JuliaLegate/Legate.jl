@@ -17,7 +17,6 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
 
-using OpenSSL_jll # necessary for HDF5_jll
 using libaec_jll  # necessary for HDF5_jll
 using HDF5_jll
 
@@ -25,7 +24,7 @@ using MPICH_jll
 using NCCL_jll
 
 using legate_jll
-using legate_jl_wrapper_jll
+using legate_jl_wrapper_jll # the wrapper depends on HDF5, MPICH, NCCL, and legate
 
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]

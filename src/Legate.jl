@@ -1,9 +1,10 @@
 module Legate
 using OpenSSL_jll
-using libaec_jll
-using CUDA_Driver_jll
 using Libdl
 using CxxWrap
+
+using libaec_jll # must load prior to HDF5
+using CUDA_Driver_jll # must load prior to legate
 
 function preload_libs()
     libs = [
