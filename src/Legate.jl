@@ -45,7 +45,7 @@ preload_libs() # for precompilation
 include("type.jl")
 
 function my_on_exit()
-    @info "Cleaning Up Legate"
+    @debug "Cleaning Up Legate"
     Legate.legate_finish()
 end
 
@@ -54,7 +54,11 @@ function __init__()
     @initcxx
 
     Legate.start_legate()
-    @info "Started Legate"
+    @debug "Started Legate"
+    @warn "Leagte.jl and cuNumeric.jl are under active development at the moment and may change its API and supported end systems at any time. \
+           If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. We are working to make the build \
+           experience Julia much more Julia friendly. We are also working to create exhaustive testing. Public beta launch aimed for Fall 2025. \
+    "
     Base.atexit(my_on_exit)
 end
 
