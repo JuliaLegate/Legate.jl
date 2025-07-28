@@ -18,7 +18,7 @@
 =#
 
 module Legate
-using OpenSSL_jll
+using OpenSSL_jll # Libdl requires OpenSSL 
 using Libdl
 using CxxWrap
 
