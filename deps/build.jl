@@ -17,9 +17,6 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
 
-using Pkg
-import Base: notnothing
-
 using OpenSSL_jll # necessary for HDF5_jll
 using libaec_jll  # necessary for HDF5_jll
 using HDF5_jll
