@@ -7,12 +7,12 @@ using CxxWrap
 
 function preload_libs()
     libs = [
-        libaec_jll.get_libsz_path(),
-        joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"),
-        joinpath(MPI_LIB, "libmpicxx.so"),
-        joinpath(MPI_LIB, "libmpi.so"),
-        joinpath(NCCL_LIB, "libnccl.so"),
-        joinpath(HDF5_LIB, "libhdf5.so"),
+        libaec_jll.get_libsz_path(), # required for libhdf5.so
+        joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), # required for liblegate.so
+        joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
+        joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
+        joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
+        joinpath(HDF5_LIB, "libhdf5.so"), # legate_jll is configured with HDF5
         joinpath(LEGATE_LIB, "liblegate.so"), 
     ]
     for lib in libs

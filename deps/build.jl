@@ -17,28 +17,15 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
 
-function get_library_root(jll_module, env_var::String)
-    if haskey(ENV, env_var)
-        return get(ENV, env_var, "0")
-    elseif jll_module.is_available()
-        return joinpath(jll_module.artifact_dir, "lib")
-    else
-        error("$env_var not found via environment or JLL.")
-    end
-end
-
 using Pkg
 import Base: notnothing
 
-using OpenSSL_jll
-using Libdl
-
-using libaec_jll
-Libdl.dlopen(libaec_jll.get_libsz_path(), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+using OpenSSL_jll # necessary for HDF5_jll
+using libaec_jll  # necessary for HDF5_jll
+using HDF5_jll
 
 using MPICH_jll
 using NCCL_jll
-using HDF5_jll
 
 using legate_jll
 using legate_jl_wrapper_jll
@@ -69,6 +56,16 @@ function run_sh(cmd::Cmd, filename::String)
         exit(-1)
     end
 
+end
+
+function get_library_root(jll_module, env_var::String)
+    if haskey(ENV, env_var)
+        return get(ENV, env_var, "0")
+    elseif jll_module.is_available()
+        return joinpath(jll_module.artifact_dir, "lib")
+    else
+        error("$env_var not found via environment or JLL.")
+    end
 end
 
 # patch legion. The readme below talks about our compilation error
