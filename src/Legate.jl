@@ -1,14 +1,38 @@
+#= Copyright 2025 Northwestern University, 
+ *                   Carnegie Mellon University University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author(s): David Krasowska <krasow@u.northwestern.edu>
+ *            Ethan Meitz <emeitz@andrew.cmu.edu>
+=#
+
 module Legate
-using OpenSSL_jll
+using OpenSSL_jll # Libdl requires OpenSSL 
 using Libdl
 using CxxWrap
 
+using libaec_jll # must load prior to HDF5
+using CUDA_Driver_jll # must load prior to legate
+
 function preload_libs()
     libs = [
-        joinpath(MPI_LIB, "libmpicxx.so"),
-        joinpath(MPI_LIB, "libmpi.so"),
-        joinpath(NCCL_LIB, "libnccl.so"),
-        joinpath(HDF5_LIB, "libhdf5.so"),
+        libaec_jll.get_libsz_path(), # required for libhdf5.so
+        joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), # required for liblegate.so
+        joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
+        joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
+        joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
+        joinpath(HDF5_LIB, "libhdf5.so"), # legate_jll is configured with HDF5
         joinpath(LEGATE_LIB, "liblegate.so"), 
     ]
     for lib in libs
@@ -41,7 +65,7 @@ preload_libs() # for precompilation
 include("type.jl")
 
 function my_on_exit()
-    @info "Cleaning Up Legate"
+    @debug "Cleaning Up Legate"
     Legate.legate_finish()
 end
 
@@ -50,7 +74,11 @@ function __init__()
     @initcxx
 
     Legate.start_legate()
-    @info "Started Legate"
+    @debug "Started Legate"
+    @warn "Leagte.jl and cuNumeric.jl are under active development at the moment and may change its API and supported end systems at any time. \
+           If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. We are working to make the build \
+           experience Julia much more Julia friendly. We are also working to create exhaustive testing. Public beta launch aimed for Fall 2025. \
+    "
     Base.atexit(my_on_exit)
 end
 
