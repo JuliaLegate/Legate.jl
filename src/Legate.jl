@@ -75,10 +75,12 @@ function __init__()
 
     Legate.start_legate()
     @debug "Started Legate"
-    @warn "Leagte.jl and cuNumeric.jl are under active development at the moment and may change its API and supported end systems at any time. \
-           If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. We are working to make the build \
-           experience Julia much more Julia friendly. We are also working to create exhaustive testing. Public beta launch aimed for Fall 2025. \
-    "
+    @warn " Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. \
+            Stability is not guaranteed until the first official release. We are working to make the build experience much more Julia friendly. \
+            We are actively working to improve the build experience to be more seamless and Julia-friendly. In parallel, we're developing a \
+            comprehensive testing framework to ensure reliability and robustness. Our public beta launch is targeted for Fall 2025. \
+            If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. \
+          "
     Base.atexit(my_on_exit)
 end
 
