@@ -4,7 +4,7 @@ Julia Bindings for nv-legate
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 > [!WARNING]  
-> Leagte.jl and cuNumeric.jl are under active development at the moment and may change its API and supported end systems at any time. We are working to make the build experience Julia much more Julia friendly. We are also working to create exhaustive testing. Public beta launch aimed for Fall 2025. 
+> Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. Stability is not guaranteed until the first official release. We are working to make the build experience much more Julia friendly. We are actively working to improve the build experience to be more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and robustness. Our public beta launch is targeted for Fall 2025.
 
 ## Minimum prereqs
 - g++ capable of C++20
