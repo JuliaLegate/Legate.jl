@@ -48,8 +48,6 @@ deps_path = joinpath(@__DIR__, "../deps/deps.jl")
 if isfile(deps_path)
     # deps.jl should assign to the Refs, not declare new consts
     include(deps_path)
-    push!(Base.DL_LOAD_PATH, CUDA_RUNTIME_LIB)
-    push!(Base.DL_LOAD_PATH, CUDA_DRIVER_LIB)
 else
     include("gpu.jl")
 
@@ -86,6 +84,8 @@ function my_on_exit()
 end
 
 function __init__()
+    push!(Base.DL_LOAD_PATH, CUDA_RUNTIME_LIB)
+    push!(Base.DL_LOAD_PATH, CUDA_DRIVER_LIB)
     preload_libs() # for runtime
     @initcxx
 
