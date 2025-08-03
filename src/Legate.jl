@@ -64,9 +64,8 @@ if !JULIA_LEGATE_BUILDING_DOCS
 
     preload_libs() # for precompilation
     @wrapmodule(() -> joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so"))
+    include("type.jl")
 end
-
-include("type.jl")
 
 function my_on_exit()
     Legate.legate_finish()
