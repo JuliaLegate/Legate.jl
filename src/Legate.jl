@@ -59,11 +59,11 @@ else
     using legate_jll
     using legate_jl_wrapper_jll
 
-    const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
-    const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     const HDF5_LIB = joinpath(HDF5_jll.artifact_dir, "lib")
     const NCCL_LIB = joinpath(NCCL_jll.artifact_dir, "lib")
     const MPI_LIB  = joinpath(MPICH_jll.artifact_dir, "lib")
+    const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
+    const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
 end
 
 preload_libs() # for precompilation
