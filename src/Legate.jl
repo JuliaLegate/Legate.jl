@@ -24,9 +24,8 @@ using CxxWrap
 
 using libaec_jll # must load prior to HDF5
 
-using CUDA_Runtime_jll
-
 using CUDA
+CUDA.set_runtime_version!("12.4")
 CUDA.precompile_runtime()
 
 using CUDA_Driver_jll # must load prior to legate
