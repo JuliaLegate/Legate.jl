@@ -23,6 +23,7 @@ import Base: get
 using OpenSSL_jll # Libdl requires OpenSSL 
 using Libdl
 using CxxWrap
+using Hwloc_jll # needed for mpi 
 using libaec_jll # must load prior to HDF5
 
 include("gpu.jl")
@@ -30,6 +31,7 @@ include("gpu.jl")
 function preload_libs()
     libs = [
         libaec_jll.get_libsz_path(), # required for libhdf5.so
+        joinpath(Hwloc_jll.artifact_dir, "lib", "libhwloc.so"), # required for libmpicxx.so
         joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
         joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
         joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
