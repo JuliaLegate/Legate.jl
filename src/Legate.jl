@@ -58,6 +58,14 @@ else
     const MPI_LIB  = joinpath(MPICH_jll.artifact_dir, "lib")
     const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
     const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
+    # cache in file
+    open(joinpath(deps_path), "w") do io
+        println(io, "const HDF5_LIB = \"$(HDF5_LIB)\"")
+        println(io, "const NCCL_LIB = \"$(NCCL_LIB)\"")
+        println(io, "const MPI_LIB = \"$(MPI_LIB)\"")
+        println(io, "const LEGATE_LIB = \"$(LEGATE_LIB)\"")
+        println(io, "const LEGATE_WRAPPER_LIB = \"$(LEGATE_WRAPPER_LIB)\"")
+    end 
 end
 
 preload_libs() # for precompilation
