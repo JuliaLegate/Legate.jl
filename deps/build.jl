@@ -16,7 +16,8 @@
  * Author(s): David Krasowska <krasow@u.northwestern.edu>
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
-
+const JULIA_LEGATE_BUILDING_DOCS = get(ENV, "JULIA_LEGATE_BUILDING_DOCS", "false") == "true"
+if !JULIA_LEGATE_BUILDING_DOCS
 using libaec_jll  # necessary for HDF5_jll
 using HDF5_jll
 
@@ -28,7 +29,7 @@ using legate_jl_wrapper_jll # the wrapper depends on HDF5, MPICH, NCCL, and lega
 
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
-
+end
 # Automatically pipes errors to new file
 # and appends stdout to build.log
 function run_sh(cmd::Cmd, filename::String)
@@ -209,7 +210,6 @@ function build(run_legion_patch::Bool = true)
     end 
 end
 
-const JULIA_LEGATE_BUILDING_DOCS = get(ENV, "JULIA_LEGATE_BUILDING_DOCS", "false") == "true"
 if !JULIA_LEGATE_BUILDING_DOCS
     build()
 end
