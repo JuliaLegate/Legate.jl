@@ -27,6 +27,8 @@ using libaec_jll # must load prior to HDF5
 using CUDA
 using CUDA_Driver_jll # must load prior to legate
 
+import Base: get
+
 function preload_libs()
     libs = [
         libaec_jll.get_libsz_path(), # required for libhdf5.so
