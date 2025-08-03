@@ -18,6 +18,8 @@
 =#
 
 module Legate
+import Base: get
+
 using OpenSSL_jll # Libdl requires OpenSSL 
 using Libdl
 using CxxWrap
@@ -26,9 +28,15 @@ using libaec_jll # must load prior to HDF5
 
 using CUDA
 using CUDA_Driver_jll # must load prior to legate
-Libdl.dlopen(joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
-import Base: get
+
+const libcuda_path = joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so")
+try
+    Libdl.dlopen(libcuda_path, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+catch e
+    @error "Failed to load libcuda.so from CUDA_Driver_jll" path=libcuda_path exception=e
+end
+
 
 function preload_libs()
     libs = [
