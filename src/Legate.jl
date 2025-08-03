@@ -37,6 +37,8 @@ catch e
     @error "Failed to load libcuda.so from CUDA_Driver_jll" path=libcuda_path exception=e
 end
 
+CUDA.precompile_runtime()
+
 
 function preload_libs()
     libs = [
