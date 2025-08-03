@@ -23,31 +23,14 @@ import Base: get
 using OpenSSL_jll # Libdl requires OpenSSL 
 using Libdl
 using CxxWrap
-
 using libaec_jll # must load prior to HDF5
 
-using CUDA
-using CUDA_Driver_jll # must load prior to legate
-
-
-const libcuda_path = joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so")
-
-for path in walkdir(joinpath(CUDA_Driver_jll.artifact_dir, "lib"))
-    @info path
-end
-try
-    Libdl.dlopen(libcuda_path, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-catch e
-    @error "Failed to load libcuda.so from CUDA_Driver_jll" path=libcuda_path exception=e
-end
-
-CUDA.precompile_runtime()
-
+include("gpu.jl")
+using .GPUSetup
 
 function preload_libs()
     libs = [
         libaec_jll.get_libsz_path(), # required for libhdf5.so
-        # joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), # required for liblegate.so
         joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
         joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
         joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
