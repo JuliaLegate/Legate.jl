@@ -11,8 +11,9 @@ function load_jll_lib(jll, lib)
         @warn "Failed to open $(lib)" path=libpath exception=e
     end
     push!(Base.DL_LOAD_PATH, dir)
+    return libpath
 end
 
-load_jll_lib(CUDA_Driver_jll, "libcuda.so")
-load_jll_lib(CUDA_Runtime_jll, "libcudart.so")
+const CUDA_DRIVER_LIB = load_jll_lib(CUDA_Driver_jll, "libcuda.so")
+const CUDA_RUNTIME_LIB = load_jll_lib(CUDA_Runtime_jll, "libcudart.so")
 CUDA.precompile_runtime()
