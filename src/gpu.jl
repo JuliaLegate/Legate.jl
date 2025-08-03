@@ -1,14 +1,18 @@
 using CUDA
 using CUDA_Driver_jll
+using CUDA_Runtime_jll
 
-# Load libcuda globally
-const cuda_driver_dir = joinpath(CUDA_Driver_jll.artifact_dir, "lib")
-const libcuda_path = joinpath(cuda_driver_dir, "libcuda.so")
-try
-    Libdl.dlopen(libcuda_path, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-catch e
-    @warn "Failed to open libcuda.so" path=libcuda_path exception=e
+function load_jll_lib(jll, lib)
+    const dir = joinpath(jll.artifact_dir, "lib")
+    const libpath = joinpath(dir, lib)
+    try
+        Libdl.dlopen(path, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+    catch e
+        @warn "Failed to open $(lib)" path=libpath exception=e
+    end
+    push!(Base.DL_LOAD_PATH, dir)
 end
-push!(Base.DL_LOAD_PATH, cuda_driver_dir)
 
+load_jll_lib(CUDA_Driver_jll, "libcuda.so")
+load_jll_lib(CUDA_Runtime_jll, "libcudart.so")
 CUDA.precompile_runtime()
