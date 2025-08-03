@@ -52,6 +52,8 @@ if isfile(deps_path)
     # deps.jl should assign to the Refs, not declare new consts
     include(deps_path)
 else
+    Libdl.dlopen(joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so.1"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+
     using HDF5_jll
     using NCCL_jll
     using MPICH_jll
