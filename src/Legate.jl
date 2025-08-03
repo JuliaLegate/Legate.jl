@@ -47,9 +47,12 @@ if isfile(deps_path)
     # deps.jl should assign to the Refs, not declare new consts
     include(deps_path)
 else
+    using CUDA
+    CUDA.precompile_runtime()
+    
     using CUDA_Driver_jll;
     Libdl.dlopen(joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW);
-    
+
     using legate_jll
     using legate_jl_wrapper_jll
     using HDF5_jll
