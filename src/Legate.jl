@@ -30,7 +30,11 @@ using CUDA
 using CUDA_Driver_jll # must load prior to legate
 
 
-const libcuda_path = joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so.1")
+const libcuda_path = joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so")
+
+for path in walkdir(joinpath(CUDA_Driver_jll.artifact_dir, "lib"))
+    @info path
+end
 try
     Libdl.dlopen(libcuda_path, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 catch e
