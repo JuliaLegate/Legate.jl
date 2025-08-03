@@ -30,7 +30,7 @@ using CUDA
 using CUDA_Driver_jll # must load prior to legate
 
 
-const libcuda_path = joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so")
+const libcuda_path = joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so.1")
 try
     Libdl.dlopen(libcuda_path, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 catch e
@@ -43,7 +43,7 @@ CUDA.precompile_runtime()
 function preload_libs()
     libs = [
         libaec_jll.get_libsz_path(), # required for libhdf5.so
-        joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), # required for liblegate.so
+        # joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), # required for liblegate.so
         joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
         joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
         joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
