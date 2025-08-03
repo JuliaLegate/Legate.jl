@@ -26,7 +26,6 @@ using CxxWrap
 using libaec_jll # must load prior to HDF5
 
 include("gpu.jl")
-using .GPUSetup
 
 function preload_libs()
     libs = [

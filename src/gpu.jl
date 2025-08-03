@@ -1,7 +1,6 @@
 using CUDA
 using CUDA_Driver_jll
 
-module GPUSetup
 # Load libcuda globally
 const cuda_driver_dir = joinpath(CUDA_Driver_jll.artifact_dir, "lib")
 const libcuda_path = joinpath(cuda_driver_dir, "libcuda.so")
@@ -13,4 +12,3 @@ end
 push!(Base.DL_LOAD_PATH, cuda_driver_dir)
 
 CUDA.precompile_runtime()
-end # module
