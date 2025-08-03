@@ -6,7 +6,7 @@ function load_jll_lib(jll, lib)
     dir = joinpath(jll.artifact_dir, "lib")
     libpath = joinpath(dir, lib)
     try
-        Libdl.dlopen(path, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+        Libdl.dlopen(libpath, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     catch e
         @warn "Failed to open $(lib)" path=libpath exception=e
     end
