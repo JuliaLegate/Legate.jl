@@ -84,8 +84,6 @@ function my_on_exit()
 end
 
 function __init__()
-    push!(Base.DL_LOAD_PATH, CUDA_RUNTIME_LIB)
-    push!(Base.DL_LOAD_PATH, CUDA_DRIVER_LIB)
     preload_libs() # for runtime
     @initcxx
 
