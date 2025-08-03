@@ -17,7 +17,7 @@ try
 catch e
     @warn "Failed to open libcuda.so" path=libcuda_path exception=e
 end
+push!(Base.DL_LOAD_PATH, cuda_driver_dir)
 
-ENV["LD_LIBRARY_PATH"] = cuda_driver_dir * ":" * get(ENV, "LD_LIBRARY_PATH", "")
 CUDA.precompile_runtime()
 end # module
