@@ -24,8 +24,9 @@ using CxxWrap
 
 using libaec_jll # must load prior to HDF5
 
-using CUDA
 using CUDA_Driver_jll # must load prior to legate
+using CUDA_Runtime_jll
+using CUDA
 
 import Base: get
 
@@ -51,8 +52,9 @@ if isfile(deps_path)
     # deps.jl should assign to the Refs, not declare new consts
     include(deps_path)
 else
-    CUDA.precompile_runtime()
     Libdl.dlopen(joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW);
+    Libdl.dlopen(joinpath(CUDA_Runtime_jll.artifact_dir, "lib", "libcudart.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW);
+    CUDA.precompile_runtime()
 
     using legate_jll
     using legate_jl_wrapper_jll
