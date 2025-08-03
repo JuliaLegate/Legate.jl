@@ -59,29 +59,34 @@ else
     const MPI_LIB  = joinpath(MPICH_jll.artifact_dir, "lib")
 end
 
-preload_libs() # for precompilation
-@wrapmodule(() -> joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so"))
+const JULIA_LEGATE_BUILDING_DOCS = get(ENV, "JULIA_LEGATE_BUILDING_DOCS", "false") == "true"
+
+if !JULIA_LEGATE_BUILDING_DOCS
+    preload_libs() # for precompilation
+    @wrapmodule(() -> joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so"))
+end
 
 include("type.jl")
 
 function my_on_exit()
-    @debug "Cleaning Up Legate"
     Legate.legate_finish()
 end
 
 function __init__()
-    preload_libs() # for runtime
-    @initcxx
+    if !JULIA_LEGATE_BUILDING_DOCS
+        preload_libs() # for runtime
+        @initcxx
 
-    Legate.start_legate()
-    @debug "Started Legate"
-    @warn " Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. \
-            Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be \
-            more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and \
-            robustness. Our public beta launch is targeted for Fall 2025. \
-            If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. \
-          "
-    Base.atexit(my_on_exit)
+        Legate.start_legate()
+        @debug "Started Legate"
+        @warn " Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. \
+                Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be \
+                more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and \
+                robustness. Our public beta launch is targeted for Fall 2025. \
+                If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. \
+            "
+        Base.atexit(my_on_exit)
+    end
 end
 
 function get_install_liblegate()

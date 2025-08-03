@@ -209,4 +209,7 @@ function build(run_legion_patch::Bool = true)
     end 
 end
 
-build()
+const JULIA_LEGATE_BUILDING_DOCS = get(ENV, "JULIA_LEGATE_BUILDING_DOCS", "false") == "true"
+if !JULIA_LEGATE_BUILDING_DOCS
+    build()
+end

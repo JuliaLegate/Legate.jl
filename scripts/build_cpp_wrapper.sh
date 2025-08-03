@@ -68,6 +68,7 @@ cmake -S $LEGATE_WRAPPER_SOURCE -B $BUILD_DIR \
     -D HDF5_PATH=$HDF5_ROOT \
     -D NCCL_PATH=$NCCL_ROOT \
     -D PROJECT_INSTALL_PATH=$INSTALL_DIR
+    -D CMAKE_BUILD_TYPE=Release
 
 cmake --build $BUILD_DIR  --parallel $NTHREADS --verbose
 cmake --install $BUILD_DIR
