@@ -45,15 +45,12 @@ function preload_libs()
     end
 end
 
-const JULIA_LEGATE_BUILDING_DOCS = get(ENV, "JULIA_LEGATE_BUILDING_DOCS", "false") == "true"
 deps_path = joinpath(@__DIR__, "../deps/deps.jl")
 
 if isfile(deps_path)
     # deps.jl should assign to the Refs, not declare new consts
     include(deps_path)
 else
-    Libdl.dlopen(joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so.1"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-
     using HDF5_jll
     using NCCL_jll
     using MPICH_jll
@@ -77,20 +74,18 @@ function my_on_exit()
 end
 
 function __init__()
-    if !JULIA_LEGATE_BUILDING_DOCS
-        preload_libs() # for runtime
-        @initcxx
+    preload_libs() # for runtime
+    @initcxx
 
-        Legate.start_legate()
-        @debug "Started Legate"
-        @warn " Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. \
-                Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be \
-                more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and \
-                robustness. Our public beta launch is targeted for Fall 2025. \
-                If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. \
-            "
-        Base.atexit(my_on_exit)
-    end
+    Legate.start_legate()
+    @debug "Started Legate"
+    @warn " Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. \
+            Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be \
+            more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and \
+            robustness. Our public beta launch is targeted for Fall 2025. \
+            If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. \
+        "
+    Base.atexit(my_on_exit)
 end
 
 function get_install_liblegate()
