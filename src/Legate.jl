@@ -33,6 +33,7 @@ function preload_libs()
         joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
         joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
         joinpath(CUDA_RUNTIME_LIB, "libcudart.so"), # needed for libnccl.so and liblegate.so
+        joinpath(CUDA_DRIVER_LIB, "libcuda.so"), # needed for liblegate.so
         joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
         joinpath(HDF5_LIB, "libhdf5.so"), # legate_jll is configured with HDF5
         joinpath(LEGATE_LIB, "liblegate.so"), 
