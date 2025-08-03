@@ -3,8 +3,8 @@ using CUDA_Driver_jll
 using CUDA_Runtime_jll
 
 function load_jll_lib(jll, lib)
-    const dir = joinpath(jll.artifact_dir, "lib")
-    const libpath = joinpath(dir, lib)
+    dir = joinpath(jll.artifact_dir, "lib")
+    libpath = joinpath(dir, lib)
     try
         Libdl.dlopen(path, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     catch e
