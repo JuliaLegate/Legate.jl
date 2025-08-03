@@ -53,7 +53,6 @@ if isfile(deps_path)
     include(deps_path)
 else
     Libdl.dlopen(joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW);
-    Libdl.dlopen(joinpath(CUDA_Runtime_jll.artifact_dir, "lib", "libcudart.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW);
     CUDA.precompile_runtime()
 
     using legate_jll
