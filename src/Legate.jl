@@ -53,11 +53,11 @@ if isfile(deps_path)
     # deps.jl should assign to the Refs, not declare new consts
     include(deps_path)
 else
-    using legate_jll
-    using legate_jl_wrapper_jll
     using HDF5_jll
     using NCCL_jll
     using MPICH_jll
+    using legate_jll
+    using legate_jl_wrapper_jll
 
     const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
     const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
