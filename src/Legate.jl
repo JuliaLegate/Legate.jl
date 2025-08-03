@@ -32,6 +32,7 @@ function preload_libs()
         joinpath(Hwloc_jll.artifact_dir, "lib", "libhwloc.so"), # required for libmpicxx.so
         joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
         joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
+        joinpath(CUDA_RUNTIME_LIB, "libcudart.so"), # needed for libnccl.so and liblegate.so
         joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
         joinpath(HDF5_LIB, "libhdf5.so"), # legate_jll is configured with HDF5
         joinpath(LEGATE_LIB, "liblegate.so"), 
@@ -48,7 +49,7 @@ if isfile(deps_path)
     include(deps_path)
 else
     include("gpu.jl")
-    
+
     using HDF5_jll
     using NCCL_jll
     using MPICH_jll
