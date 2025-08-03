@@ -43,31 +43,30 @@ end
 const JULIA_LEGATE_BUILDING_DOCS = get(ENV, "JULIA_LEGATE_BUILDING_DOCS", "false") == "true"
 deps_path = joinpath(@__DIR__, "../deps/deps.jl")
 
-
-if !JULIA_LEGATE_BUILDING_DOCS
-    if isfile(deps_path)
-        # deps.jl should assign to the Refs, not declare new consts
-        include(deps_path)
-    else
-        using legate_jll
-        using legate_jl_wrapper_jll
-        using HDF5_jll
-        using NCCL_jll
-        using MPICH_jll
-
-        const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
-        const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
-        const HDF5_LIB = joinpath(HDF5_jll.artifact_dir, "lib")
-        const NCCL_LIB = joinpath(NCCL_jll.artifact_dir, "lib")
-        const MPI_LIB  = joinpath(MPICH_jll.artifact_dir, "lib")
-    end
-
-    preload_libs() # for precompilation
-    @wrapmodule(() -> joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so"))
-    include("type.jl")
+if isfile(deps_path)
+    # deps.jl should assign to the Refs, not declare new consts
+    include(deps_path)
 else
-    include("docs.jl")
+    using CUDA_Driver_jll;
+    Libdl.dlopen(joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW);
+    
+    using legate_jll
+    using legate_jl_wrapper_jll
+    using HDF5_jll
+    using NCCL_jll
+    using MPICH_jll
+
+    const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
+    const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
+    const HDF5_LIB = joinpath(HDF5_jll.artifact_dir, "lib")
+    const NCCL_LIB = joinpath(NCCL_jll.artifact_dir, "lib")
+    const MPI_LIB  = joinpath(MPICH_jll.artifact_dir, "lib")
 end
+
+preload_libs() # for precompilation
+@wrapmodule(() -> joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so"))
+include("type.jl")
+
 
 function my_on_exit()
     Legate.legate_finish()
