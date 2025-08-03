@@ -23,6 +23,8 @@ using Libdl
 using CxxWrap
 
 using libaec_jll # must load prior to HDF5
+
+using CUDA
 using CUDA_Driver_jll # must load prior to legate
 
 function preload_libs()
@@ -47,10 +49,7 @@ if isfile(deps_path)
     # deps.jl should assign to the Refs, not declare new consts
     include(deps_path)
 else
-    using CUDA
     CUDA.precompile_runtime()
-    
-    using CUDA_Driver_jll;
     Libdl.dlopen(joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW);
 
     using legate_jll
