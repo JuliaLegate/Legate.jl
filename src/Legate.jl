@@ -27,8 +27,6 @@ using Hwloc_jll # needed for mpi
 using libaec_jll # must load prior to HDF5
 
 function preload_libs()
-    cache_build_meta = joinpath(@__DIR__, "../", "deps", "deps.jl")
-    include(cache_build_meta)
     libs = [
         libaec_jll.get_libsz_path(), # required for libhdf5.so
         joinpath(Hwloc_jll.artifact_dir, "lib", "libhwloc.so"), # required for libmpicxx.so
@@ -88,6 +86,9 @@ function my_on_exit()
 end
 
 function __init__()
+    cache_build_meta = joinpath(@__DIR__, "../", "deps", "deps.jl")
+    include(cache_build_meta)
+    
     preload_libs() # for runtime
     @initcxx
 
