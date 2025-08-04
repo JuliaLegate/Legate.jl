@@ -27,6 +27,8 @@ using Hwloc_jll # needed for mpi
 using libaec_jll # must load prior to HDF5
 
 function preload_libs()
+    cache_build_meta = joinpath(@__DIR__, "../", "deps", "deps.jl")
+    include(cache_build_meta)
     libs = [
         libaec_jll.get_libsz_path(), # required for libhdf5.so
         joinpath(Hwloc_jll.artifact_dir, "lib", "libhwloc.so"), # required for libmpicxx.so
@@ -43,10 +45,9 @@ function preload_libs()
     end
 end
 
-deps_path = joinpath(@__DIR__, "../deps/deps.jl")
+deps_path = joinpath(@__DIR__, "../", "deps", "deps.jl")
 
 if isfile(deps_path)
-    # deps.jl should assign to the Refs, not declare new consts
     include(deps_path)
 else
     include("gpu.jl")
@@ -64,8 +65,8 @@ else
     const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     # cache in file
     open(joinpath(deps_path), "w") do io
-        println(io, "const CUDA_DRIVER_LIB = \"$(CUDA_DRIVER_LIB)\"")
         println(io, "const CUDA_RUNTIME_LIB = \"$(CUDA_RUNTIME_LIB)\"")
+        println(io, "const CUDA_DRIVER_LIB = \"$(CUDA_DRIVER_LIB)\"")
         println(io, "const HDF5_LIB = \"$(HDF5_LIB)\"")
         println(io, "const NCCL_LIB = \"$(NCCL_LIB)\"")
         println(io, "const MPI_LIB = \"$(MPI_LIB)\"")
@@ -74,8 +75,11 @@ else
     end 
 end
 
+libpath = joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so")
+
 preload_libs() # for precompilation
-@wrapmodule(() -> joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so"))
+@wrapmodule(() -> libpath)
+
 include("type.jl")
 
 
