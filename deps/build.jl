@@ -27,6 +27,9 @@ using NCCL_jll
 using legate_jll
 using legate_jl_wrapper_jll # the wrapper depends on HDF5, MPICH, NCCL, and legate
 
+using OpenSSL_jll
+using Libdl
+
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 end
@@ -168,6 +171,8 @@ function build(run_legion_patch::Bool = true)
     pkg_root = abspath(joinpath(@__DIR__, "../"))
     deps_dir = joinpath(@__DIR__)
 
+    include(joinpath(pkg_root, "src", "gpu.jl"))
+
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
     mpi_lib = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
     hdf5_lib = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
@@ -202,11 +207,13 @@ function build(run_legion_patch::Bool = true)
 
     # create lib_legatewrapper.so
     open(joinpath(deps_dir, "deps.jl"), "w") do io
-        println(io, "const LEGATE_LIB = \"$(legate_lib)\"")
-        println(io, "const LEGATE_WRAPPER_LIB = \"$(legate_wrapper_lib)\"")
+        println(io, "const CUDA_RUNTIME_LIB = \"$(CUDA_RUNTIME_LIB)\"")
+        println(io, "const CUDA_DRIVER_LIB = \"$(CUDA_DRIVER_LIB)\"")
         println(io, "const HDF5_LIB = \"$(hdf5_lib)\"")
         println(io, "const NCCL_LIB = \"$(nccl_lib)\"")
         println(io, "const MPI_LIB = \"$(mpi_lib)\"")
+        println(io, "const LEGATE_LIB = \"$(legate_lib)\"")
+        println(io, "const LEGATE_WRAPPER_LIB = \"$(legate_wrapper_lib)\"")
     end 
 end
 
