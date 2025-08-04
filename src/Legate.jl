@@ -86,9 +86,6 @@ function my_on_exit()
 end
 
 function __init__()
-    cache_build_meta = joinpath(@__DIR__, "../", "deps", "deps.jl")
-    include(cache_build_meta)
-    
     preload_libs() # for runtime
     @initcxx
 
