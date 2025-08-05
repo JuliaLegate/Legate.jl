@@ -72,6 +72,9 @@ const LEGATE_LIB = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
 const LEGATE_WRAPPER_LIB = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIB", nothing)
 
 libpath = joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so")
+if !isfile(libpath)
+    error("Developer mode: You need to call Pkg.build()")
+end
 
 preload_libs() # for precompilation
 @wrapmodule(() -> libpath)

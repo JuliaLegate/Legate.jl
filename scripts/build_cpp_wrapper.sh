@@ -1,8 +1,8 @@
 set -e
 
 # Check if exactly one argument is provided
-if [[ $# -ne 6 ]]; then
-    echo "Usage: $0 <legate-pkg> <legate-root> <hdf5-root> <nccl-root> <install-dir> <nthreads>"
+if [[ $# -ne 7 ]]; then
+    echo "Usage: $0 <legate-pkg> <legate-root> <hdf5-root> <nccl-root> <install-dir> <branch> <nthreads>"
     exit 1
 fi
 LEGATEJL_PKG_ROOT_DIR=$1 # this is the repo root of legate.jl
@@ -10,7 +10,8 @@ LEGATE_ROOT=$2 # location of LEGATE_ROOT
 HDF5_ROOT=$3
 NCCL_ROOT=$4
 INSTALL_DIR=$5
-NTHREADS=$6
+WRAPPER_BRANCH=$6
+NTHREADS=$7
 
 # Check if the provided argument is a valid directory
 if [[ ! -d "$LEGATEJL_PKG_ROOT_DIR" ]]; then
@@ -36,26 +37,32 @@ fi
 LEGION_CMAKE_DIR=$LEGATE_ROOT/share/Legion/cmake
 LEGATE_CMAKE_DIR=$LEGATE_ROOT/lib/cmake/legate/
 
+echo "Checking out wrapper branch: $WRAPPER_BRANCH"
 GIT_REPO="https://github.com/JuliaLegate/legate_jl_wrapper"
-COMMIT_HASH="f00bd063be66b735fc6040b40027669337399a06"
 LEGATE_WRAPPER_SOURCE=$LEGATEJL_PKG_ROOT_DIR/deps/legate_jl_wrapper
-BUILD_DIR=$LEGATE_WRAPPER_SOURCE/build
 
-if [ ! -d "$LEGATE_WRAPPER_SOURCE" ]; then
-    cd $LEGATEJL_PKG_ROOT_DIR/deps
-    git clone $GIT_REPO
+if [ -d "$LEGATE_WRAPPER_SOURCE" ]; then
+    echo "Found existing legate_jl_wrapper, removing to ensure clean state"
+    rm -rf "$LEGATE_WRAPPER_SOURCE"
 fi
 
-cd $LEGATE_WRAPPER_SOURCE
-git fetch --tags
-git checkout $COMMIT_HASH
+git clone "$GIT_REPO" "$LEGATE_WRAPPER_SOURCE"
+
+cd "$LEGATE_WRAPPER_SOURCE" || exit 1
+echo "Current repo: $(basename $(pwd))"
+git remote -v
+
+git fetch origin "$WRAPPER_BRANCH"
+git checkout "$WRAPPER_BRANCH"
+
+BUILD_DIR=$LEGATE_WRAPPER_SOURCE/build
 
 if [[ ! -d "$BUILD_DIR" ]]; then
-    mkdir $BUILD_DIR 
+    mkdir -p $BUILD_DIR 
 fi
 
 if [[ ! -d "$INSTALL_DIR" ]]; then
-    mkdir $INSTALL_DIR 
+    mkdir -p $INSTALL_DIR 
 fi
 # patch the cmake for our custom install
 diff -u $LEGATE_WRAPPER_SOURCE/CMakeLists.txt $LEGATEJL_PKG_ROOT_DIR/deps/CMakeLists.txt > deps_install.patch  || true

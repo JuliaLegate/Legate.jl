@@ -88,8 +88,8 @@ function find_preferences()
 
     mpi_lib = get_library_root(MPICH_jll, "JULIA_LEGATE_MPI_PATH")
     hdf5_lib = get_library_root(HDF5_jll, "JULIA_LEGATE_HDF5_PATH")
-    set_preferences!(LegatePreferences, "HDF5_LIB" => hdf5_lib)
-    set_preferences!(LegatePreferences, "MPI_LIB" => mpi_lib)
+    set_preferences!(LegatePreferences, "HDF5_LIB" => hdf5_lib, force=true)
+    set_preferences!(LegatePreferences, "MPI_LIB" => mpi_lib, force=true)
 
     nccl_lib = get_library_root(NCCL_jll, "JULIA_LEGATE_NCCL_PATH")
     legate_wrapper_lib = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
@@ -120,9 +120,9 @@ function find_preferences()
 
     legate_lib = joinpath(legate_path, "lib")
 
-    set_preferences!(LegatePreferences, "CUDA_DRIVER_LIB" => cuda_driver_lib)
-    set_preferences!(LegatePreferences, "CUDA_RUNTIME_LIB" => cuda_runtime_lib)
-    set_preferences!(LegatePreferences, "NCCL_LIB" =>  nccl_lib)
-    set_preferences!(LegatePreferences, "LEGATE_LIB" => legate_lib)
-    set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIB" => legate_wrapper_lib)
+    set_preferences!(LegatePreferences, "CUDA_DRIVER_LIB" => cuda_driver_lib, force=true)
+    set_preferences!(LegatePreferences, "CUDA_RUNTIME_LIB" => cuda_runtime_lib, force=true)
+    set_preferences!(LegatePreferences, "NCCL_LIB" =>  nccl_lib, force=true)
+    set_preferences!(LegatePreferences, "LEGATE_LIB" => legate_lib, force=true)
+    set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIB" => legate_wrapper_lib, force=true)
 end

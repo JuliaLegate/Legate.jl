@@ -1,0 +1,66 @@
+Checking out wrapper branch: main
+Found existing legate_jl_wrapper, removing to ensure clean state
+Current repo: legate_jl_wrapper
+origin	https://github.com/JuliaLegate/legate_jl_wrapper (fetch)
+origin	https://github.com/JuliaLegate/legate_jl_wrapper (push)
+Your branch is up to date with 'origin/main'.
+patching file CMakeLists.txt
+-- The C compiler identification is GNU 12.3.0
+-- The CXX compiler identification is GNU 12.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found Thrust: /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/rapids/cmake/thrust/thrust-config.cmake (found suitable exact version "2.5.0.0")
+-- Found CCCL: /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/rapids/cmake/cccl/cccl-config.cmake (found version "2.5.0.0")
+-- Found CUDAToolkit: /usr/local/cuda-12.4/targets/x86_64-linux/include (found version "12.4.131")
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Found legate: /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/cmake/legate/legate-config.cmake (found version "25.05.0")
+-- Found Julia executable: /home/david/.juliaup/bin/julia
+-- Julia_VERSION_STRING: 1.10.10
+-- Julia_INCLUDE_DIRS:   /pool/david/.julia/juliaup/julia-1.10.10+0.x64.linux.gnu/include/julia
+-- Julia_LIBRARY_DIR:    /pool/david/.julia/juliaup/julia-1.10.10+0.x64.linux.gnu/lib
+-- Julia_LIBRARY:        /pool/david/.julia/juliaup/julia-1.10.10+0.x64.linux.gnu/lib/libjulia.so.1.10
+-- JULIA_HOME:           /pool/david/.julia/juliaup/julia-1.10.10+0.x64.linux.gnu/bin
+-- Julia_LLVM_VERSION:   v15.0.7
+-- Julia_WORD_SIZE:      64
+-- Found Julia: /pool/david/.julia/juliaup/julia-1.10.10+0.x64.linux.gnu/lib/libjulia.so.1.10 (found version "1.10.10")
+-- Found JlCxx at /home/david/.julia/dev/libcxxwrap_julia_jll/override/lib
+-- Configuring done (3.9s)
+-- Generating done (0.0s)
+-- Build files have been written to: /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build
+Change Dir: '/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build'
+
+Run Build Command(s): /pool/david/tools/cmake-3.31.2-linux-x86_64/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile -j1
+/pool/david/tools/cmake-3.31.2-linux-x86_64/bin/cmake -S/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper -B/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build --check-build-system CMakeFiles/Makefile.cmake 0
+/pool/david/tools/cmake-3.31.2-linux-x86_64/bin/cmake -E cmake_progress_start /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build/CMakeFiles /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build//CMakeFiles/progress.marks
+/usr/bin/gmake  -f CMakeFiles/Makefile2 all
+gmake[1]: Entering directory '/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build'
+/usr/bin/gmake  -f CMakeFiles/legate_jl_wrapper.dir/build.make CMakeFiles/legate_jl_wrapper.dir/depend
+gmake[2]: Entering directory '/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build'
+cd /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build && /pool/david/tools/cmake-3.31.2-linux-x86_64/bin/cmake -E cmake_depends "Unix Makefiles" /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build/CMakeFiles/legate_jl_wrapper.dir/DependInfo.cmake "--color="
+gmake[2]: Leaving directory '/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build'
+/usr/bin/gmake  -f CMakeFiles/legate_jl_wrapper.dir/build.make CMakeFiles/legate_jl_wrapper.dir/build
+gmake[2]: Entering directory '/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build'
+[ 33%] Building CXX object CMakeFiles/legate_jl_wrapper.dir/src/wrapper.cpp.o
+/usr/bin/c++ -DJULIA_ENABLE_THREADING -DLIBCUDACXX_ENABLE_HOST_NVFP16=1 -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_CPP -DUSE_CUDA -Dlegate_jl_wrapper_EXPORTS -I/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/include -I/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/../include/legate -I/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/../include/legate/deps -I/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/rapids -I/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/rapids/libcudacxx -isystem /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/legate -isystem /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/legate/deps -isystem /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/legate/deps/mappers -isystem /usr/local/cuda-12.4/targets/x86_64-linux/include -isystem /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/libcxxwrap-julia/include -isystem /pool/david/.julia/juliaup/julia-1.10.10+0.x64.linux.gnu/include/julia -O3 -DNDEBUG -std=gnu++20 -fPIC -UTHRUST_DEVICE_SYSTEM -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP -MD -MT CMakeFiles/legate_jl_wrapper.dir/src/wrapper.cpp.o -MF CMakeFiles/legate_jl_wrapper.dir/src/wrapper.cpp.o.d -o CMakeFiles/legate_jl_wrapper.dir/src/wrapper.cpp.o -c /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/src/wrapper.cpp
+[ 66%] Building CXX object CMakeFiles/legate_jl_wrapper.dir/src/types.cpp.o
+/usr/bin/c++ -DJULIA_ENABLE_THREADING -DLIBCUDACXX_ENABLE_HOST_NVFP16=1 -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_CPP -DUSE_CUDA -Dlegate_jl_wrapper_EXPORTS -I/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/include -I/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/../include/legate -I/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/../include/legate/deps -I/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/rapids -I/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/rapids/libcudacxx -isystem /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/legate -isystem /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/legate/deps -isystem /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/include/legate/deps/mappers -isystem /usr/local/cuda-12.4/targets/x86_64-linux/include -isystem /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/libcxxwrap-julia/include -isystem /pool/david/.julia/juliaup/julia-1.10.10+0.x64.linux.gnu/include/julia -O3 -DNDEBUG -std=gnu++20 -fPIC -UTHRUST_DEVICE_SYSTEM -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP -MD -MT CMakeFiles/legate_jl_wrapper.dir/src/types.cpp.o -MF CMakeFiles/legate_jl_wrapper.dir/src/types.cpp.o.d -o CMakeFiles/legate_jl_wrapper.dir/src/types.cpp.o -c /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/src/types.cpp
+[100%] Linking CXX shared library liblegate_jl_wrapper.so
+/pool/david/tools/cmake-3.31.2-linux-x86_64/bin/cmake -E cmake_link_script CMakeFiles/legate_jl_wrapper.dir/link.txt --verbose=1
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -shared -Wl,-soname,liblegate_jl_wrapper.so -o liblegate_jl_wrapper.so CMakeFiles/legate_jl_wrapper.dir/src/wrapper.cpp.o CMakeFiles/legate_jl_wrapper.dir/src/types.cpp.o   -L/usr/local/cuda-12.4/lib64  -Wl,-rpath,/home/david/.julia/artifacts/24f3e253393b3b2f1e99568f75c52d566a7ee1d0/lib/../lib:/home/david/.julia/artifacts/2117b531439d782e1cb0ebffcc4dcf11d274cc39/lib/../lib:/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/../lib /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/liblegate.so.25.05.00 /home/david/.julia/dev/libcxxwrap_julia_jll/override/lib/libcxxwrap_julia.so.0.14.2 /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/liblegion-legate.so.1 /home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib/librealm-legate.so.1 /usr/local/cuda-12.4/targets/x86_64-linux/lib/libcudart.so /usr/local/cuda-12.4/targets/x86_64-linux/lib/stubs/libcuda.so -ldl /usr/lib/x86_64-linux-gnu/librt.a -latomic /pool/david/.julia/juliaup/julia-1.10.10+0.x64.linux.gnu/lib/libjulia.so.1.10
+gmake[2]: Leaving directory '/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build'
+[100%] Built target legate_jl_wrapper
+gmake[1]: Leaving directory '/pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build'
+/pool/david/tools/cmake-3.31.2-linux-x86_64/bin/cmake -E cmake_progress_start /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/build/CMakeFiles 0
+
+-- Install configuration: "Release"
+-- Installing: /pool/david/cunumeric-play/new-build-separation/Legate.jl/deps/legate_jl_wrapper/liblegate_jl_wrapper.so

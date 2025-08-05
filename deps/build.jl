@@ -19,6 +19,8 @@
 using Preferences
 import LegatePreferences
 
+const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
+
 # Automatically pipes errors to new file
 # and appends stdout to build.log
 function run_sh(cmd::Cmd, filename::String)
@@ -97,7 +99,7 @@ function build_cpp_wrapper(repo_root, legate_root, hdf5_root, nccl_root, install
         rm(install_dir, recursive = true)
         mkdir(install_dir)
     end
-    branch = load_preference("Legate", "wrapper_branch", LegatePreferences.DEVEL_DEFAULT_WRAPPER_BRANCH)
+    branch = load_preference(LegatePreferences, "wrapper_branch", LegatePreferences.DEVEL_DEFAULT_WRAPPER_BRANCH)
 
     build_cpp_wrapper = joinpath(repo_root, "scripts/build_cpp_wrapper.sh")
     nthreads = Threads.nthreads()
@@ -119,10 +121,12 @@ function build(mode)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
 
-    hdf5_lib = load_preference("Legate", "HDF5_LIB", nothing)
+    hdf5_lib = load_preference(LegatePreferences, "HDF5_LIB", nothing)
     hdf5_root = joinpath(hdf5_lib, "..")
-    nccl_lib = load_preference("Legate", "NCCL_LIB", nothing)
+    nccl_lib = load_preference(LegatePreferences, "NCCL_LIB", nothing)
     nccl_root = joinpath(nccl_lib, "..")
+    legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
+    legate_root = joinpath(legate_lib, "..")
 
     # only patch if not legate_jll
     if mode == LegatePreferences.MODE_DEVELOPER || mode == LegatePreferences.MODE_CONDA
@@ -130,14 +134,14 @@ function build(mode)
     end
     
     if mode == LegatePreferences.MODE_DEVELOPER
-        install_dir = load_preference("Legate", "LEGATE_WRAPPER_LIB", nothing)
+        install_dir = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIB", nothing)
         build_jlcxxwrap(pkg_root) # $pkg_root/libcxxwrap-julia 
         build_cpp_wrapper(pkg_root, legate_root, hdf5_root, nccl_root, install_dir) # $pkg_root/wrapper
     end
 end
 
 const JULIA_LEGATE_BUILDING_DOCS = get(ENV, "JULIA_LEGATE_BUILDING_DOCS", "false") == "true"
-const mode = load_preference("Legate", "mode", LegatePreferences.MODE_JLL)
+const mode = load_preference(LegatePreferences, "mode", LegatePreferences.MODE_JLL)
 
 if !JULIA_LEGATE_BUILDING_DOCS
     build(mode)
