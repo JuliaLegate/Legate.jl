@@ -185,7 +185,6 @@ function build(run_legion_patch::Bool = true)
     elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
         legate_root = get(ENV, "CONDA_PREFIX", nothing)
         nccl_lib = joinpath(legate_root, "lib")
-        hdf5_lib = joinpath(legate_root, "lib")
     else # default  
         legate_root = legate_jll.artifact_dir # the jll already has legate patched
         run_legion_patch = false
