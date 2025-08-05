@@ -177,9 +177,6 @@ function build(run_legion_patch::Bool = true)
     mpi_lib = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
     hdf5_lib = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
     nccl_lib = get_library_root(NCCL_jll, "JULIA_NCCL_PATH")
-
-    hdf5_root = joinpath(hdf5_lib, "..")
-    nccl_root = joinpath(nccl_lib, "..")
     
     # custom install
     if check_prefix_install("LEGATE_CUSTOM_INSTALL", "LEGATE_CUSTOM_INSTALL_LOCATION")
@@ -187,10 +184,16 @@ function build(run_legion_patch::Bool = true)
     # conda install 
     elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
         legate_root = get(ENV, "CONDA_PREFIX", nothing)
+        mpi_lib  = joinpath(legate_root, "lib")
+        nccl_lib = joinpath(legate_root, "lib")
+        hdf5_lib = joinpath(legate_root, "lib")
     else # default  
         legate_root = legate_jll.artifact_dir # the jll already has legate patched
         run_legion_patch = false
     end
+
+    hdf5_root = joinpath(hdf5_lib, "..")
+    nccl_root = joinpath(nccl_lib, "..")
 
     run_legion_patch && patch_legion(pkg_root, legate_root) # only patch if not legate_jll
 
@@ -203,7 +206,7 @@ function build(run_legion_patch::Bool = true)
     end
 
     legate_lib = joinpath(legate_root, "lib")
-
+    push!(Base.DL_LOAD_PATH, legate_lib) # TODO: check if this actually does something
 
     # create lib_legatewrapper.so
     open(joinpath(deps_dir, "deps.jl"), "w") do io
