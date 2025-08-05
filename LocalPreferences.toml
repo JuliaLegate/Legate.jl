@@ -1,0 +1,8 @@
+[LegatePreferences]
+CUDA_DRIVER_LIB = "/home/david/.julia/artifacts/6b4f4fa9266f5ffa8205b8d60282792fd29d7279/lib"
+CUDA_RUNTIME_LIB = "/home/david/.julia/artifacts/204713b1dd098770f5c68fa8f8d78a9d452a7b83/lib"
+HDF5_LIB = "/home/david/.julia/artifacts/2117b531439d782e1cb0ebffcc4dcf11d274cc39/lib"
+LEGATE_LIB = "/home/david/.julia/artifacts/57c53dca5b7f8f6f29da74a83b9ff3c63b0f1147/lib"
+LEGATE_WRAPPER_LIB = "/home/david/.julia/artifacts/35a0033cf26807136d5693235a13a53dd06b331d/lib"
+MPI_LIB = "/home/david/.julia/artifacts/117d9048128625bb3418b0b4cca48739c5d28740/lib"
+NCCL_LIB = "/home/david/.julia/artifacts/24f3e253393b3b2f1e99568f75c52d566a7ee1d0/lib"

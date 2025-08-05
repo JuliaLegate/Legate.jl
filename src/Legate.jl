@@ -20,45 +20,25 @@
 module Legate
 import Base: get
 
+using Preferences
+import LegatePreferences
+
 using OpenSSL_jll # Libdl requires OpenSSL 
 using Libdl
 using CxxWrap
 using Hwloc_jll # needed for mpi 
 using libaec_jll # must load prior to HDF5
 
+using HDF5_jll
+using MPICH_jll
+using NCCL_jll
+using legate_jll
+using legate_jl_wrapper_jll # the wrapper depends on HDF5, MPICH, NCCL, and legate
+
 using Pkg
 using TOML 
 
-deps_path = joinpath(@__DIR__, "../", "deps", "deps.jl")
-
-if isfile(deps_path)
-    include(deps_path)
-else
-    include("gpu.jl")
-
-    using HDF5_jll
-    using NCCL_jll
-    using MPICH_jll
-    using legate_jll
-    using legate_jl_wrapper_jll
-
-    const HDF5_LIB = joinpath(HDF5_jll.artifact_dir, "lib")
-    const NCCL_LIB = joinpath(NCCL_jll.artifact_dir, "lib")
-    const MPI_LIB  = joinpath(MPICH_jll.artifact_dir, "lib")
-    const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
-    const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
-    # cache in file
-    open(joinpath(deps_path), "w") do io
-        println(io, "const CUDA_RUNTIME_LIB = \"$(CUDA_RUNTIME_LIB)\"")
-        println(io, "const CUDA_DRIVER_LIB = \"$(CUDA_DRIVER_LIB)\"")
-        println(io, "const HDF5_LIB = \"$(HDF5_LIB)\"")
-        println(io, "const NCCL_LIB = \"$(NCCL_LIB)\"")
-        println(io, "const MPI_LIB = \"$(MPI_LIB)\"")
-        println(io, "const LEGATE_LIB = \"$(LEGATE_LIB)\"")
-        println(io, "const LEGATE_WRAPPER_LIB = \"$(LEGATE_WRAPPER_LIB)\"")
-    end 
-end
-
+const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 
 function preload_libs()
     libs = [
@@ -77,6 +57,20 @@ function preload_libs()
     end
 end
 
+using CUDA
+using CUDA_Driver_jll
+using CUDA_Runtime_jll
+include("preference.jl")
+find_preferences()
+
+const MPI_LIB = load_preference(LegatePreferences, "MPI_LIB", nothing)
+const CUDA_RUNTIME_LIB = load_preference(LegatePreferences, "CUDA_RUNTIME_LIB", nothing)
+const CUDA_DRIVER_LIB = load_preference(LegatePreferences, "CUDA_DRIVER_LIB", nothing)
+const NCCL_LIB = load_preference(LegatePreferences, "NCCL_LIB", nothing)
+const HDF5_LIB = load_preference(LegatePreferences, "HDF5_LIB", nothing)
+const LEGATE_LIB = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
+const LEGATE_WRAPPER_LIB = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIB", nothing)
+
 libpath = joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so")
 
 preload_libs() # for precompilation
@@ -90,6 +84,7 @@ function my_on_exit()
 end
 
 function __init__()
+    LegatePreferences.check_unchanged()
     preload_libs() # for runtime
     @initcxx
 
