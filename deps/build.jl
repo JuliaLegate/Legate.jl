@@ -36,30 +36,38 @@ end
 # Automatically pipes errors to new file
 # and appends stdout to build.log
 function run_sh(cmd::Cmd, filename::String)
-
     println(cmd)
-    
+
     build_log = joinpath(@__DIR__, "build.log")
+    tmp_build_log = joinpath(@__DIR__, "$(filename).log")
     err_log = joinpath(@__DIR__, "$(filename).err")
 
     if isfile(err_log)
         rm(err_log)
     end
 
-    try
-        run(pipeline(cmd, stdout = build_log, stderr = err_log, append = false))
-    catch e
-        println("stderr log generated: ", err_log, '\n')
-        println("---- Begin stderr log ----")
-        contents = read(err_log, String)
-        println(contents)
-        println("---- End stderr log ----")
-        if !isempty(strip(contents))
-            exit(1)
-        end
+    if isfile(tmp_build_log)
+        rm(tmp_build_log)
     end
 
+    try
+        run(pipeline(cmd; stdout=tmp_build_log, stderr=err_log, append=false))
+        println(contents) 
+        contents = read(tmp_build_log, String)
+        open(build_log, "a") do io
+            println(contents)
+        end
+    catch e
+        println("stderr log generated: ", err_log, '\n')
+        contents = read(err_log, String)
+        if !isempty(strip(contents))
+            println("---- Begin stderr log ----")
+            println(contents)
+            println("---- End stderr log ----")
+        end
+    end
 end
+
 
 function get_library_root(jll_module, env_var::String)
     if haskey(ENV, env_var)
@@ -173,6 +181,11 @@ end
 function build(run_legion_patch::Bool = true)
     pkg_root = abspath(joinpath(@__DIR__, "../"))
     deps_dir = joinpath(@__DIR__)
+
+    build_log = joinpath(deps_dir, "build.log")
+    open(build_log, "w") do io
+        println(io, "=== Build started ===")
+    end
 
     include(joinpath(pkg_root, "src", "gpu.jl"))
 
