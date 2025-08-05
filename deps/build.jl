@@ -184,7 +184,6 @@ function build(run_legion_patch::Bool = true)
     # conda install 
     elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
         legate_root = get(ENV, "CONDA_PREFIX", nothing)
-        mpi_lib  = joinpath(legate_root, "lib")
         nccl_lib = joinpath(legate_root, "lib")
         hdf5_lib = joinpath(legate_root, "lib")
     else # default  
