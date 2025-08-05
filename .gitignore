@@ -7,6 +7,7 @@ build
 build/*
 build.log
 *.err
+*.log
 
 LocalPreferences.toml
 
