@@ -26,22 +26,8 @@ using CxxWrap
 using Hwloc_jll # needed for mpi 
 using libaec_jll # must load prior to HDF5
 
-function preload_libs()
-    libs = [
-        libaec_jll.get_libsz_path(), # required for libhdf5.so
-        joinpath(Hwloc_jll.artifact_dir, "lib", "libhwloc.so"), # required for libmpicxx.so
-        joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
-        joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
-        joinpath(CUDA_RUNTIME_LIB, "libcudart.so"), # needed for libnccl.so and liblegate.so
-        joinpath(CUDA_DRIVER_LIB, "libcuda.so"), # needed for liblegate.so
-        joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
-        joinpath(HDF5_LIB, "libhdf5.so"), # legate_jll is configured with HDF5
-        joinpath(LEGATE_LIB, "liblegate.so"), 
-    ]
-    for lib in libs
-        Libdl.dlopen(lib, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-    end
-end
+using Pkg
+using TOML 
 
 deps_path = joinpath(@__DIR__, "../", "deps", "deps.jl")
 
@@ -73,13 +59,31 @@ else
     end 
 end
 
+
+function preload_libs()
+    libs = [
+        libaec_jll.get_libsz_path(), # required for libhdf5.so
+        joinpath(Hwloc_jll.artifact_dir, "lib", "libhwloc.so"), # required for libmpicxx.so
+        joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
+        joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
+        joinpath(CUDA_RUNTIME_LIB, "libcudart.so"), # needed for libnccl.so and liblegate.so
+        joinpath(CUDA_DRIVER_LIB, "libcuda.so"), # needed for liblegate.so
+        joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
+        joinpath(HDF5_LIB, "libhdf5.so"), # legate_jll is configured with HDF5
+        joinpath(LEGATE_LIB, "liblegate.so"), 
+    ]
+    for lib in libs
+        Libdl.dlopen(lib, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+    end
+end
+
 libpath = joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so")
 
 preload_libs() # for precompilation
 @wrapmodule(() -> libpath)
 
+include("util.jl")
 include("type.jl")
-
 
 function my_on_exit()
     Legate.legate_finish()
@@ -99,29 +103,4 @@ function __init__()
         "
     Base.atexit(my_on_exit)
 end
-
-function get_install_liblegate()
-    return LEGATE_LIB
-end
-
-function get_install_libnccl()
-    return NCCL_LIB
-end
-
-function get_install_libmpi()
-    return MPI_LIB
-end
-
-function get_install_libhdf5()
-    return HDF5_LIB
-end
-
-function get_install_libcuda()
-    return CUDA_DRIVER_LIB
-end
-
-function get_install_libcudart()
-    return CUDA_RUNTIME_LIB
-end
-
 end 
