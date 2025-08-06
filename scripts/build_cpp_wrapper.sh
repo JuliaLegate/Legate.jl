@@ -41,11 +41,6 @@ echo "Checking out wrapper branch: $WRAPPER_BRANCH"
 GIT_REPO="https://github.com/JuliaLegate/legate_jl_wrapper"
 LEGATE_WRAPPER_SOURCE=$LEGATEJL_PKG_ROOT_DIR/deps/legate_jl_wrapper
 
-if [ -d "$LEGATE_WRAPPER_SOURCE" ]; then
-    echo "Found existing legate_jl_wrapper, removing to ensure clean state"
-    rm -rf "$LEGATE_WRAPPER_SOURCE"
-fi
-
 git clone "$GIT_REPO" "$LEGATE_WRAPPER_SOURCE"
 
 cd "$LEGATE_WRAPPER_SOURCE" || exit 1

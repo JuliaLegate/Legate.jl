@@ -20,7 +20,7 @@ using Preferences
 import LegatePreferences
 
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
-
+const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 # Automatically pipes errors to new file
 # and appends stdout to build.log
 function run_sh(cmd::Cmd, filename::String)
