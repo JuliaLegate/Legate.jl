@@ -52,10 +52,8 @@ function check_if_patch(legate_dir)
 end
 
 function check_legate_install(legate_dir)
-    legate_installed = is_legate_installed(legate_dir)
-    if !legate_installed
-        error("Legate.jl: legate not found in $legate_dir")
-    end
+    is_legate_installed(legate_dir; throw_errors=true)
+
     installed_version = parse_legate_version(legate_dir)
     if installed_version ∉ SUPPORTED_LEGATE_VERSIONS
         error("Legate.jl: $(legate_dir) detected unsupported version $(installed_version)")
@@ -95,7 +93,6 @@ function find_preferences()
     legate_wrapper_lib = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     
     legate_path = legate_jll.artifact_dir
-    
 
     mode = load_preference(LegatePreferences, "mode", LegatePreferences.MODE_JLL)
 
