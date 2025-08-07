@@ -20,25 +20,10 @@
 module Legate
 import Base: get
 
-using Preferences
-import LegatePreferences
-
-using OpenSSL_jll # Libdl requires OpenSSL 
-using Libdl
-using CxxWrap
-using Hwloc_jll # needed for mpi 
-using libaec_jll # must load prior to HDF5
-
-using HDF5_jll
-using MPICH_jll
-using NCCL_jll
-using legate_jll
-using legate_jl_wrapper_jll # the wrapper depends on HDF5, MPICH, NCCL, and legate
-
-using Pkg
-using TOML 
+include("depends.jl")
 
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
+const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
 function preload_libs()
     libs = [
@@ -57,9 +42,6 @@ function preload_libs()
     end
 end
 
-using CUDA
-using CUDA_Driver_jll
-using CUDA_Runtime_jll
 include("preference.jl")
 find_preferences()
 

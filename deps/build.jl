@@ -19,11 +19,6 @@
 using Preferences
 import LegatePreferences
 
-using libaec_jll # must load prior to HDF5
-using HDF5_jll
-using NCCL_jll
-using legate_jll
-
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
@@ -113,9 +108,32 @@ function build_cpp_wrapper(repo_root, legate_root, hdf5_root, nccl_root, install
     run_sh(`bash $build_cpp_wrapper $repo_root $legate_root $hdf5_root $nccl_root $install_root $branch $nthreads`, "cpp_wrapper")
 end
 
+function replace_nothing_jll(lib, jll)
+    if isnothing(lib)
+        Base.require(jll)
+        lib = joinpath(jll.artifact_dir, "lib")
+        return lib
+    end
+    return lib
+end
+
+function replace_nothing_conda_jll(mode, lib, jll)
+    if isnothing(lib)
+        if mode == LegatePreferences.MODE_CONDA
+            lib = load_preference(LegatePreferences, "conda_env", nothing)
+        else
+            Base.require(jll)
+            lib = joinpath(jll.artifact_dir, "lib")
+            return lib
+        end
+    end
+    return lib
+end
+
 function build(mode)
     if mode == LegatePreferences.MODE_JLL
-        @warn "No reason to Build on JLL mode."
+        @warn "No reason to Build on JLL mode. Exiting Build"
+        return
     end
 
     pkg_root = up_dir(@__DIR__)
@@ -128,9 +146,13 @@ function build(mode)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
 
-    hdf5_lib = load_preference(LegatePreferences, "HDF5_LIB", joinpath(HDF5_jll.artifact_dir, "lib"))
-    nccl_lib = load_preference(LegatePreferences, "NCCL_LIB", joinpath(NCCL_jll.artifact_dir, "lib"))
-    legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", joinpath(legate_jll.artifact_dir, "lib"))
+    hdf5_lib = load_preference(LegatePreferences, "HDF5_LIB", nothing)
+    nccl_lib = load_preference(LegatePreferences, "NCCL_LIB", nothing)
+    legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
+
+    hdf5_lib   = replace_nothing_jll(hdf5_lib, :HDF5_jll)
+    nccl_lib   = replace_nothing_conda_jll(mode, nccl_lib, :NCCL_jll)
+    legate_lib = replace_nothing_conda_jll(mode, legate_lib, :legate_jll)
 
     # only patch if not legate_jll
     if mode == LegatePreferences.MODE_DEVELOPER || mode == LegatePreferences.MODE_CONDA
@@ -145,9 +167,5 @@ function build(mode)
     end
 end
 
-const JULIA_LEGATE_BUILDING_DOCS = get(ENV, "JULIA_LEGATE_BUILDING_DOCS", "false") == "true"
 const mode = load_preference(LegatePreferences, "mode", LegatePreferences.MODE_JLL)
-
-if !JULIA_LEGATE_BUILDING_DOCS
-    build(mode)
-end
+build(mode)
