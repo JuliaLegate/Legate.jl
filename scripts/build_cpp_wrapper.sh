@@ -39,9 +39,11 @@ LEGATE_CMAKE_DIR=$LEGATE_ROOT/lib/cmake/legate/
 
 echo "Checking out wrapper branch: $WRAPPER_BRANCH"
 GIT_REPO="https://github.com/JuliaLegate/legate_jl_wrapper"
-LEGATE_WRAPPER_SOURCE=$LEGATEJL_PKG_ROOT_DIR/deps/legate_jl_wrapper
+LEGATE_WRAPPER_SOURCE=$LEGATEJL_PKG_ROOT_DIR/deps/legate_jl_wrapper_src
 
-git clone "$GIT_REPO" "$LEGATE_WRAPPER_SOURCE"
+if [ ! -d "$LEGATE_WRAPPER_SOURCE" ]; then
+    git clone $GIT_REPO $LEGATE_WRAPPER_SOURCE
+fi
 
 cd "$LEGATE_WRAPPER_SOURCE" || exit 1
 echo "Current repo: $(basename $(pwd))"

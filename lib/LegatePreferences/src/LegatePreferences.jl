@@ -48,26 +48,26 @@ end
 
 
 """
-    LegatePreferences.use_conda(env_path::String; export_prefs = false, force = true)
+    LegatePreferences.use_conda(conda_env::String; export_prefs = false, force = true)
 
 Tells Legate.jl to use existing conda install. We make no gurantees of compiler compatability at this time.
 
-Expects `env_path` to be the absolute path to the root of the environment.
+Expects `conda_env` to be the absolute path to the root of the environment.
 For example, `/home/julialegate/.conda/envs/cunumeric-gpu`
 """
-function use_conda(env_path::String; export_prefs = false, force = true)
+function use_conda(conda_env::String; export_prefs = false, force = true)
     set_preferences!(LegatePreferences,
-        "conda_env" =>  env_path,
+        "conda_env" =>  conda_env,
         "mode" => MODE_CONDA,
         export_prefs = export_prefs,
         force = force
     )
 
-    if env_path == LegatePreferences.env_path && LegatePreferences.mode == MODE_CONDA
+    if conda_env == LegatePreferences.conda_env && LegatePreferences.mode == MODE_CONDA
         @info "LegatePreferences found no differences."
     else
         PREFS_CHANGED[] = true
-        @info "LegatePreferences set to use local conda env at:" env_path
+        @info "LegatePreferences set to use local conda env at:" conda_env
 
         if DEPS_LOADED[]
             error("You will need to restart Julia for the changes to take effect. You may need Pkg.build() for Legion patch.")
