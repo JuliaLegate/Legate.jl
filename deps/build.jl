@@ -120,7 +120,7 @@ end
 function replace_nothing_conda_jll(mode, lib, jll)
     if isnothing(lib)
         if mode == LegatePreferences.MODE_CONDA
-            lib = load_preference(LegatePreferences, "conda_env", nothing)
+            lib = up_dir(load_preference(LegatePreferences, "conda_env", nothing))
         else
             eval(:(using $(jll)))
             jll_mod = getfield(Main, jll)
