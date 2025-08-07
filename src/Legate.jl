@@ -18,19 +18,21 @@
 =#
 
 module Legate
-using OpenSSL_jll # Libdl requires OpenSSL 
-using Libdl
-using CxxWrap
+import Base: get
 
-using libaec_jll # must load prior to HDF5
-using CUDA_Driver_jll # must load prior to legate
+include("depends.jl")
+
+const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
+const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
 function preload_libs()
     libs = [
         libaec_jll.get_libsz_path(), # required for libhdf5.so
-        joinpath(CUDA_Driver_jll.artifact_dir, "lib", "libcuda.so"), # required for liblegate.so
+        joinpath(Hwloc_jll.artifact_dir, "lib", "libhwloc.so"), # required for libmpicxx.so
         joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
         joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
+        joinpath(CUDA_RUNTIME_LIB, "libcudart.so"), # needed for libnccl.so and liblegate.so
+        joinpath(CUDA_DRIVER_LIB, "libcuda.so"), # needed for liblegate.so
         joinpath(NCCL_LIB, "libnccl.so"), # legate_jll is configured with NCCL
         joinpath(HDF5_LIB, "libhdf5.so"), # legate_jll is configured with HDF5
         joinpath(LEGATE_LIB, "liblegate.so"), 
@@ -38,38 +40,36 @@ function preload_libs()
     for lib in libs
         Libdl.dlopen(lib, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     end
-end 
+end
 
-deps_path = joinpath(@__DIR__, "../deps/deps.jl")
+include("preference.jl")
+find_preferences()
 
-if isfile(deps_path)
-    # deps.jl should assign to the Refs, not declare new consts
-    include(deps_path)
-else
-    using legate_jll
-    using legate_jl_wrapper_jll
-    using HDF5_jll
-    using NCCL_jll
-    using MPICH_jll
+const MPI_LIB = load_preference(LegatePreferences, "MPI_LIB", nothing)
+const CUDA_RUNTIME_LIB = load_preference(LegatePreferences, "CUDA_RUNTIME_LIB", nothing)
+const CUDA_DRIVER_LIB = load_preference(LegatePreferences, "CUDA_DRIVER_LIB", nothing)
+const NCCL_LIB = load_preference(LegatePreferences, "NCCL_LIB", nothing)
+const HDF5_LIB = load_preference(LegatePreferences, "HDF5_LIB", nothing)
+const LEGATE_LIB = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
+const LEGATE_WRAPPER_LIB = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIB", nothing)
 
-    const LEGATE_LIB = joinpath(legate_jll.artifact_dir, "lib")
-    const LEGATE_WRAPPER_LIB = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
-    const HDF5_LIB = joinpath(HDF5_jll.artifact_dir, "lib")
-    const NCCL_LIB = joinpath(NCCL_jll.artifact_dir, "lib")
-    const MPI_LIB  = joinpath(MPICH_jll.artifact_dir, "lib")
+libpath = joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so")
+if !isfile(libpath)
+    error("Developer mode: You need to call Pkg.build()")
 end
 
 preload_libs() # for precompilation
-@wrapmodule(() -> joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so"))
+@wrapmodule(() -> libpath)
 
+include("util.jl")
 include("type.jl")
 
 function my_on_exit()
-    @debug "Cleaning Up Legate"
     Legate.legate_finish()
 end
 
 function __init__()
+    LegatePreferences.check_unchanged()
     preload_libs() # for runtime
     @initcxx
 
@@ -80,24 +80,7 @@ function __init__()
             more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and \
             robustness. Our public beta launch is targeted for Fall 2025. \
             If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. \
-          "
+        "
     Base.atexit(my_on_exit)
 end
-
-function get_install_liblegate()
-    return LEGATE_LIB
-end
-
-function get_install_libnccl()
-    return NCCL_LIB
-end
-
-function get_install_libmpi()
-    return MPI_LIB
-end
-
-function get_install_libhdf5()
-    return HDF5_LIB
-end
-
 end 

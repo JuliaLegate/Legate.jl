@@ -16,51 +16,46 @@
  * Author(s): David Krasowska <krasow@u.northwestern.edu>
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
-
-using libaec_jll  # necessary for HDF5_jll
-using HDF5_jll
-
-using MPICH_jll
-using NCCL_jll
-
-using legate_jll
-using legate_jl_wrapper_jll # the wrapper depends on HDF5, MPICH, NCCL, and legate
+using Preferences
+import LegatePreferences
 
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
+up_dir(dir::String) = abspath(joinpath(dir, ".."))
+
 # Automatically pipes errors to new file
 # and appends stdout to build.log
 function run_sh(cmd::Cmd, filename::String)
-
     println(cmd)
-    
+
     build_log = joinpath(@__DIR__, "build.log")
+    tmp_build_log = joinpath(@__DIR__, "$(filename).log")
     err_log = joinpath(@__DIR__, "$(filename).err")
 
     if isfile(err_log)
         rm(err_log)
     end
 
-    try
-        run(pipeline(cmd, stdout = build_log, stderr = err_log, append = false))
-    catch e
-        println("stderr log generated: ", err_log, '\n')
-        println("---- Begin stderr log ----")
-        println(read(err_log, String))
-        println("---- End stderr log ----")
-        exit(-1)
+    if isfile(tmp_build_log)
+        rm(tmp_build_log)
     end
 
-end
-
-function get_library_root(jll_module, env_var::String)
-    if haskey(ENV, env_var)
-        return get(ENV, env_var, "0")
-    elseif jll_module.is_available()
-        return joinpath(jll_module.artifact_dir, "lib")
-    else
-        error("$env_var not found via environment or JLL.")
+    try
+        run(pipeline(cmd; stdout=tmp_build_log, stderr=err_log, append=false))
+        println(contents) 
+        contents = read(tmp_build_log, String)
+        open(build_log, "a") do io
+            println(contents)
+        end
+    catch e
+        println("stderr log generated: ", err_log, '\n')
+        contents = read(err_log, String)
+        if !isempty(strip(contents))
+            println("---- Begin stderr log ----")
+            println(contents)
+            println("---- End stderr log ----")
+        end
     end
 end
 
@@ -100,113 +95,77 @@ function build_jlcxxwrap(repo_root)
 end
 
 
-function build_cpp_wrapper(repo_root, legate_root, hdf5_root, nccl_root)
+function build_cpp_wrapper(repo_root, legate_root, hdf5_root, nccl_root, install_root)
     @info "liblegatewrapper: Building C++ Wrapper Library"
-    install_dir = joinpath(repo_root, "deps", "legate_wrapper_install")
-    if isdir(install_dir)
-        @warn "liblegatewrapper: Build dir exists. Deleting prior build."
-        rm(install_dir, recursive = true)
-        mkdir(install_dir)
+    if isdir(install_root)
+        rm(install_root, recursive = true)
+        mkdir(install_root)
     end
+    branch = load_preference(LegatePreferences, "wrapper_branch", LegatePreferences.DEVEL_DEFAULT_WRAPPER_BRANCH)
 
     build_cpp_wrapper = joinpath(repo_root, "scripts/build_cpp_wrapper.sh")
     nthreads = Threads.nthreads()
-    run_sh(`bash $build_cpp_wrapper $repo_root $legate_root $hdf5_root $nccl_root $install_dir $nthreads`, "cpp_wrapper")
+    run_sh(`bash $build_cpp_wrapper $repo_root $legate_root $hdf5_root $nccl_root $install_root $branch $nthreads`, "cpp_wrapper")
 end
 
-
-function is_legate_installed(legate_dir::String; throw_errors::Bool = false)
-    include_dir = joinpath(legate_dir, "include")
-    if !isdir(joinpath(include_dir, "legate/legate"))
-        throw_errors && @error "Legate.jl: Cannot find include/legate/legate in $(legate_dir)"
-        return false
-    end 
-    return true
-end
-
-
-function parse_legate_version(legate_dir)
-    version_file = joinpath(legate_dir, "include", "legate/legate", "version.h")
-
-    version = nothing
-    open(version_file, "r") do f
-        data = readlines(f)
-        major = parse(Int, split(data[end-2])[end])
-        minor = lpad(split(data[end-1])[end], 2, '0')
-        patch = lpad(split(data[end])[end], 2, '0')
-        version = "$(major).$(minor).$(patch)"
+function replace_nothing_jll(lib, jll)
+    if isnothing(lib)
+        eval(:(using $(jll)))
+        jll_mod = getfield(Main, jll)
+        lib = joinpath(jll_mod.artifact_dir, "lib")
     end
-
-    if isnothing(version)
-        error("Legate.jl: Failed to parse version")
-    end
-
-    return version
+    return lib
 end
 
-function check_prefix_install(env_var, env_loc)
-    if get(ENV, env_var, "0") == "1"
-        @info "Legate.jl: Using $(env_var) mode"
-        legate_dir = get(ENV, env_loc, nothing)
-        legate_installed = is_legate_installed(legate_dir)
-        if !legate_installed
-            error("Legate.jl: Build halted: legate not found in $legate_dir")
+function replace_nothing_conda_jll(mode, lib, jll)
+    if isnothing(lib)
+        if mode == LegatePreferences.MODE_CONDA
+            lib = joinpath(load_preference(LegatePreferences, "conda_env", nothing), "lib")
+        else
+            eval(:(using $(jll)))
+            jll_mod = getfield(Main, jll)
+            lib = joinpath(jll_mod.artifact_dir, "lib")
         end
-        installed_version = parse_legate_version(legate_dir)
-        if installed_version ∉ SUPPORTED_LEGATE_VERSIONS
-            error("Legate.jl: Build halted: $(legate_dir) detected unsupported version $(installed_version)")
-        end
-        @info "Legate.jl: Found a valid install in: $(legate_dir)"
-        return true
     end
-    return false
+    return lib
 end
 
+function build(mode)
+    if mode == LegatePreferences.MODE_JLL
+        @warn "No reason to Build on JLL mode. Exiting Build"
+        return
+    end
 
-function build(run_legion_patch::Bool = true)
-    pkg_root = abspath(joinpath(@__DIR__, "../"))
+    pkg_root = up_dir(@__DIR__)
     deps_dir = joinpath(@__DIR__)
 
+    build_log = joinpath(deps_dir, "build.log")
+    open(build_log, "w") do io
+        println(io, "=== Build started ===")
+    end
+
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-    mpi_lib = get_library_root(MPICH_jll, "JULIA_MPI_PATH")
-    hdf5_lib = get_library_root(HDF5_jll, "JULIA_HDF5_PATH")
-    nccl_lib = get_library_root(NCCL_jll, "JULIA_NCCL_PATH")
 
-    hdf5_root = joinpath(hdf5_lib, "..")
-    nccl_root = joinpath(nccl_lib, "..")
+    hdf5_lib = load_preference(LegatePreferences, "HDF5_LIB", nothing)
+    nccl_lib = load_preference(LegatePreferences, "NCCL_LIB", nothing)
+    legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
+
+    hdf5_lib   = replace_nothing_jll(hdf5_lib, :HDF5_jll)
+    nccl_lib   = replace_nothing_conda_jll(mode, nccl_lib, :NCCL_jll)
+    legate_lib = replace_nothing_conda_jll(mode, legate_lib, :legate_jll)
+
+    # only patch if not legate_jll
+    if mode == LegatePreferences.MODE_DEVELOPER || mode == LegatePreferences.MODE_CONDA
+        patch_legion(pkg_root, up_dir(legate_lib)) 
+    end
     
-    # custom install
-    if check_prefix_install("LEGATE_CUSTOM_INSTALL", "LEGATE_CUSTOM_INSTALL_LOCATION")
-        legate_root = get(ENV, "LEGATE_CUSTOM_INSTALL_LOCATION", nothing)
-    # conda install 
-    elseif check_prefix_install("CUNUMERIC_LEGATE_CONDA_INSTALL", "CONDA_PREFIX")
-        legate_root = get(ENV, "CONDA_PREFIX", nothing)
-    else # default  
-        legate_root = legate_jll.artifact_dir # the jll already has legate patched
-        run_legion_patch = false
-    end
-
-    run_legion_patch && patch_legion(pkg_root, legate_root) # only patch if not legate_jll
-
-    if get(ENV, "LEGATE_DEVELOP_MODE", "0") == "1"
+    if mode == LegatePreferences.MODE_DEVELOPER
+        install_dir = joinpath(pkg_root, "deps", "legate_jl_wrapper")
         build_jlcxxwrap(pkg_root) # $pkg_root/libcxxwrap-julia 
-        build_cpp_wrapper(pkg_root, legate_root, hdf5_root, nccl_root) # $pkg_root/wrapper
-        legate_wrapper_lib = joinpath(pkg_root, "deps", "legate_wrapper_install")
-    else
-        legate_wrapper_lib = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
+        # build_cpp_wrapper wants roots of every library
+        build_cpp_wrapper(pkg_root, up_dir(legate_lib), up_dir(hdf5_lib), up_dir(nccl_lib), install_dir) # $pkg_root/legate_jl_wrapper
     end
-
-    legate_lib = joinpath(legate_root, "lib")
-
-
-    # create lib_legatewrapper.so
-    open(joinpath(deps_dir, "deps.jl"), "w") do io
-        println(io, "const LEGATE_LIB = \"$(legate_lib)\"")
-        println(io, "const LEGATE_WRAPPER_LIB = \"$(legate_wrapper_lib)\"")
-        println(io, "const HDF5_LIB = \"$(hdf5_lib)\"")
-        println(io, "const NCCL_LIB = \"$(nccl_lib)\"")
-        println(io, "const MPI_LIB = \"$(mpi_lib)\"")
-    end 
 end
 
-build()
+const mode = load_preference(LegatePreferences, "mode", LegatePreferences.MODE_JLL)
+build(mode)
