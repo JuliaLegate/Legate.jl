@@ -29,7 +29,7 @@ function load_jll_lib(jll, lib)
     return dir
 end
 
-function find_gpu_libs()
+function find_load_gpu_libs()
     CUDA_DRIVER_LIB = load_jll_lib(CUDA_Driver_jll, "libcuda.so")
     CUDA_RUNTIME_LIB = load_jll_lib(CUDA_Runtime_jll, "libcudart.so")
     return CUDA_DRIVER_LIB, CUDA_RUNTIME_LIB
@@ -100,7 +100,7 @@ end
 function find_preferences()
     pkg_root = abspath(joinpath(@__DIR__, "../"))
 
-    cuda_driver_lib, cuda_runtime_lib = find_gpu_libs()
+    cuda_driver_lib, cuda_runtime_lib = find_load_gpu_libs()
     CUDA.precompile_runtime()
 
     mpi_lib = get_library_root(MPICH_jll, "JULIA_LEGATE_MPI_PATH")
