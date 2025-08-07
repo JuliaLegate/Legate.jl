@@ -43,14 +43,14 @@ LEGATE_WRAPPER_SOURCE=$LEGATEJL_PKG_ROOT_DIR/deps/legate_jl_wrapper_src
 
 if [ ! -d "$LEGATE_WRAPPER_SOURCE" ]; then
     git clone $GIT_REPO $LEGATE_WRAPPER_SOURCE
+    
+    cd "$LEGATE_WRAPPER_SOURCE" || exit 1
+    echo "Current repo: $(basename $(pwd))"
+    git remote -v
+
+    git fetch origin "$WRAPPER_BRANCH"
+    git checkout "$WRAPPER_BRANCH"
 fi
-
-cd "$LEGATE_WRAPPER_SOURCE" || exit 1
-echo "Current repo: $(basename $(pwd))"
-git remote -v
-
-git fetch origin "$WRAPPER_BRANCH"
-git checkout "$WRAPPER_BRANCH"
 
 BUILD_DIR=$LEGATE_WRAPPER_SOURCE/build
 

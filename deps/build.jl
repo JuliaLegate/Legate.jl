@@ -98,7 +98,6 @@ end
 function build_cpp_wrapper(repo_root, legate_root, hdf5_root, nccl_root, install_root)
     @info "liblegatewrapper: Building C++ Wrapper Library"
     if isdir(install_root)
-        @warn "liblegatewrapper: Build dir exists. Deleting prior build."
         rm(install_root, recursive = true)
         mkdir(install_root)
     end
