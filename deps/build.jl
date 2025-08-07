@@ -19,6 +19,11 @@
 using Preferences
 import LegatePreferences
 
+using libaec_jll # must load prior to HDF5
+using HDF5_jll
+using NCCL_jll
+using legate_jll
+
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
@@ -123,9 +128,9 @@ function build(mode)
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
 
-    hdf5_lib = load_preference(LegatePreferences, "HDF5_LIB", nothing)
-    nccl_lib = load_preference(LegatePreferences, "NCCL_LIB", nothing)
-    legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
+    hdf5_lib = load_preference(LegatePreferences, "HDF5_LIB", joinpath(HDF5_jll.artifact_dir, "lib"))
+    nccl_lib = load_preference(LegatePreferences, "NCCL_LIB", joinpath(NCCL_jll.artifact_dir, "lib"))
+    legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", joinpath(legate_jll.artifact_dir, "lib"))
 
     # only patch if not legate_jll
     if mode == LegatePreferences.MODE_DEVELOPER || mode == LegatePreferences.MODE_CONDA
