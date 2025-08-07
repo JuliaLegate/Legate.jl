@@ -103,7 +103,7 @@ function find_preferences()
             legate_path = load_preference(LegatePreferences, "legate_path", LegatePreferences.DEVEL_DEFAULT_LEGATE_PATH)
             check_legate_install(legate_path)
         end 
-        legate_wrapper_lib = joinpath(pkg_root, "deps", "legate_jl_wrapper")
+        legate_wrapper_lib = joinpath(pkg_root, "deps", "legate_jl_wrapper", "lib")
     # if conda
     elseif mode == LegatePreferences.MODE_CONDA
         @warn "mode = conda may break. We are using a subset of libraries from conda."

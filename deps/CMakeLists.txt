@@ -59,4 +59,4 @@ target_include_directories(legate_jl_wrapper PRIVATE
                     )
 
 install(TARGETS legate_jl_wrapper 
-          DESTINATION "${PROJECT_INSTALL_PATH}")
+          DESTINATION "${PROJECT_INSTALL_PATH}/lib")
