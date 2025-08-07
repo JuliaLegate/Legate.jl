@@ -43,13 +43,18 @@ LEGATE_WRAPPER_SOURCE=$LEGATEJL_PKG_ROOT_DIR/deps/legate_jl_wrapper_src
 
 if [ ! -d "$LEGATE_WRAPPER_SOURCE" ]; then
     git clone $GIT_REPO $LEGATE_WRAPPER_SOURCE
-    
+
     cd "$LEGATE_WRAPPER_SOURCE" || exit 1
     echo "Current repo: $(basename $(pwd))"
     git remote -v
 
     git fetch origin "$WRAPPER_BRANCH"
     git checkout "$WRAPPER_BRANCH"
+    
+    # patch the cmake for our custom install
+    diff -u $LEGATE_WRAPPER_SOURCE/CMakeLists.txt $LEGATEJL_PKG_ROOT_DIR/deps/CMakeLists.txt > deps_install.patch  || true
+    cd $LEGATE_WRAPPER_SOURCE
+    patch -i $LEGATE_WRAPPER_SOURCE/deps_install.patch
 fi
 
 BUILD_DIR=$LEGATE_WRAPPER_SOURCE/build
@@ -61,10 +66,7 @@ fi
 if [[ ! -d "$INSTALL_DIR" ]]; then
     mkdir -p $INSTALL_DIR 
 fi
-# patch the cmake for our custom install
-diff -u $LEGATE_WRAPPER_SOURCE/CMakeLists.txt $LEGATEJL_PKG_ROOT_DIR/deps/CMakeLists.txt > deps_install.patch  || true
-cd $LEGATE_WRAPPER_SOURCE
-patch -i $LEGATE_WRAPPER_SOURCE/deps_install.patch
+
 
 cmake -S $LEGATE_WRAPPER_SOURCE -B $BUILD_DIR \
     -D CMAKE_PREFIX_PATH="$LEGATE_CMAKE_DIR;$LEGION_CMAKE_DIR" \

@@ -133,10 +133,10 @@ function build(mode)
     end
     
     if mode == LegatePreferences.MODE_DEVELOPER
-        install_lib = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIB", nothing)
+        install_dir = joinpath(pkg_root, "deps", "legate_jl_wrapper")
         build_jlcxxwrap(pkg_root) # $pkg_root/libcxxwrap-julia 
         # build_cpp_wrapper wants roots of every library
-        build_cpp_wrapper(pkg_root, up_dir(legate_lib), up_dir(hdf5_lib), up_dir(nccl_lib), up_dir(install_lib)) # $pkg_root/legate_jl_wrapper
+        build_cpp_wrapper(pkg_root, up_dir(legate_lib), up_dir(hdf5_lib), up_dir(nccl_lib), install_dir) # $pkg_root/legate_jl_wrapper
     end
 end
 
