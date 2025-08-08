@@ -93,7 +93,8 @@ function get_library_root(jll_module, env_var::String)
     elseif jll_module.is_available()
         return joinpath(jll_module.artifact_dir, "lib")
     else
-        error("$env_var not found via environment or JLL.")
+        error("$env_var not found via environment or JLL. More details please visit:
+        https://julialegate.github.io/cuNumeric.jl/dev/errors/#1-error-loaderror-julia_legate_xxxx_path-not-found-via-environment-or-jll")
     end
 end
 
