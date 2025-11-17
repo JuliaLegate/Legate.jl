@@ -101,15 +101,21 @@ end
 function find_preferences()
     pkg_root = abspath(joinpath(@__DIR__, "../"))
 
-    cuda_driver_lib, cuda_runtime_lib = find_load_gpu_libs()
-    CUDA.precompile_runtime()
+
+    # TODO FIGURE OUT MORE ROBUST WAY TO CHECK IF WE HAVE A CPU BUILD
+    if CUDA.functional()
+        cuda_driver_lib, cuda_runtime_lib = find_load_gpu_libs()
+        CUDA.precompile_runtime()
+        nccl_lib = get_library_root(NCCL_jll, "JULIA_LEGATE_NCCL_PATH")
+    else
+        @warn "CUDA is not functional on this machine. Assuming you have a CPU-only build."
+    end
 
     mpi_lib = get_library_root(MPICH_jll, "JULIA_LEGATE_MPI_PATH")
     hdf5_lib = get_library_root(HDF5_jll, "JULIA_LEGATE_HDF5_PATH")
     set_preferences!(LegatePreferences, "HDF5_LIB" => hdf5_lib, force=true)
     set_preferences!(LegatePreferences, "MPI_LIB" => mpi_lib, force=true)
 
-    nccl_lib = get_library_root(NCCL_jll, "JULIA_LEGATE_NCCL_PATH")
     legate_wrapper_lib = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
     
     legate_path = legate_jll.artifact_dir
@@ -137,9 +143,11 @@ function find_preferences()
 
     legate_lib = joinpath(legate_path, "lib")
 
-    set_preferences!(LegatePreferences, "CUDA_DRIVER_LIB" => cuda_driver_lib, force=true)
-    set_preferences!(LegatePreferences, "CUDA_RUNTIME_LIB" => cuda_runtime_lib, force=true)
-    set_preferences!(LegatePreferences, "NCCL_LIB" =>  nccl_lib, force=true)
+    if CUDA.functional()
+        set_preferences!(LegatePreferences, "CUDA_DRIVER_LIB" => cuda_driver_lib, force=true)
+        set_preferences!(LegatePreferences, "CUDA_RUNTIME_LIB" => cuda_runtime_lib, force=true)
+        set_preferences!(LegatePreferences, "NCCL_LIB" =>  nccl_lib, force=true)
+    end
     set_preferences!(LegatePreferences, "LEGATE_LIB" => legate_lib, force=true)
     set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIB" => legate_wrapper_lib, force=true)
 end
