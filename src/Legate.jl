@@ -22,6 +22,12 @@ import Base: get
 
 include("depends.jl")
 
+const HAS_CUDA = legate_jll.host_platform["cuda"] != "none"
+
+if !HAS_CUDA
+    @warn "Legate install does not have CUDA. If you have an NVIDIA GPU something might be wrong."
+end
+
 const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
@@ -35,8 +41,10 @@ function preload_libs()
         joinpath(LEGATE_LIB, "liblegate.so"), 
     ]
 
-    if CUDA.functional()
-        append!(libs, [ joinpath(CUDA_RUNTIME_LIB, "libcudart.so"), # needed for libnccl.so and liblegate.so
+    if HAS_CUDA
+        append!(libs, 
+            [
+             joinpath(CUDA_RUNTIME_LIB, "libcudart.so"), # needed for libnccl.so and liblegate.so
              joinpath(CUDA_DRIVER_LIB, "libcuda.so"), # needed for liblegate.so
              joinpath(NCCL_LIB, "libnccl.so") # legate_jll is configured with NCCL)
              ]

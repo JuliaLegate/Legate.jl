@@ -102,13 +102,10 @@ function find_preferences()
     pkg_root = abspath(joinpath(@__DIR__, "../"))
 
 
-    # TODO FIGURE OUT MORE ROBUST WAY TO CHECK IF WE HAVE A CPU BUILD
-    if CUDA.functional()
+    if HAS_CUDA
         cuda_driver_lib, cuda_runtime_lib = find_load_gpu_libs()
         CUDA.precompile_runtime()
         nccl_lib = get_library_root(NCCL_jll, "JULIA_LEGATE_NCCL_PATH")
-    else
-        @warn "CUDA is not functional on this machine. Assuming you have a CPU-only build."
     end
 
     mpi_lib = get_library_root(MPICH_jll, "JULIA_LEGATE_MPI_PATH")
@@ -143,7 +140,7 @@ function find_preferences()
 
     legate_lib = joinpath(legate_path, "lib")
 
-    if CUDA.functional()
+    if HAS_CUDA
         set_preferences!(LegatePreferences, "CUDA_DRIVER_LIB" => cuda_driver_lib, force=true)
         set_preferences!(LegatePreferences, "CUDA_RUNTIME_LIB" => cuda_runtime_lib, force=true)
         set_preferences!(LegatePreferences, "NCCL_LIB" =>  nccl_lib, force=true)
