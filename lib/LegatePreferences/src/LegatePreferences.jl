@@ -21,18 +21,34 @@ module LegatePreferences
 
 using Preferences
 
+
 const PREFS_CHANGED = Ref(false)
 const DEPS_LOADED = Ref(false)
 
-# default
+abstract type Mode end
+struct JLL <: Mode end # default
+struct Developer <: Mode end # will compile wrappers from src
+struct Conda <: Mode end # not well tested, allows conda env install
+
+function to_mode(m::String)
+    m_lower = lowercase(m)
+    if m_lower == "jll"
+        return JLL()
+    elseif m_lower == "developer"
+        return Developer()
+    elseif m_lower == "conda"
+        return Conda()
+    else
+        error("Unknown mode: $(m). Must be one of 'jll', 'developer', or 'conda'.")
+    end
+end
+
 const MODE_JLL = "jll"
-# will compile wrappers from src
 const MODE_DEVELOPER = "developer"
-# not well tested, allows conda env install
 const MODE_CONDA = "conda"
 
-# Store what the values were when module loaded
-const mode = @load_preference("mode")
+const MODE = @load_preference("mode", MODE_JLL)
+
 # used for developer mode
 const wrapper_branch = @load_preference("wrapper_branch")
 const use_legate_jll = @load_preference("use_legate_jll")
@@ -157,6 +173,34 @@ function use_developer_mode(; wrapper_branch=DEVEL_DEFAULT_WRAPPER_BRANCH, use_l
             error("You will need to restart Julia for the changes to take effect. You need to call Pkg.build()")
         end
     end
+end
+
+# Mimics: https://github.com/JuliaGPU/CUDA.jl/blob/e0ec269e2a84df29e17f8588569e37e79e049606/lib/cudadrv/version.jl#L41
+function fake_cuda_local_preferences(version::Union{Nothing,VersionNumber}=nothing;
+                              local_toolkit::Union{Nothing,Bool}=nothing)
+
+    target_toml = joinpath(dirname(Base.active_project()), "LocalPreferences.toml")
+
+    let version = isnothing(version) ? nothing : "$(version.major).$(version.minor)"
+        Preferences.set_preferences!(target_toml, "CUDA_Runtime_jll", "version" => version; force=true)
+    end
+    let local_toolkit = isnothing(local_toolkit) ? nothing : string(local_toolkit)
+        Preferences.set_preferences!(target_toml, "CUDA_Runtime_jll", "local" => local_toolkit; force=true)
+    end
+    
+end
+
+
+function __init__()
+
+    # ONLY CAUSE WE DO NOT SUPPORT v13 YET
+    if MODE == MODE_JLL
+        fake_cuda_local_preferences(v"12"; local_toolkit=false)
+    end
+
+    #! FOR CONDA/LOCAL INSTALLS WE NEED TO  
+    #! SET SOME THINGS IN LOCALPREFERENCES.TOML TO 
+    #! TELL CUDA.JL TO USE THE RIGHT CUDA
 end
 
 end # module LegatePreferences
