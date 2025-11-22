@@ -1,7 +1,7 @@
 name = "LegatePreferences"
 uuid = "8028f36a-2b64-49e9-aa04-2d0933fd2ed9"
 authors = ["""David Krasowska <krasow@u.northwestern.edu\n>  and Ethan Meitz <emeitz@andrew.cmu.edu\n>"""]
-version = "0.1.0"
+version = "0.1.2"
 
 [deps]
 Preferences = "21216c6a-2e73-6563-6e65-726566657250"
