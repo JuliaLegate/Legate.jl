@@ -1,6 +1,6 @@
 name = "Legate"
 uuid = "1238f2cf-6593-4d60-9aca-2f5364e49909"
-version = "25.5.0"
+version = "0.1"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
