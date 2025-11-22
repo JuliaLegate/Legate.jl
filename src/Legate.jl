@@ -29,6 +29,7 @@ using legate_jl_wrapper_jll
 
 include("preference.jl")
 
+const MIN_CUDA_VERSION = v"12.2"
 const MAX_CUDA_VERSION = v"12.8.999"
 const SUPPORTED_LEGATE_VERSIONS = ["25.08.00", "25.10.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]

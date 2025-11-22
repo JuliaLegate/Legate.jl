@@ -193,9 +193,9 @@ end
 
 function __init__()
 
-    # ONLY CAUSE WE DO NOT SUPPORT v13 YET
+    # We do not support CUDA 13 yet so force it to install CUDA 12.8
     if MODE == MODE_JLL
-        fake_cuda_local_preferences(v"12"; local_toolkit=false)
+        fake_cuda_local_preferences(v"12.8"; local_toolkit=false)
     end
 
     #! FOR CONDA/LOCAL INSTALLS WE NEED TO  

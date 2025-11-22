@@ -12,6 +12,7 @@ legate_jll = "e95fb1d3-fb9e-51b5-bdb8-1a812408cac9"
 
 [compat]
 CxxWrap = "0.17"
+LegatePreferences = "0.1.1"
 julia = "1.10"
 legate_jl_wrapper_jll = "25.8 - 25.10"
 legate_jll = "25.8 - 25.10"
