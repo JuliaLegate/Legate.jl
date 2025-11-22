@@ -18,73 +18,46 @@
 =#
 
 module Legate
-import Base: get
 
-include("depends.jl")
-
-const HAS_CUDA = legate_jll.host_platform["cuda"] != "none"
-
-if !HAS_CUDA
-    @warn "Legate install does not have CUDA. If you have an NVIDIA GPU something might be wrong."
-end
-
-const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
-const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
-
-function preload_libs()
-    libs = [
-        libaec_jll.get_libsz_path(), # required for libhdf5.so
-        joinpath(Hwloc_jll.artifact_dir, "lib", "libhwloc.so"), # required for libmpicxx.so
-        joinpath(MPI_LIB, "libmpicxx.so"), # required for libmpi.so
-        joinpath(MPI_LIB, "libmpi.so"),   # legate_jll is configured with NCCL which requires MPI for CPU tasks
-        joinpath(HDF5_LIB, "libhdf5.so"), # legate_jll is configured with HDF5
-        joinpath(LEGATE_LIB, "liblegate.so"), 
-    ]
-
-    if HAS_CUDA
-        append!(libs, 
-            [
-             joinpath(CUDA_RUNTIME_LIB, "libcudart.so"), # needed for libnccl.so and liblegate.so
-             joinpath(CUDA_DRIVER_LIB, "libcuda.so"), # needed for liblegate.so
-             joinpath(NCCL_LIB, "libnccl.so") # legate_jll is configured with NCCL)
-             ]
-         ) 
-    end
-
-    for lib in libs
-        Libdl.dlopen(lib, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-    end
-end
+using Preferences
+using LegatePreferences
+import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
+using Libdl
+using CxxWrap
+using legate_jll
+using legate_jl_wrapper_jll
 
 include("preference.jl")
-find_preferences()
 
-const MPI_LIB = load_preference(LegatePreferences, "MPI_LIB", nothing)
-const CUDA_RUNTIME_LIB = load_preference(LegatePreferences, "CUDA_RUNTIME_LIB", nothing)
-const CUDA_DRIVER_LIB = load_preference(LegatePreferences, "CUDA_DRIVER_LIB", nothing)
-const NCCL_LIB = load_preference(LegatePreferences, "NCCL_LIB", nothing)
-const HDF5_LIB = load_preference(LegatePreferences, "HDF5_LIB", nothing)
-const LEGATE_LIB = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
-const LEGATE_WRAPPER_LIB = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIB", nothing)
+const MAX_CUDA_VERSION = v"12.8.999"
+const SUPPORTED_LEGATE_VERSIONS = ["25.08.00", "25.10.00"]
+const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
-libpath = joinpath(LEGATE_WRAPPER_LIB, "liblegate_jl_wrapper.so")
-if !isfile(libpath)
-    error("Developer mode: You need to call Pkg.build()")
+# Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
+find_preferences(LegatePreferences.MODE)
+
+const LEGATE_LIBDIR = load_preference(LegatePreferences, "LEGATE_LIB", "")
+const LEGATE_WRAPPER_LIBDIR = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIB", "")
+
+const WRAPPER_LIB_PATH = joinpath(LEGATE_WRAPPER_LIBDIR, "liblegate_jl_wrapper.so")
+const LEGATE_LIB_PATH = joinpath(LEGATE_LIBDIR, "liblegate.so")
+
+if !isfile(WRAPPER_LIB_PATH)
+    error("Could not find legate wrapper library. $(WRAPPER_LIB_PATH) is not a file. Check LocalPreferences.toml. If in developer mode try Pkg.build()")
 end
 
-preload_libs() # for precompilation
-@wrapmodule(() -> libpath)
+#! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
+@wrapmodule(() -> WRAPPER_LIB_PATH)
 
 include("util.jl")
 include("type.jl")
 
-function my_on_exit()
-    Legate.legate_finish()
-end
-
 function __init__()
     LegatePreferences.check_unchanged()
-    preload_libs() # for runtime
+
+    Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+    Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+
     @initcxx
 
     Legate.start_legate()
@@ -95,6 +68,6 @@ function __init__()
             robustness. Our public beta launch is targeted for Fall 2025. \
             If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. \
         "
-    Base.atexit(my_on_exit)
+    Base.atexit(Legate.legate_finish)
 end
 end 

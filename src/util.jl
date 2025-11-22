@@ -15,22 +15,22 @@ function get_install_liblegate()
     return LEGATE_LIB
 end
 
-function get_install_libnccl()
-    return NCCL_LIB
-end
+# function get_install_libnccl()
+#     return NCCL_LIB
+# end
 
-function get_install_libmpi()
-    return MPI_LIB
-end
+# function get_install_libmpi()
+#     return MPI_LIB
+# end
 
-function get_install_libhdf5()
-    return HDF5_LIB
-end
+# function get_install_libhdf5()
+#     return HDF5_LIB
+# end
 
-function get_install_libcuda()
-    return CUDA_DRIVER_LIB
-end
+# function get_install_libcuda()
+#     return CUDA_DRIVER_LIB
+# end
 
-function get_install_libcudart()
-    return CUDA_RUNTIME_LIB
-end
+# function get_install_libcudart()
+#     return CUDA_RUNTIME_LIB
+# end
