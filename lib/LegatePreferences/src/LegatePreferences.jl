@@ -21,11 +21,7 @@ module LegatePreferences
 
 using Preferences
 
-# Mechanism to detect CUDA GPU
-import CUDA_Driver_jll: libcuda
-const CUresult = Cint
-const CUDA_SUCCESS = CUresult(0)
-
+using Libdl
 
 const PREFS_CHANGED = Ref(false)
 const DEPS_LOADED = Ref(false)
@@ -195,18 +191,47 @@ function fake_cuda_local_preferences(version::Union{Nothing,VersionNumber}=nothi
     
 end
 
+const _libcuda_names = (
+    "libcuda.so.1",  # Linux 
+    "libcuda.so",    # Linux
+    "nvcuda.dll",    # Windows
+    "libcuda.dylib", # macOS
+)
+
+const CUresult     = Cint
+const CUDA_SUCCESS = CUresult(0)
+
+# Assumes the driver is visible, if its only installed
+# via a JLL this will probably return false
 function has_cuda_gpu()::Bool
-    # Initialize driver
-    res = ccall((:cuInit, libcuda), CUresult, (Cuint,), 0)
-    if res != CUDA_SUCCESS
-        return false
+    for name in _libcuda_names
+        # dlopen_e: no throw on failure, returns C_NULL
+        handle = Libdl.dlopen_e(name)
+        handle == C_NULL && continue
+
+        try
+            # dlsym_e: no throw on failure, returns C_NULL
+            cuInit_ptr = Libdl.dlsym_e(handle, :cuInit)
+            cuInit_ptr == C_NULL && continue
+
+            cuDeviceGetCount_ptr = Libdl.dlsym_e(handle, :cuDeviceGetCount)
+            cuDeviceGetCount_ptr == C_NULL && continue
+
+            # Call cuInit
+            res = ccall(cuInit_ptr, CUresult, (Cuint,), 0)
+            res == CUDA_SUCCESS || continue
+
+            # Call cuDeviceGetCount
+            n = Ref{Cint}()
+            res = ccall(cuDeviceGetCount_ptr, CUresult, (Ref{Cint},), n)
+            return res == CUDA_SUCCESS && n[] > 0
+        finally
+            Libdl.dlclose(handle)
+        end
     end
 
-    n = Ref{Cint}()
-    res = ccall((:cuDeviceGetCount, libcuda), CUresult, (Ref{Cint},), n)
-    return res == CUDA_SUCCESS && n[] > 0
+    return false
 end
-
 
 function __init__()
 
