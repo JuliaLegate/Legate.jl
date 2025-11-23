@@ -241,7 +241,7 @@ function __init__()
             # @info "Deteced CUDA GPU"
             fake_cuda_local_preferences(v"12.8"; local_toolkit=false)
         else
-            @info "Detected no CUDA GPU will download CPU only JLL."
+            @warn "Detected no CUDA GPU will download CPU only JLL."
         end
     end
 
