@@ -82,20 +82,34 @@ function check_jll(m::Module)
     end
 end
 
-function find_preferences(mode::String)
-    liblegate_path, liblegate_wrapper_path = _find_preferences(to_mode(mode))
-    set_preferences!(LegatePreferences, "LEGATE_LIB" => liblegate_path, force=true)
-    set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIB" => liblegate_wrapper_path, force=true)
+
+function find_paths(
+        mode::String;
+        legate_jll_module::Union{Module, Nothing} = nothing,
+        legate_jll_wrapper_module::Union{Module, Nothing} = nothing    
+    )
+    liblegate_path, liblegate_wrapper_path = _find_paths(to_mode(mode), legate_jll_module, legate_jll_wrapper_module)
+    set_preferences!(LegatePreferences, "LEGATE_LIBDIR" => liblegate_path, force=true)
+    set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIBDIR" => liblegate_wrapper_path, force=true)
 end
 
-function _find_preferences(mode::JLL)
-    check_jll(legate_jll)
-    check_jll(legate_jl_wrapper_jll)
-    legate_wrapper_lib = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
-    return joinpath(legate_jll.artifact_dir, "lib"), legate_wrapper_lib
+function _find_paths(
+        mode::JLL,
+        legate_jll_module::Module,
+        legate_jll_wrapper_module::Module
+    )
+    check_jll(legate_jll_module)
+    check_jll(legate_jll_wrapper_module)
+    legate_lib_dir = joinpath(legate_jll_module.artifact_dir, "lib")
+    legate_wrapper_libdir = joinpath(legate_jll_wrapper_module.artifact_dir, "lib")
+    return legate_lib_dir, legate_wrapper_libdir
 end
 
-function _find_preferences(mode::Developer)
+function _find_paths(
+        mode::Developer,
+        legate_jll_module::Module,
+        legate_jll_wrapper_module::Nothing
+    )
 
     legate_path = ""
     use_legate_jll = load_preference(LegatePreferences, "use_legate_jll", LegatePreferences.DEVEL_DEFAULT_JLL_CONFIG)
@@ -104,7 +118,7 @@ function _find_preferences(mode::Developer)
         legate_path = load_preference(LegatePreferences, "legate_path", LegatePreferences.DEVEL_DEFAULT_LEGATE_PATH)
         check_legate_install(legate_path)
     else
-        check_jll(legate_jll)
+        check_jll(legate_jll_module)
         legate_path = legate_jll.artifact_dir
     end 
 
@@ -114,7 +128,12 @@ function _find_preferences(mode::Developer)
     return joinpath(legate_path, "lib"), legate_wrapper_lib
 end
 
-function _find_preferences(mode::Conda)
+function _find_paths(
+        mode::Conda,
+        legate_jll_module::Nothing,
+        legate_jll_wrapper_module::Module
+    )
+
     @warn "mode = conda may break. We are using a subset of libraries from conda."
 
     conda_env = load_preference(LegatePreferences, "conda_env", nothing)
@@ -122,14 +141,33 @@ function _find_preferences(mode::Conda)
 
     check_legate_install(conda_env)
     legate_path = conda_env
-    check_jll(legate_jl_wrapper_jll)
-    legate_wrapper_lib = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
+    check_jll(legate_jll_wrapper_module)
+    legate_wrapper_lib = joinpath(legate_jll_wrapper_module.artifact_dir, "lib")
 
     return joinpath(legate_path, "lib"), legate_wrapper_lib
 end
 
-function _find_preferences(mode)
-    error("Unknown installation mode: $(mode). Must be one of 'jll', 'developer', or 'conda'.")
+const DEPS_MAP = Dict(
+    "HDF5" => "libhdf5",
+    "MPI" => "libmpi",
+    "NCCL" => "libnccl",
+    "CUDA_DRIVER" => "libcuda",
+    "CUDA_RUNTIME" => "libcudart"
+)
+function find_dependency_paths(mode::JLL)
+    results = Dict{String, String}()
+
+    paths_to_search = copy(legate_jll.LIBPATH_list)
+    # If we have CUDA support try to find some other paths
+    if isdefined(legate_jll, :NCCL_jll)
+        append!(paths_to_search, legate_jll.NCCL_jll.CUDA_Runtime_jll.LIBPATH_list)
+        push!(paths_to_search, joinpath(legate_jll.NCCL_jll.CUDA_Runtime_jll.CUDA_Driver_jll.artifact_dir, "lib"))
+    end
+
+    for (name, lib) in DEPS_MAP
+        results[name] = dirname(Libdl.find_library(lib, paths_to_search))
+    end
+    return results
 end
 
 # function load_jll_lib(jll, lib)

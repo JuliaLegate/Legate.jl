@@ -8,7 +8,7 @@ Julia Bindings for nv-legate
 
 ## Minimum prereqs
 - Ubuntu 20.04 or RHEL 8
-- Julia 1.11
+- Julia 1.10
 
 ### 1. Install Julia through [JuliaUp](https://github.com/JuliaLang/juliaup)
 ```
