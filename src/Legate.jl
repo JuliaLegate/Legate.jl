@@ -37,11 +37,13 @@ const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
 find_preferences(LegatePreferences.MODE)
 
-const LEGATE_LIBDIR = load_preference(LegatePreferences, "LEGATE_LIB", "")
-const LEGATE_WRAPPER_LIBDIR = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIB", "")
+const LEGATE_LIBDIR = load_preference(LegatePreferences, "LEGATE_LIBDIR", nothing)
+const LEGATE_WRAPPER_LIBDIR = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIBDIR", nothing)
 
 const WRAPPER_LIB_PATH = joinpath(LEGATE_WRAPPER_LIBDIR, "liblegate_jl_wrapper.so")
 const LEGATE_LIB_PATH = joinpath(LEGATE_LIBDIR, "liblegate.so")
+
+(isnothing(LEGATE_LIBDIR) || isnothing(LEGATE_WRAPPER_LIBDIR)) && error("Legate.jl: LEGATE_LIBDIR or LEGATE_WRAPPER_LIBDIR preference not set. Check LocalPreferences.toml")
 
 if !isfile(WRAPPER_LIB_PATH)
     error("Could not find legate wrapper library. $(WRAPPER_LIB_PATH) is not a file. Check LocalPreferences.toml. If in developer mode try Pkg.build()")
