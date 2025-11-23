@@ -21,6 +21,11 @@ module LegatePreferences
 
 using Preferences
 
+# Mechanism to detect CUDA GPU
+import CUDA_Driver_jll: libcuda
+const CUresult = Cint
+const CUDA_SUCCESS = CUresult(0)
+
 
 const PREFS_CHANGED = Ref(false)
 const DEPS_LOADED = Ref(false)
@@ -190,12 +195,29 @@ function fake_cuda_local_preferences(version::Union{Nothing,VersionNumber}=nothi
     
 end
 
+function has_cuda_gpu()::Bool
+    # Initialize driver
+    res = ccall((:cuInit, libcuda), CUresult, (Cuint,), 0)
+    if res != CUDA_SUCCESS
+        return false
+    end
+
+    n = Ref{Cint}()
+    res = ccall((:cuDeviceGetCount, libcuda), CUresult, (Ref{Cint},), n)
+    return res == CUDA_SUCCESS && n[] > 0
+end
+
 
 function __init__()
 
     # We do not support CUDA 13 yet so force it to install CUDA 12.8
     if MODE == MODE_JLL
-        fake_cuda_local_preferences(v"12.8"; local_toolkit=false)
+        if has_cuda_gpu()
+            # @info "Deteced CUDA GPU"
+            fake_cuda_local_preferences(v"12.8"; local_toolkit=false)
+        else
+            @info "Detected no CUDA GPU will download CPU only JLL."
+        end
     end
 
     #! FOR CONDA/LOCAL INSTALLS WE NEED TO  

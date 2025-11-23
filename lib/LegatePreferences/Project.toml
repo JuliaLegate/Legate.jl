@@ -4,6 +4,7 @@ authors = ["""David Krasowska <krasow@u.northwestern.edu\n>  and Ethan Meitz <em
 version = "0.1.2"
 
 [deps]
+CUDA_Driver_jll = "4ee394cb-3365-5eb0-8335-949819d2adfc"
 Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 
 [compat]
