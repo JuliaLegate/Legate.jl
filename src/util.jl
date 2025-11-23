@@ -12,7 +12,7 @@ function update_project(version::String)
 end
 
 function get_install_liblegate()
-    return LEGATE_LIB
+    return LEGATE_LIBDIR
 end
 
 # function get_install_libnccl()
