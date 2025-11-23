@@ -10,3 +10,8 @@ function update_project(version::String)
         TOML.print(io, project)
     end
 end
+
+function get_install_liblegate()
+    return LEGATE_LIBDIR
+end
+
