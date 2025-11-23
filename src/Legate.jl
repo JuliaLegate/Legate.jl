@@ -24,8 +24,6 @@ using LegatePreferences
 import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
-using legate_jll
-using legate_jl_wrapper_jll
 
 include("preference.jl")
 
@@ -35,7 +33,36 @@ const SUPPORTED_LEGATE_VERSIONS = ["25.08.00", "25.10.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
-find_preferences(LegatePreferences.MODE)
+# This will also include the relevant JLLs if necessary.
+@static if LegatePreferences.MODE == "jll"
+    using legate_jll, legate_jl_wrapper_jll
+    find_paths(
+        LegatePreferences.MODE;
+        legate_jll_module=legate_jll,
+        legate_jll_wrapper_module=legate_jl_wrapper_jll
+    )
+elseif LegatePreferences.MODE == "developer"
+    use_legate_jll = load_preference(LegatePreferences, "use_legate_jll", LegatePreferences.DEVEL_DEFAULT_JLL_CONFIG)
+    if use_legate_jll
+        using legate_jll
+        find_paths(
+            LegatePreferences.MODE;
+            legate_jll_module=legate_jll,
+            legate_jll_wrapper_module=nothing
+        )
+    else
+        find_paths(LegatePreferences.MODE)
+    end
+elseif LegatePreferences.MODE == "conda"
+    using legate_jl_wrapper_jll
+    find_paths(
+        LegatePreferences.MODE,
+        legate_jll_module=nothing,
+        legate_jll_wrapper_module=legate_jl_wrapper_jll
+    )
+else
+    error("Legate.jl: Unknown mode $(LegatePreferences.MODE). Must be one of 'jll', 'developer', or 'conda'.")
+end
 
 const LEGATE_LIBDIR = load_preference(LegatePreferences, "LEGATE_LIBDIR", nothing)
 const LEGATE_WRAPPER_LIBDIR = load_preference(LegatePreferences, "LEGATE_WRAPPER_LIBDIR", nothing)
