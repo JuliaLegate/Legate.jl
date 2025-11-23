@@ -84,8 +84,8 @@ end
 
 function find_preferences(mode::String)
     liblegate_path, liblegate_wrapper_path = _find_preferences(to_mode(mode))
-    set_preferences!(LegatePreferences, "LEGATE_LIB" => liblegate_path, force=true)
-    set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIB" => liblegate_wrapper_path, force=true)
+    set_preferences!(LegatePreferences, "LEGATE_LIBDIR" => liblegate_path, force=true)
+    set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIBDIR" => liblegate_wrapper_path, force=true)
 end
 
 function _find_preferences(mode::JLL)
