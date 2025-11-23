@@ -95,8 +95,7 @@ function __init__()
     @warn " Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. \
             Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be \
             more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and \
-            robustness. Our public beta launch is targeted for Fall 2025. \
-            If you are seeing this warning, I am impressed that you have successfully installed Legate.jl. \
+            robustness. Thank you for your patience and support as we work towards these goals.
         "
     Base.atexit(Legate.legate_finish)
 end

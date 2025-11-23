@@ -19,7 +19,7 @@
 using Preferences
 import LegatePreferences
 
-const SUPPORTED_LEGATE_VERSIONS = ["25.05.00"]
+const SUPPORTED_LEGATE_VERSIONS = ["25.08.00", "25.10.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
 up_dir(dir::String) = abspath(joinpath(dir, ".."))
@@ -59,6 +59,32 @@ function run_sh(cmd::Cmd, filename::String)
     end
 end
 
+function get_version(version_file)
+    version = nothing
+    open(version_file, "r") do f
+        data = readlines(f)
+        major = parse(Int, split(data[end - 2])[end])
+        minor = lpad(split(data[end - 1])[end], 2, '0')
+        patch = lpad(split(data[end])[end], 2, '0')
+        version = "$(major).$(minor).$(patch)"
+    end
+    if isnothing(version)
+        error("cuNumeric.jl: Failed to parse version for $(version_file)")
+    end
+    return version
+end
+
+function get_legate_version(legate_root::String)
+    version_file = joinpath(legate_root, "include", "legate/legate", "version.h")
+    return get_version(version_file)
+end
+
+function legate_valid(legate_root::String)
+    # todo check if legate_root matches the version that we are installing.
+    version_legate = get_legate_version(legate_root)
+    return version_legate ∈ SUPPORTED_LEGATE_VERSIONS # return true if equal
+end
+
 # patch legion. The readme below talks about our compilation error
 # https://github.com/ejmeitz/cuNumeric.jl/blob/main/scripts/README.md
 function patch_legion(repo_root::String, legate_root::String)
@@ -95,17 +121,30 @@ function build_jlcxxwrap(repo_root)
 end
 
 
-function build_cpp_wrapper(repo_root, legate_root, hdf5_root, nccl_root, install_root)
+function build_cpp_wrapper(repo_root, legate_root, install_root)
     @info "liblegatewrapper: Building C++ Wrapper Library"
     if isdir(install_root)
         rm(install_root, recursive = true)
         mkdir(install_root)
     end
-    branch = load_preference(LegatePreferences, "wrapper_branch", LegatePreferences.DEVEL_DEFAULT_WRAPPER_BRANCH)
 
     build_cpp_wrapper = joinpath(repo_root, "scripts/build_cpp_wrapper.sh")
     nthreads = Threads.nthreads()
-    run_sh(`bash $build_cpp_wrapper $repo_root $legate_root $hdf5_root $nccl_root $install_root $branch $nthreads`, "cpp_wrapper")
+
+    bld_command = `$build_cpp_wrapper $repo_root $legate_root $install_root $nthreads`
+
+    # write out a bash script for debugging
+    cmd_str = join(bld_command.exec, " ")
+    wrapper_path = joinpath(repo_root, "build_wrapper.sh")
+    open(wrapper_path, "w") do io
+        println(io, "#!/bin/bash")
+        println(io, "set -xe")
+        println(io, cmd_str)
+    end
+    chmod(wrapper_path, 0o755)
+
+    @info "Running build command: $bld_command"
+    run_sh(`bash $bld_command`, "cpp_wrapper")
 end
 
 function replace_nothing_jll(lib, jll)
@@ -145,13 +184,7 @@ function build(mode)
     end
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-
-    hdf5_lib = load_preference(LegatePreferences, "HDF5_LIB", nothing)
-    nccl_lib = load_preference(LegatePreferences, "NCCL_LIB", nothing)
     legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
-
-    hdf5_lib   = replace_nothing_jll(hdf5_lib, :HDF5_jll)
-    nccl_lib   = replace_nothing_conda_jll(mode, nccl_lib, :NCCL_jll)
     legate_lib = replace_nothing_conda_jll(mode, legate_lib, :legate_jll)
 
     # only patch if not legate_jll
@@ -160,10 +193,17 @@ function build(mode)
     end
     
     if mode == LegatePreferences.MODE_DEVELOPER
-        install_dir = joinpath(pkg_root, "deps", "legate_jl_wrapper")
+        install_dir = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build")
         build_jlcxxwrap(pkg_root) # $pkg_root/libcxxwrap-julia 
         # build_cpp_wrapper wants roots of every library
-        build_cpp_wrapper(pkg_root, up_dir(legate_lib), up_dir(hdf5_lib), up_dir(nccl_lib), install_dir) # $pkg_root/legate_jl_wrapper
+        legate_root = up_dir(legate_lib)
+        if !legate_valid(legate_root)
+            error(
+                "Legate.jl: legate library at $(legate_root) is not a supported version. 
+                 Supported versions are: $(SUPPORTED_LEGATE_VERSIONS).",
+            )
+        end
+        build_cpp_wrapper(pkg_root, legate_root, install_dir) # $pkg_root/legate_jl_wrapper
     end
 end
 
