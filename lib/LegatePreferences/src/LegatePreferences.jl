@@ -146,7 +146,7 @@ If you disable legate_jll, then you need to set a path to Legate with ```legate_
 """
 function use_developer_mode(; wrapper_branch=DEVEL_DEFAULT_WRAPPER_BRANCH, use_legate_jll=DEVEL_DEFAULT_JLL_CONFIG, legate_path=DEVEL_DEFAULT_LEGATE_PATH, export_prefs = false, force = true)
     if (use_legate_jll == false)
-        if (legate_path == nothing) 
+        if (isnothing(legate_path)) 
             error("You must set a legate_path if you are disabling use_legate_jll")
         end
     end
@@ -162,7 +162,7 @@ function use_developer_mode(; wrapper_branch=DEVEL_DEFAULT_WRAPPER_BRANCH, use_l
     same_branch = wrapper_branch == LegatePreferences.wrapper_branch
     same_jll_conf = use_legate_jll == LegatePreferences.use_legate_jll
     same_legate_path = legate_path == LegatePreferences.legate_path
-    same_mode = LegatePreferences.mode == MODE_DEVELOPER
+    same_mode = LegatePreferences.MODE == MODE_DEVELOPER
     
     if same_branch && same_jll_conf && same_legate_path && same_mode
         @info "LegatePreferences found no differences. Using Developer mode."
