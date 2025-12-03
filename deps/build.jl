@@ -159,7 +159,7 @@ end
 function replace_nothing_conda_jll(mode, lib, jll)
     if isnothing(lib)
         if mode == LegatePreferences.MODE_CONDA
-            lib = joinpath(load_preference(LegatePreferences, "conda_env", nothing), "lib")
+            lib = joinpath(load_preference(LegatePreferences, "legate_conda_env", nothing), "lib")
         else
             eval(:(using $(jll)))
             jll_mod = getfield(Main, jll)
@@ -207,5 +207,5 @@ function build(mode)
     end
 end
 
-const mode = load_preference(LegatePreferences, "mode", LegatePreferences.MODE_JLL)
+const mode = load_preference(LegatePreferences, "legate_mode", LegatePreferences.MODE_JLL)
 build(mode)

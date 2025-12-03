@@ -112,10 +112,10 @@ function _find_paths(
     )
 
     legate_path = ""
-    use_legate_jll = load_preference(LegatePreferences, "use_legate_jll", LegatePreferences.DEVEL_DEFAULT_JLL_CONFIG)
+    use_legate_jll = load_preference(LegatePreferences, "legate_use_jll", true)
     
     if use_legate_jll == false
-        legate_path = load_preference(LegatePreferences, "legate_path", LegatePreferences.DEVEL_DEFAULT_LEGATE_PATH)
+        legate_path = load_preference(LegatePreferences, "legate_path", nothing)
         check_legate_install(legate_path)
     else
         check_jll(legate_jll_module)
@@ -136,8 +136,8 @@ function _find_paths(
 
     @warn "mode = conda may break. We are using a subset of libraries from conda."
 
-    conda_env = load_preference(LegatePreferences, "conda_env", nothing)
-    isnothing(conda_env) && error("conda_env preference must be set in LocalPreferences.toml when using conda mode")
+    conda_env = load_preference(LegatePreferences, "legate_conda_env", nothing)
+    isnothing(conda_env) && error("legate_conda_env preference must be set in LocalPreferences.toml when using conda mode")
 
     check_legate_install(conda_env)
     legate_path = conda_env
@@ -169,84 +169,3 @@ function find_dependency_paths(mode::JLL)
     end
     return results
 end
-
-# function load_jll_lib(jll, lib)
-#     dir = joinpath(jll.artifact_dir, "lib")
-#     libpath = joinpath(dir, lib)
-#     try
-#         Libdl.dlopen(libpath, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-#     catch e
-#         @warn "Failed to open $(lib)" path=libpath exception=e
-#     end
-#     push!(Base.DL_LOAD_PATH, dir)
-#     return dir
-# end
-
-# function find_load_gpu_libs()
-#     CUDA_DRIVER_LIB = load_jll_lib(CUDA_Driver_jll, "libcuda.so")
-#     CUDA_RUNTIME_LIB = load_jll_lib(CUDA_Runtime_jll, "libcudart.so")
-#     return CUDA_DRIVER_LIB, CUDA_RUNTIME_LIB
-# end
-
-
-# function get_library_root(jll_module, env_var::String)
-#     if haskey(ENV, env_var)
-#         return get(ENV, env_var, "0")
-#     elseif jll_module.is_available()
-#         return joinpath(jll_module.artifact_dir, "lib")
-#     else
-#         error("$env_var not found via environment or JLL. More details please visit:
-#         https://julialegate.github.io/cuNumeric.jl/dev/errors#1-error-loaderror-julia_legate_xxxx_path-not-found-via-environment-or-jll")
-#     end
-# end
-
-# function find_preferences()
-#     pkg_root = abspath(joinpath(@__DIR__, "../"))
-
-
-#     if HAS_CUDA
-#         cuda_driver_lib, cuda_runtime_lib = find_load_gpu_libs()
-#         CUDA.precompile_runtime()
-#         nccl_lib = get_library_root(NCCL_jll, "JULIA_LEGATE_NCCL_PATH")
-#     end
-
-#     mpi_lib = get_library_root(MPICH_jll, "JULIA_LEGATE_MPI_PATH")
-#     hdf5_lib = get_library_root(HDF5_jll, "JULIA_LEGATE_HDF5_PATH")
-#     set_preferences!(LegatePreferences, "HDF5_LIB" => hdf5_lib, force=true)
-#     set_preferences!(LegatePreferences, "MPI_LIB" => mpi_lib, force=true)
-
-#     legate_wrapper_lib = joinpath(legate_jl_wrapper_jll.artifact_dir, "lib")
-    
-#     legate_path = legate_jll.artifact_dir
-
-#     mode = load_preference(LegatePreferences, "mode", LegatePreferences.MODE_JLL)
-
-#     # if developer mode
-#     if mode == LegatePreferences.MODE_DEVELOPER
-#         use_legate_jll = load_preference(LegatePreferences, "use_legate_jll", LegatePreferences.DEVEL_DEFAULT_JLL_CONFIG)
-#         if use_legate_jll == false
-#             legate_path = load_preference(LegatePreferences, "legate_path", LegatePreferences.DEVEL_DEFAULT_LEGATE_PATH)
-#             check_legate_install(legate_path)
-#         end 
-#         legate_wrapper_lib = joinpath(pkg_root, "deps", "legate_jl_wrapper", "lib")
-#     # if conda
-#     elseif mode == LegatePreferences.MODE_CONDA
-#         @warn "mode = conda may break. We are using a subset of libraries from conda."
-#         conda_env = load_preference(LegatePreferences, "conda_env", nothing)
-#         check_legate_install(conda_env)
-#         # so right now, we just use nccl and legate from the conda env
-#         # mpi is not available, hdf5 throws symbol errors
-#         legate_path = conda_env
-#         # nccl_lib = joinpath(conda_env, "lib")
-#     end
-
-#     legate_lib = joinpath(legate_path, "lib")
-
-#     # if HAS_CUDA
-#     #     set_preferences!(LegatePreferences, "CUDA_DRIVER_LIB" => cuda_driver_lib, force=true)
-#     #     set_preferences!(LegatePreferences, "CUDA_RUNTIME_LIB" => cuda_runtime_lib, force=true)
-#     #     set_preferences!(LegatePreferences, "NCCL_LIB" =>  nccl_lib, force=true)
-#     # end
-#     set_preferences!(LegatePreferences, "LEGATE_LIB" => legate_lib, force=true)
-#     set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIB" => legate_wrapper_lib, force=true)
-# end
