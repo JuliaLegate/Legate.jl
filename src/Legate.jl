@@ -42,7 +42,7 @@ const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
         legate_jll_wrapper_module=legate_jl_wrapper_jll
     )
 elseif LegatePreferences.MODE == "developer"
-    use_legate_jll = load_preference(LegatePreferences, "use_legate_jll", LegatePreferences.DEVEL_DEFAULT_JLL_CONFIG)
+    use_legate_jll = load_preference(LegatePreferences, "legate_use_jll", true)
     if use_legate_jll
         using legate_jll
         find_paths(
