@@ -26,21 +26,6 @@ using .PrefBackend
 
 @make_preferences("legate_")
 
-# Mimics: https://github.com/JuliaGPU/CUDA.jl/blob/e0ec269e2a84df29e17f8588569e37e79e049606/lib/cudadrv/version.jl#L41
-function fake_cuda_local_preferences(version::Union{Nothing,VersionNumber}=nothing;
-                              local_toolkit::Union{Nothing,Bool}=nothing)
-
-    target_toml = joinpath(dirname(Base.active_project()), "LocalPreferences.toml")
-
-    let version = isnothing(version) ? nothing : "$(version.major).$(version.minor)"
-        Preferences.set_preferences!(target_toml, "CUDA_Runtime_jll", "version" => version; force=true)
-    end
-    let local_toolkit = isnothing(local_toolkit) ? nothing : string(local_toolkit)
-        Preferences.set_preferences!(target_toml, "CUDA_Runtime_jll", "local" => local_toolkit; force=true)
-    end
-    
-end
-
 const _libcuda_names = (
     "libcuda.so.1",  # Linux 
     "libcuda.so",    # Linux
@@ -84,11 +69,9 @@ function has_cuda_gpu()::Bool
 end
 
 function __init__()
-    # We do not support CUDA 13 yet so force it to install CUDA 12.8
     if MODE == MODE_JLL
         if has_cuda_gpu()
-            # @info "Detected CUDA GPU"
-            fake_cuda_local_preferences(v"12.8"; local_toolkit=false)
+            @info "Detected CUDA GPU"
         else
             @warn "Detected no CUDA GPU will download CPU only JLL."
         end
