@@ -19,7 +19,7 @@
 using Preferences
 import LegatePreferences
 
-const SUPPORTED_LEGATE_VERSIONS = ["25.08.00", "25.10.00"]
+const SUPPORTED_LEGATE_VERSIONS = ["25.10.00", "25.11.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
 up_dir(dir::String) = abspath(joinpath(dir, ".."))
