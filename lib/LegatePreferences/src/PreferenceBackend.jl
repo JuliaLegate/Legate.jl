@@ -48,10 +48,10 @@ esc(quote
     # load preferences with namespaced keys
     const MODE = @load_preference($prefix * "mode", $default_mode)
 
-    const use_jll = @load_preference($prefix * "use_jll",
+    const _use_jll = @load_preference($prefix * "use_jll",
                                             $default_use_jll)
-    const path = @load_preference($prefix * "path", $default_path)
-    const conda_env = @load_preference($prefix * "conda_env")
+    const _path = @load_preference($prefix * "path", $default_path)
+    const _conda_env = @load_preference($prefix * "conda_env")
 
     function _set(pairs::Pair...; export_prefs=false, force=true)
         prefixed_pairs = Pair[]
@@ -85,7 +85,6 @@ esc(quote
 
     Tells Legate.jl | cuNumeric.jl to use JLLs. This is the default option. 
     """
-
     function use_jll_binary(; export_prefs=false, force=true)
         if MODE == MODE_JLL
             @info "Already using JLL mode"
@@ -108,7 +107,9 @@ esc(quote
     For example, `/home/julialegate/.conda/envs/cunumeric-gpu`
     """
     function use_conda(env; export_prefs=false, force=true)
-        if MODE == MODE_CONDA
+        same_mode = MODE == MODE_CONDA
+        same_env = env == _conda_env
+        if same_mode && same_env
             @info "Already using Conda mode"
         else
             _PREFS_CHANGED[] = true
@@ -136,20 +137,22 @@ esc(quote
             error("Must provide path when not using JLL")
         end
 
-        if MODE == MODE_DEVELOPER && use_jll == use_jll && path == path
+        same_mode = MODE == MODE_DEVELOPER
+        same_jll_usage = use_jll == _use_jll
+        same_path = path == _path
+
+        if same_mode && same_jll_usage && same_path
             @info "Already using Developer mode with the same settings"
             return
         end
 
         _PREFS_CHANGED[] = true
-
         _set("mode" => MODE_DEVELOPER,
              "use_jll" => use_jll,
              "path" => path;
              export_prefs, force)
 
         @info "Developer mode enabled"
-        
         if _DEPS_LOADED[]
             error("Developer Mode: Restart Julia for changes to take effect. You will need to run Pkg.build().")
         end
