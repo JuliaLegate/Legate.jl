@@ -160,7 +160,7 @@ const DEPS_MAP = Dict(
     "CUDA_DRIVER" => "libcuda",
     "CUDA_RUNTIME" => "libcudart"
 )
-function find_dependency_paths(mode::JLL)
+function find_dependency_paths(mode::LegatePreferences.JLL)
     results = Dict{String, String}()
 
     paths_to_search = copy(legate_jll.LIBPATH_list)
@@ -175,3 +175,6 @@ function find_dependency_paths(mode::JLL)
     end
     return results
 end
+
+find_dependency_paths(::Type{LegatePreferences.Developer}) = Dict{String, String}()
+find_dependency_paths(::Type{LegatePreferences.Conda}) = Dict{String, String}()
