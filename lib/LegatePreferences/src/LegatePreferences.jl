@@ -71,7 +71,7 @@ end
 function __init__()
     if MODE == MODE_JLL
         if has_cuda_gpu()
-            @info "Detected CUDA GPU"
+            @debug "Detected CUDA GPU"
         else
             @warn "Detected no CUDA GPU will download CPU only JLL."
         end
