@@ -113,7 +113,7 @@ end
 
 function _find_paths(
         mode::Developer,
-        legate_jll_module::Module,
+        legate_jll_module,
         legate_jll_wrapper_module::Nothing
     )
 
