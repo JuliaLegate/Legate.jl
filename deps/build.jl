@@ -184,7 +184,7 @@ function build(mode)
     end
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-    legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
+    legate_lib = joinpath(load_preference(LegatePreferences, "legate_path", nothing), "lib")
     legate_lib = replace_nothing_conda_jll(mode, legate_lib, :legate_jll)
 
     # only patch if not legate_jll

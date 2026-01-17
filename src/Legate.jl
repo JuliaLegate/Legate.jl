@@ -29,7 +29,7 @@ include("preference.jl")
 
 const MIN_CUDA_VERSION = v"13.0"
 const MAX_CUDA_VERSION = v"13.9.999"
-const SUPPORTED_LEGATE_VERSIONS = ["25.10.1", "25.11.00"]
+const SUPPORTED_LEGATE_VERSIONS = ["25.10.00", "25.11.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
