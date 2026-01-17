@@ -9,6 +9,9 @@ build/*
 build.log
 *.err
 *.log
+.envrc
+.vscode
+node_modules
 
 deps_install.patch
 
