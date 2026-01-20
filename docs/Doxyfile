@@ -1,0 +1,18 @@
+# Project settings
+PROJECT_NAME           = "Legate.jl"
+OUTPUT_DIRECTORY       = test
+INPUT                  = ../lib/legate_jl_wrapper/src ../lib/legate_jl_wrapper/include
+RECURSIVE              = YES
+FILE_PATTERNS          = *.cpp *.hpp *.h *.inl
+
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+
+# Main output format
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_XML           = NO
+GENERATE_RTF           = NO
+
+# Markdown support for comments and README
+MARKDOWN_SUPPORT       = YES

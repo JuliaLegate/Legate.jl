@@ -4,6 +4,7 @@ version = "0.1.0"
 
 [deps]
 CxxWrap = "1f15a43c-97ca-5a2a-ae31-89f07a497df4"
+JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 LegatePreferences = "8028f36a-2b64-49e9-aa04-2d0933fd2ed9"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
@@ -14,6 +15,7 @@ libcxxwrap_julia_jll = "3eaa8342-bff7-56a5-9981-c04077f7cee7"
 
 [compat]
 CxxWrap = "0.17"
+JuliaFormatter = "2.2.0"
 LegatePreferences = "0.1.5"
 julia = "1.10"
 legate_jl_wrapper_jll = "25.10.1 - 25.11"

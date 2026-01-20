@@ -2,6 +2,15 @@ using Documenter, DocumenterVitepress
 using Legate
 using LegatePreferences
 
+function build_cpp_docs()
+    run(`doxygen Doxyfile`)
+end
+
+build_cpp_docs()
+
+# hopefully creates something like docs/_tmp_doxygen.md
+# we want to append this in api.md
+
 makedocs(;
     sitename="Legate.jl",
     authors="Ethan Meitz and David Krasowska",
