@@ -1,4 +1,4 @@
-#= Copyright 2025 Northwestern University, 
+#= Copyright 2026 Northwestern University, 
  *                   Carnegie Mellon University University
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -156,17 +156,17 @@ function replace_nothing_jll(lib, jll)
     return lib
 end
 
-function replace_nothing_conda_jll(mode, lib, jll)
-    if isnothing(lib)
+function replace_nothing_conda_jll(mode, root, jll)
+    if isnothing(root)
         if mode == LegatePreferences.MODE_CONDA
-            lib = joinpath(load_preference(LegatePreferences, "legate_conda_env", nothing), "lib")
+            root = load_preference(LegatePreferences, "legate_conda_env", nothing)
         else
             eval(:(using $(jll)))
             jll_mod = getfield(Main, jll)
-            lib = joinpath(jll_mod.artifact_dir, "lib")
+            root = jll_mod.artifact_dir
         end
     end
-    return lib
+    return root
 end
 
 function build(mode)
@@ -184,8 +184,10 @@ function build(mode)
     end
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-    legate_lib = joinpath(load_preference(LegatePreferences, "legate_path", nothing), "lib")
-    legate_lib = replace_nothing_conda_jll(mode, legate_lib, :legate_jll)
+    # can be nothing so this errors if not set
+    legate_root = load_preference(LegatePreferences, "legate_path", nothing)
+    legate_root = replace_nothing_conda_jll(mode, legate_root, :legate_jll)
+    legate_lib = joinpath(legate_root, "lib")
 
     # only patch if not legate_jll
     if mode == LegatePreferences.MODE_DEVELOPER || mode == LegatePreferences.MODE_CONDA
