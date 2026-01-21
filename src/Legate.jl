@@ -82,13 +82,21 @@ end
 include("util.jl")
 include("type.jl")
 
-function __init__()
-    LegatePreferences.check_unchanged()
+### These functions guard against a user trying
+### to start multiple runtimes and also to allow
+## package extensions which always try to re-load
+
+const RUNTIME_INACTIVE = -1
+const RUNTIME_ACTIVE = 0
+const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
+const _start_lock  = ReentrantLock()
+
+runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
+
+function _start_runtime()
 
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-
-    @initcxx
 
     Legate.start_legate()
     @debug "Started Legate"
@@ -98,5 +106,40 @@ function __init__()
             robustness. Thank you for your patience and support as we work towards these goals.
         "
     Base.atexit(Legate.legate_finish)
+    return RUNTIME_ACTIVE
+end
+
+function ensure_runtime!()
+    # fast path (no lock)
+    rt = _runtime_ref[]
+    (rt == RUNTIME_INACTIVE) || return rt
+
+    lock(_start_lock)
+    try
+        # re-check after lock
+        rt = _runtime_ref[]
+        (rt == RUNTIME_INACTIVE) || return rt
+
+        rt = _start_runtime()
+        _runtime_ref[] = rt
+        return rt
+    finally
+        unlock(_start_lock)
+    end
+end
+
+_is_precompiling() = ccall(:jl_generating_output, Cint, ()) != 0
+
+
+function __init__()
+    # @info "Legate __init__" pid=getpid() tid=Threads.threadid() precomp=_is_precompiling()
+
+    LegatePreferences.check_unchanged()
+
+    @initcxx
+
+    _is_precompiling() && return
+
+    ensure_runtime!()
 end
 end 
