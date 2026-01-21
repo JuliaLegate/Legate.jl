@@ -39,7 +39,7 @@ const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
     find_paths(
         LegatePreferences.MODE;
         legate_jll_module=legate_jll,
-        legate_jll_wrapper_module=legate_jl_wrapper_jll
+        legate_jll_wrapper_module=legate_jl_wrapper_jll,
     )
 elseif LegatePreferences.MODE == "developer"
     use_legate_jll = load_preference(LegatePreferences, "legate_use_jll", true)
@@ -48,7 +48,7 @@ elseif LegatePreferences.MODE == "developer"
         find_paths(
             LegatePreferences.MODE;
             legate_jll_module=legate_jll,
-            legate_jll_wrapper_module=nothing
+            legate_jll_wrapper_module=nothing,
         )
     else
         find_paths(LegatePreferences.MODE)
@@ -58,10 +58,12 @@ elseif LegatePreferences.MODE == "conda"
     find_paths(
         LegatePreferences.MODE,
         legate_jll_module=nothing,
-        legate_jll_wrapper_module=legate_jl_wrapper_jll
+        legate_jll_wrapper_module=legate_jl_wrapper_jll,
     )
 else
-    error("Legate.jl: Unknown mode $(LegatePreferences.MODE). Must be one of 'jll', 'developer', or 'conda'.")
+    error(
+        "Legate.jl: Unknown mode $(LegatePreferences.MODE). Must be one of 'jll', 'developer', or 'conda'.",
+    )
 end
 
 const LEGATE_LIBDIR = load_preference(LegatePreferences, "LEGATE_LIBDIR", nothing)
@@ -70,10 +72,14 @@ const LEGATE_WRAPPER_LIBDIR = load_preference(LegatePreferences, "LEGATE_WRAPPER
 const WRAPPER_LIB_PATH = joinpath(LEGATE_WRAPPER_LIBDIR, "liblegate_jl_wrapper.so")
 const LEGATE_LIB_PATH = joinpath(LEGATE_LIBDIR, "liblegate.so")
 
-(isnothing(LEGATE_LIBDIR) || isnothing(LEGATE_WRAPPER_LIBDIR)) && error("Legate.jl: LEGATE_LIBDIR or LEGATE_WRAPPER_LIBDIR preference not set. Check LocalPreferences.toml")
+(isnothing(LEGATE_LIBDIR) || isnothing(LEGATE_WRAPPER_LIBDIR)) && error(
+    "Legate.jl: LEGATE_LIBDIR or LEGATE_WRAPPER_LIBDIR preference not set. Check LocalPreferences.toml",
+)
 
 if !isfile(WRAPPER_LIB_PATH)
-    error("Could not find legate wrapper library. $(WRAPPER_LIB_PATH) is not a file. Check LocalPreferences.toml. If in developer mode try Pkg.build()")
+    error(
+        "Could not find legate wrapper library. $(WRAPPER_LIB_PATH) is not a file. Check LocalPreferences.toml. If in developer mode try Pkg.build()",
+    )
 end
 
 #! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
@@ -99,4 +105,4 @@ function __init__()
         "
     Base.atexit(Legate.legate_finish)
 end
-end 
+end

@@ -17,7 +17,6 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
  */
 
-
 #include "legate.h"
 #include "legion.h"
 
