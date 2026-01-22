@@ -1,4 +1,4 @@
-#= Copyright 2025 Northwestern University, 
+#= Copyright 2026 Northwestern University, 
  *                   Carnegie Mellon University University
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +29,7 @@ include("preference.jl")
 
 const MIN_CUDA_VERSION = v"13.0"
 const MAX_CUDA_VERSION = v"13.9.999"
-const SUPPORTED_LEGATE_VERSIONS = ["25.10.1", "25.11.00"]
+const SUPPORTED_LEGATE_VERSIONS = ["25.10.00", "25.11.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
@@ -62,7 +62,7 @@ elseif LegatePreferences.MODE == "conda"
     )
 else
     error(
-        "Legate.jl: Unknown mode $(LegatePreferences.MODE). Must be one of 'jll', 'developer', or 'conda'.",
+        "Legate.jl: Unknown mode $(LegatePreferences.MODE). Must be one of 'jll', 'developer', or 'conda'."
     )
 end
 
@@ -73,12 +73,12 @@ const WRAPPER_LIB_PATH = joinpath(LEGATE_WRAPPER_LIBDIR, "liblegate_jl_wrapper.s
 const LEGATE_LIB_PATH = joinpath(LEGATE_LIBDIR, "liblegate.so")
 
 (isnothing(LEGATE_LIBDIR) || isnothing(LEGATE_WRAPPER_LIBDIR)) && error(
-    "Legate.jl: LEGATE_LIBDIR or LEGATE_WRAPPER_LIBDIR preference not set. Check LocalPreferences.toml",
+    "Legate.jl: LEGATE_LIBDIR or LEGATE_WRAPPER_LIBDIR preference not set. Check LocalPreferences.toml"
 )
 
 if !isfile(WRAPPER_LIB_PATH)
     error(
-        "Could not find legate wrapper library. $(WRAPPER_LIB_PATH) is not a file. Check LocalPreferences.toml. If in developer mode try Pkg.build()",
+        "Could not find legate wrapper library. $(WRAPPER_LIB_PATH) is not a file. Check LocalPreferences.toml. If in developer mode try Pkg.build()"
     )
 end
 
@@ -88,13 +88,20 @@ end
 include("util.jl")
 include("type.jl")
 
-function __init__()
-    LegatePreferences.check_unchanged()
+### These functions guard against a user trying
+### to start multiple runtimes and also to allow
+## package extensions which always try to re-load
 
+const RUNTIME_INACTIVE = -1
+const RUNTIME_ACTIVE = 0
+const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
+const _start_lock = ReentrantLock()
+
+runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
+
+function _start_runtime()
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
-
-    @initcxx
 
     Legate.start_legate()
     @debug "Started Legate"
@@ -104,5 +111,39 @@ function __init__()
             robustness. Thank you for your patience and support as we work towards these goals.
         "
     Base.atexit(Legate.legate_finish)
+    return RUNTIME_ACTIVE
+end
+
+function ensure_runtime!()
+    # fast path (no lock)
+    rt = _runtime_ref[]
+    (rt == RUNTIME_INACTIVE) || return rt
+
+    lock(_start_lock)
+    try
+        # re-check after lock
+        rt = _runtime_ref[]
+        (rt == RUNTIME_INACTIVE) || return rt
+
+        rt = _start_runtime()
+        _runtime_ref[] = rt
+        return rt
+    finally
+        unlock(_start_lock)
+    end
+end
+
+_is_precompiling() = ccall(:jl_generating_output, Cint, ()) != 0
+
+function __init__()
+    # @info "Legate __init__" pid=getpid() tid=Threads.threadid() precomp=_is_precompiling()
+
+    LegatePreferences.check_unchanged()
+
+    @initcxx
+
+    _is_precompiling() && return nothing
+
+    ensure_runtime!()
 end
 end

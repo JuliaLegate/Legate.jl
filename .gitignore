@@ -2,6 +2,7 @@
 *build/*
 
 .localenv
+.envrc
 
 build
 build/*

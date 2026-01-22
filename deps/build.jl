@@ -1,4 +1,4 @@
-#= Copyright 2025 Northwestern University, 
+#= Copyright 2026 Northwestern University, 
  *                   Carnegie Mellon University University
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +17,7 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
 using Preferences
-import LegatePreferences
+using LegatePreferences: LegatePreferences
 
 const SUPPORTED_LEGATE_VERSIONS = ["25.10.00", "25.11.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
@@ -43,7 +43,7 @@ function run_sh(cmd::Cmd, filename::String)
 
     try
         run(pipeline(cmd; stdout=tmp_build_log, stderr=err_log, append=false))
-        println(contents) 
+        println(contents)
         contents = read(tmp_build_log, String)
         open(build_log, "a") do io
             println(contents)
@@ -89,7 +89,7 @@ end
 # https://github.com/ejmeitz/cuNumeric.jl/blob/main/scripts/README.md
 function patch_legion(repo_root::String, legate_root::String)
     @info "Legate.jl: Patching Legion"
-    
+
     legion_patch = joinpath(repo_root, "scripts/patch_legion.sh")
     @info "Legate.jl: Running legion patch script: $legion_patch"
     run_sh(`bash $legion_patch $repo_root $legate_root`, "legion_patch")
@@ -98,21 +98,21 @@ end
 function build_jlcxxwrap(repo_root)
     @info "libcxxwrap: Downloading"
     build_libcxxwrap = joinpath(repo_root, "scripts/install_cxxwrap.sh")
-    
+
     version_path = joinpath(DEPOT_PATH[1], "dev/libcxxwrap_julia_jll/override/LEGATE_INSTALL.txt")
 
     if isfile(version_path)
         version = strip(read(version_path, String))
         if version ∈ SUPPORTED_LEGATE_VERSIONS
             @info "libcxxwrap: Found supported version built with Legate.jl: $version"
-            return
+            return nothing
         else
             @info "libcxxwrap: Unsupported version found: $version. Rebuilding..."
         end
     else
         @info "libcxxwrap: No version file found. Starting build..."
     end
-  
+
     @info "libcxxwrap: Running build script: $build_libcxxwrap"
     run_sh(`bash $build_libcxxwrap $repo_root`, "libcxxwrap")
     open(version_path, "w") do io
@@ -120,11 +120,10 @@ function build_jlcxxwrap(repo_root)
     end
 end
 
-
 function build_cpp_wrapper(repo_root, legate_root, install_root)
     @info "liblegatewrapper: Building C++ Wrapper Library"
     if isdir(install_root)
-        rm(install_root, recursive = true)
+        rm(install_root; recursive=true)
         mkdir(install_root)
     end
 
@@ -156,23 +155,23 @@ function replace_nothing_jll(lib, jll)
     return lib
 end
 
-function replace_nothing_conda_jll(mode, lib, jll)
-    if isnothing(lib)
+function replace_nothing_conda_jll(mode, root, jll)
+    if isnothing(root)
         if mode == LegatePreferences.MODE_CONDA
-            lib = joinpath(load_preference(LegatePreferences, "legate_conda_env", nothing), "lib")
+            root = load_preference(LegatePreferences, "legate_conda_env", nothing)
         else
             eval(:(using $(jll)))
             jll_mod = getfield(Main, jll)
-            lib = joinpath(jll_mod.artifact_dir, "lib")
+            root = jll_mod.artifact_dir
         end
     end
-    return lib
+    return root
 end
 
 function build(mode)
     if mode == LegatePreferences.MODE_JLL
         @warn "No reason to Build on JLL mode. Exiting Build"
-        return
+        return nothing
     end
 
     pkg_root = up_dir(@__DIR__)
@@ -184,14 +183,16 @@ function build(mode)
     end
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-    legate_lib = load_preference(LegatePreferences, "LEGATE_LIB", nothing)
-    legate_lib = replace_nothing_conda_jll(mode, legate_lib, :legate_jll)
+    # can be nothing so this errors if not set
+    legate_root = load_preference(LegatePreferences, "legate_path", nothing)
+    legate_root = replace_nothing_conda_jll(mode, legate_root, :legate_jll)
+    legate_lib = joinpath(legate_root, "lib")
 
     # only patch if not legate_jll
     if mode == LegatePreferences.MODE_DEVELOPER || mode == LegatePreferences.MODE_CONDA
-        patch_legion(pkg_root, up_dir(legate_lib)) 
+        patch_legion(pkg_root, up_dir(legate_lib))
     end
-    
+
     if mode == LegatePreferences.MODE_DEVELOPER
         install_dir = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build")
         build_jlcxxwrap(pkg_root) # $pkg_root/libcxxwrap-julia 

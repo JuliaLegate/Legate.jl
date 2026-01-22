@@ -1,4 +1,4 @@
-#= Copyright 2025 Northwestern University, 
+#= Copyright 2026 Northwestern University, 
  *                   Carnegie Mellon University University
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +33,7 @@ const _libcuda_names = (
     "libcuda.dylib", # macOS
 )
 
-const CUresult     = Cint
+const CUresult = Cint
 const CUDA_SUCCESS = CUresult(0)
 
 # Assumes the driver is visible, if its only installed

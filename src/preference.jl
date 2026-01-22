@@ -1,4 +1,4 @@
-# #= Copyright 2025 Northwestern University, 
+# #= Copyright 2026 Northwestern University, 
 #  *                   Carnegie Mellon University University
 #  *
 #  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -75,7 +75,7 @@ function check_jll(m::Module)
 
         if (m_host_cuda == "none")
             error(
-                "$(string(m)) installed but not available on this platform.\n $(string(legate_jll.host_platform))",
+                "$(string(m)) installed but not available on this platform.\n $(string(legate_jll.host_platform))"
             )
         end
 
@@ -83,7 +83,7 @@ function check_jll(m::Module)
         valid_cuda_version = MIN_CUDA_VERSION <= v_host_cuda <= MAX_CUDA_VERSION
         if !valid_cuda_version
             error(
-                "$(string(m)) installed but not available on this platform. Host CUDA ver: $(v_host_cuda) not in range supported by $(string(m)): $(MIN_CUDA_VERSION)-$(MAX_CUDA_VERSION).",
+                "$(string(m)) installed but not available on this platform. Host CUDA ver: $(v_host_cuda) not in range supported by $(string(m)): $(MIN_CUDA_VERSION)-$(MAX_CUDA_VERSION)."
             )
         else
             error("$(string(m)) installed but not available on this platform. Unknown reason.")
@@ -119,7 +119,7 @@ end
 
 function _find_paths(
     mode::Developer,
-    legate_jll_module::Module,
+    legate_jll_module,
     legate_jll_wrapper_module::Nothing,
 )
     legate_path = ""
