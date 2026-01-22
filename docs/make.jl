@@ -28,7 +28,6 @@ makedocs(;
         "Build Options" => "install.md",
         "Back End Details" => "usage.md",
         "Public API" => "api.md",
-        "Cpp API" => "CppAPI/index.html",
     ],
 )
 
