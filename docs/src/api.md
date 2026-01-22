@@ -11,7 +11,7 @@ Depth = 2:2
 
 ```@autodocs
 Modules = [Legate]
-Pages = ["util.jl"]
+Pages = ["api.jl", "util.jl"]
 ```
 
 # LegatePreferences
