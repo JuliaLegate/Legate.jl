@@ -13,6 +13,9 @@ build.log
 node_modules
 package-lock.json
 
+_doxygen/
+_doxygen/**
+
 deps_install.patch
 
 LocalPreferences.toml

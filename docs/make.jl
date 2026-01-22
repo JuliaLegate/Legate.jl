@@ -6,10 +6,8 @@ function build_cpp_docs()
     run(`doxygen Doxyfile`)
 end
 
+# this creates src/_doxygen/html
 build_cpp_docs()
-
-# hopefully creates something like docs/_tmp_doxygen.md
-# we want to append this in api.md
 
 makedocs(;
     sitename="Legate.jl",
@@ -27,10 +25,16 @@ makedocs(;
     ],
 )
 
+builddir=joinpath(@__DIR__, "build")
+
 DocumenterVitepress.deploydocs(;
     repo="github.com/JuliaLegate/Legate.jl",
-    target=joinpath(@__DIR__, "build"),
+    target=builddir,
     branch="gh-pages",
     devbranch="main",
     push_preview=true,
 )
+
+# we need to move the doxygen output into the right place for DocumenterVitepress
+doxygen_src = joinpath(@__DIR__, "src", "_doxygen", "html")
+mv(doxygen_src, joinpath(builddir, "1", "doxygen"))
