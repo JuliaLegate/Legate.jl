@@ -1,6 +1,6 @@
 # Project settings
 PROJECT_NAME           = "Legate.jl"
-OUTPUT_DIRECTORY       = docs/_doxygen
+OUTPUT_DIRECTORY       = docs/src/doxygen
 INPUT                  = ./lib/legate_jl_wrapper/src ./lib/legate_jl_wrapper/include
 RECURSIVE              = YES
 FILE_PATTERNS          = *.cpp *.hpp *.h *.inl

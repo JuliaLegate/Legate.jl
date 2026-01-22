@@ -8,6 +8,9 @@ Pages = ["api.md"]
 Depth = 2:2
 ```
 
+[Test](./CppAPI/index.html)
+
+
 ```@autodocs
 Modules = [Legate]
 Pages = ["api.jl" "util.jl"]

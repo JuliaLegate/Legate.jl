@@ -10,6 +10,10 @@ end
 # this creates src/_doxygen/html
 build_cpp_docs()
 
+doxygen_src = joinpath(@__DIR__, "src", "doxygen", "html")
+mv(doxygen_src, joinpath(@__DIR__, "src", "CppAPI"); force=true)
+rm(joinpath(@__DIR__, "src", "doxygen"))
+
 makedocs(;
     sitename="Legate.jl",
     authors="Ethan Meitz and David Krasowska",
@@ -28,8 +32,7 @@ makedocs(;
 
 builddir=joinpath(@__DIR__, "build")
 # we need to move the doxygen output into the right place for DocumenterVitepress
-doxygen_src = joinpath(@__DIR__, "_doxygen", "html")
-mv(doxygen_src, joinpath(builddir, "1", "CppAPI"))
+mv(joinpath(@__DIR__, "src", "CppAPI"), joinpath(builddir, "1", "CppAPI"))
 
 DocumenterVitepress.deploydocs(;
     repo="github.com/JuliaLegate/Legate.jl",
