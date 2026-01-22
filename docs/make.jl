@@ -29,7 +29,7 @@ makedocs(;
 builddir=joinpath(@__DIR__, "build")
 # we need to move the doxygen output into the right place for DocumenterVitepress
 doxygen_src = joinpath(@__DIR__, "_doxygen", "html")
-mv(doxygen_src, joinpath(builddir, "1", "assets", "doxygen"))
+mv(doxygen_src, joinpath(builddir, "1", "CppAPI"))
 
 DocumenterVitepress.deploydocs(;
     repo="github.com/JuliaLegate/Legate.jl",
