@@ -3,7 +3,8 @@ using Legate
 using LegatePreferences
 
 function build_cpp_docs()
-    run(`doxygen Doxyfile`)
+    doxyfile = joinpath(@__DIR__, "Doxyfile")
+    run(`doxygen ${doxyfile}`)
 end
 
 # this creates src/_doxygen/html
