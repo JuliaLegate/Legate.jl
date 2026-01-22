@@ -4,7 +4,7 @@ using LegatePreferences
 
 function build_cpp_docs()
     doxyfile = joinpath(@__DIR__, "Doxyfile")
-    run(`doxygen ${doxyfile}`)
+    run(`doxygen $doxyfile`)
 end
 
 # this creates src/_doxygen/html
@@ -37,5 +37,5 @@ DocumenterVitepress.deploydocs(;
 )
 
 # we need to move the doxygen output into the right place for DocumenterVitepress
-doxygen_src = joinpath(@__DIR__, "src", "_doxygen", "html")
+doxygen_src = joinpath(@__DIR__, "_doxygen", "html")
 mv(doxygen_src, joinpath(builddir, "1", "doxygen"))
