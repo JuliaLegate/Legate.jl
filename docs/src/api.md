@@ -24,4 +24,4 @@ Pages = ["LegatePreferences.jl"]
 
 
 # CppAPI
-We have a Cpp API documentation located [here](./CppAPI)
+We have a Cpp API documentation located [here](./CppAPI/index.html)
