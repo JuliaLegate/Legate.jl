@@ -9,10 +9,9 @@ Depth = 2:2
 ```
 
 
-
 ```@autodocs
 Modules = [Legate]
-Pages = ["api.jl" "util.jl"]
+Pages = ["util.jl"]
 ```
 
 # LegatePreferences
@@ -22,3 +21,7 @@ This section details how to set custom build configuration options. To see more 
 Modules = [LegatePreferences]
 Pages = ["LegatePreferences.jl"]
 ```
+
+
+# CppAPI
+We have a Cpp API documentation located [here](./CppAPI/index.html)
