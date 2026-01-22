@@ -87,7 +87,6 @@ end
 
 include("util.jl")
 include("type.jl")
-include("api.jl")
 
 ### These functions guard against a user trying
 ### to start multiple runtimes and also to allow
