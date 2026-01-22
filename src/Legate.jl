@@ -25,6 +25,8 @@ import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
 
+include("api.jl")
+
 include("preference.jl")
 
 const MIN_CUDA_VERSION = v"13.0"

@@ -6,7 +6,7 @@ Start the Legate runtime.
 This function initializes the global Legate runtime and must be called
 before creating tasks or data objects.
 """
-function start_legate() end
+start_legate
 
 """
     legate_finish() -> Int32
@@ -15,7 +15,7 @@ Finalize the Legate runtime.
 
 Returns an integer status code from the runtime shutdown procedure.
 """
-function legate_finish() end
+legate_finish
 
 """
     get_runtime() -> Runtime
@@ -24,21 +24,21 @@ Return the current Legate runtime instance.
 
 This returns a handle to the global `Runtime` object managed by Legate.
 """
-function get_runtime() end
+get_runtime
 
 """
     has_started() -> Bool
 
 Check whether the Legate runtime has started.
 """
-function has_started() end
+has_started
 
 """
     has_finished() -> Bool
 
 Check whether the Legate runtime has finished.
 """
-function has_finished() end
+has_finished
 
 """
     create_auto_task(rt::Runtime, lib::Library, id::LocalTaskID) -> AutoTask
@@ -53,7 +53,7 @@ Create an auto task in the runtime.
 # Returns
 A newly created `AutoTask`.
 """
-function create_auto_task(rt, lib, id) end
+create_auto_task
 
 """
     submit_auto_task(rt::Runtime, task::AutoTask)
@@ -62,7 +62,7 @@ Submit an auto task to the runtime.
 
 Ownership of the task is transferred to the runtime upon submission.
 """
-function submit_auto_task(rt, task) end
+submit_auto_task
 
 """
     submit_manual_task(rt::Runtime, task::ManualTask)
@@ -71,14 +71,14 @@ Submit a manual task to the runtime.
 
 Ownership of the task is transferred to the runtime upon submission.
 """
-function submit_manual_task(rt, task) end
+submit_manual_task
 
 """
     string_to_scalar(str::AbstractString) -> Scalar
 
 Convert a string to a `Scalar`.
 """
-function string_to_scalar(str) end
+string_to_scalar
 
 """
     align(a::Variable, b::Variable) -> Constraint
@@ -87,7 +87,7 @@ Align two variables.
 
 Returns a new constraint representing the alignment of `a` and `b`.
 """
-function align(a, b) end
+align
 
 """
     create_unbound_array(ty::Type;
@@ -101,7 +101,7 @@ Create an unbound array.
 - `dim`: Number of dimensions.
 - `nullable`: Whether the array can contain null values.
 """
-function create_unbound_array(ty; dim=1, nullable=false) end
+create_unbound_array
 
 """
     create_array(shape::Shape, ty::Type;
@@ -116,7 +116,7 @@ Create an array with a specified shape.
 - `nullable`: Whether the array can contain null values.
 - `optimize_scalar`: Whether to optimize scalar storage.
 """
-function create_array(shape, ty; nullable=false, optimize_scalar=false) end
+create_array
 
 """
     create_unbound_store(ty::Type;
@@ -128,7 +128,7 @@ Create an unbound store.
 - `ty`: Element type of the store.
 - `dim`: Dimensionality of the store.
 """
-function create_unbound_store(ty; dim=1) end
+create_unbound_store
 
 """
     create_store(shape::Shape, ty::Type;
@@ -141,7 +141,7 @@ Create a store with a specified shape.
 - `ty`: Element type.
 - `optimize_scalar`: Whether to optimize scalar storage.
 """
-function create_store(shape, ty; optimize_scalar=false) end
+create_store
 
 """
     store_from_scalar(scalar::Scalar;
@@ -153,7 +153,7 @@ Create a store from a scalar value.
 - `scalar`: Scalar value to store.
 - `shape`: Shape of the resulting store.
 """
-function store_from_scalar(scalar; shape=Shape(1)) end
+store_from_scalar
 
 """
     time_microseconds() -> UInt64
@@ -163,7 +163,7 @@ Measure time in microseconds.
 Returns a monotonically increasing timestamp suitable for performance
 measurement.
 """
-function time_microseconds() end
+time_microseconds
 
 """
     time_nanoseconds() -> UInt64
@@ -173,4 +173,4 @@ Measure time in nanoseconds.
 Returns a monotonically increasing timestamp suitable for fine-grained
 performance measurement.
 """
-function time_nanoseconds() end
+time_nanoseconds
