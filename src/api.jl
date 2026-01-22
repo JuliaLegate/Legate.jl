@@ -3,7 +3,7 @@
 
 Start the Legate runtime.
 
-This function initializes the global Legate runtime and must be called
+This function initializes the Legate runtime and must be called
 before creating tasks or data objects.
 """
 start_legate
@@ -22,7 +22,7 @@ legate_finish
 
 Return the current Legate runtime instance.
 
-This returns a handle to the global `Runtime` object managed by Legate.
+This returns a handle to the singleton `Runtime` object managed by Legate.
 """
 get_runtime
 
@@ -49,9 +49,6 @@ Create an auto task in the runtime.
 - `rt`: The current runtime instance.
 - `lib`: The library to associate with the task.
 - `id`: The local task identifier.
-
-# Returns
-A newly created `AutoTask`.
 """
 create_auto_task
 
@@ -59,8 +56,6 @@ create_auto_task
     submit_auto_task(rt::Runtime, task::AutoTask)
 
 Submit an auto task to the runtime.
-
-Ownership of the task is transferred to the runtime upon submission.
 """
 submit_auto_task
 
@@ -68,8 +63,6 @@ submit_auto_task
     submit_manual_task(rt::Runtime, task::ManualTask)
 
 Submit a manual task to the runtime.
-
-Ownership of the task is transferred to the runtime upon submission.
 """
 submit_manual_task
 
@@ -159,9 +152,6 @@ store_from_scalar
     time_microseconds() -> UInt64
 
 Measure time in microseconds.
-
-Returns a monotonically increasing timestamp suitable for performance
-measurement.
 """
 time_microseconds
 
@@ -169,8 +159,5 @@ time_microseconds
     time_nanoseconds() -> UInt64
 
 Measure time in nanoseconds.
-
-Returns a monotonically increasing timestamp suitable for fine-grained
-performance measurement.
 """
 time_nanoseconds
