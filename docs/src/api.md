@@ -8,7 +8,6 @@ Pages = ["api.md"]
 Depth = 2:2
 ```
 
-[Test](./CppAPI/index.html)
 
 
 ```@autodocs
