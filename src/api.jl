@@ -53,14 +53,14 @@ Create an auto task in the runtime.
 create_auto_task
 
 """
-    submit_auto_task(rt::Runtime, task::AutoTask)
+    submit_auto_task(rt::Runtime, AutoTask)
 
 Submit an auto task to the runtime.
 """
 submit_auto_task
 
 """
-    submit_manual_task(rt::Runtime, task::ManualTask)
+    submit_manual_task(rt::Runtime, ManualTask)
 
 Submit a manual task to the runtime.
 """
@@ -421,28 +421,28 @@ Represents an automatically scheduled task. Supports adding inputs, outputs, sca
 AutoTask
 
 """
-    add_input(task::AutoTask, LogicalArray) -> Variable
+    add_input(AutoTask, LogicalArray) -> Variable
 
 Add a logical array as an input to the task.
 """
 add_input
 
 """
-    add_output(task::AutoTask, LogicalArray) -> Variable
+    add_output(AutoTask, LogicalArray) -> Variable
 
 Add a logical array as an output of the task.
 """
 add_output
 
 """
-    add_scalar(task::AutoTask, scalar::Scalar)
+    add_scalar(AutoTask, scalar::Scalar)
 
 Add a scalar argument to the task.
 """
 add_scalar
 
 """
-    add_constraint(task::AutoTask, c::Constraint)
+    add_constraint(AutoTask, c::Constraint)
 
 Add a constraint to the task.
 """
@@ -456,21 +456,21 @@ Represents a manually scheduled task. Supports adding inputs, outputs, and scala
 ManualTask
 
 """
-    add_input(task::ManualTask, LogicalStore)
+    add_input(ManualTask, LogicalStore)
 
 Add a logical store as an input to the task.
 """
 add_input
 
 """
-    add_output(task::ManualTask, LogicalStore)
+    add_output(ManualTask, LogicalStore)
 
 Add a logical store as an output of the task.
 """
 add_output
 
 """
-    add_scalar(task::ManualTask, scalar::Scalar)
+    add_scalar(ManualTask, scalar::Scalar)
 
 Add a scalar argument to the task.
 """
