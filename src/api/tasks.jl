@@ -34,20 +34,6 @@ Returns a new constraint representing the alignment of `a` and `b`.
 align
 
 """
-    AutoTask
-
-Represents an automatically scheduled task. Supports adding inputs, outputs, scalars, and constraints.
-"""
-AutoTask
-
-"""
-    ManualTask
-
-Represents a manually scheduled task. Supports adding inputs, outputs, and scalars.
-"""
-ManualTask
-
-"""
     add_constraint(AutoTask, c::Constraint)
 
 Add a constraint to the task.

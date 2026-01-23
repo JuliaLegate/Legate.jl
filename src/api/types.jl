@@ -34,6 +34,20 @@ A globally unique identifier for a task across processes or nodes.
 GlobalTaskID
 
 """
+    AutoTask
+
+Represents an automatically scheduled task. Supports adding inputs, outputs, scalars, and constraints.
+"""
+AutoTask
+
+"""
+    ManualTask
+
+Represents a manually scheduled task. Supports adding inputs, outputs, and scalars.
+"""
+ManualTask
+
+"""
     StoreTarget
 
 Represents the target storage type or location for a store in the mapping layer.
