@@ -37,34 +37,7 @@ using Pkg; Pkg.add(url = "https://github.com/JuliaLegate/Legate.jl", rev = "main
 ```
 The `rev` option can be main or any tagged version.
 
-#### 2b. Use preinstalled version of [Legate](https://github.com/nv-legate/legate)
-We support using a custom install version of Legate. See https://docs.nvidia.com/legate/latest/installation.html for details about different install configurations.
-
-Following the `use_developer_mode()` instructions above, you can add the following to LegatePreference:
-```julia
-using LegatePreferences; LegatePreferences.use_developer_mode(;use_legate_jll=false,  legate_path="/path/to/legate/root")
-
-```
-#### 2c. Use a conda environment to install Legate.jl
-> [!WARNING]  
-> Installing using conda does not pass our CI. This may break. 
-
-Note, you need conda >= 24.1 to install the conda package. More installation details are found [here](https://docs.nvidia.com/legate/latest/installation.html).
-```bash
-# with a new environment
-conda create -n myenv -c conda-forge -c legate legate
-# into an existing environment
-conda install -c conda-forge -c legate legate
-```
-Once you have the conda package installed, you can activate here. 
-```bash
-conda activate [conda-env-with-legate]
-```
-```julia
-using Pkg; Pkg.add(url = "https://github.com/JuliaLegate/Legate.jl", rev = "main")
-using LegatePreferences; LegatePreferences.use_conda("conda-env-with-legate");
-Pkg.build()
-```
+For more install instructions, please visit [here](./install)
 
 ### 3. Contribution to Legate.jl
 

@@ -32,7 +32,10 @@ To use developer mode,
 using LegatePreferences; LegatePreferences.use_developer_mode(; use_legate_jll=true, legate_path=nothing)
 ```
 By default `use_legate_jll` will be set to true. However, you can set a custom branch and/or use a custom path of legate. By using disabling `use_legate_jll`, you can set `legate_path` to your custom install. 
+```julia
+using LegatePreferences; LegatePreferences.use_developer_mode(;use_legate_jll=false,  legate_path="/path/to/legate/root")
 
+```
 
 ## Link Against Existing Conda Environment
 
@@ -53,7 +56,7 @@ conda activate [conda-env-with-legate]
 ```
 
 To update `LocalPreferences.toml` so that a local conda environment is used as the binary provider for cupynumeric run the following command. `conda_env` should be the absolute path to the conda environment (e.g., the value of CONDA_PREFIX when your environment is active). For example, this path is: `/home/JuliaLegate/.conda/envs/legate-gpu`.
-
 ```julia
-using Legate; Legate.use_conda("<env-path>")
+using LegatePreferences; LegatePreferences.use_conda("conda-env-with-legate");
+Pkg.build()
 ```
