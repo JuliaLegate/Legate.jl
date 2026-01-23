@@ -42,7 +42,7 @@ We support using a custom install version of Legate. See https://docs.nvidia.com
 
 Following the `use_developer_mode()` instructions above, you can add the following to LegatePreference:
 ```julia
-julia --project=. -e 'using LegatePreferences; LegatePreferences.use_developer_mode(;use_legate_jll=false,  legate_path="/path/to/legate/root")'
+using LegatePreferences; LegatePreferences.use_developer_mode(;use_legate_jll=false,  legate_path="/path/to/legate/root")
 
 ```
 #### 2c. Use a conda environment to install Legate.jl

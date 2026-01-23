@@ -10,7 +10,7 @@ pkg> add Legate
 If you previously used a custom build or conda build and would like to revert back to using prebuilt JLLs, run the following command in the directory containing the Project.toml of your environment.
 
 ```julia
-julia --project -e 'using LegatePreferences; LegatePreferences.use_jll_binary()'
+using LegatePreferences; LegatePreferences.use_jll_binary()
 ```
 
 `LegatePreferences` is a separate module so that it can be used to configure the build settings before `Legate.jl` is added to your environment. To install it separately run
@@ -29,7 +29,7 @@ We require that you have the cuda driver `libcuda.so` on your path, cuda runtime
 
 To use developer mode, 
 ```julia
-julia --project -e 'using LegatePreferences; LegatePreferences.use_developer_mode(; use_legate_jll=true, legate_path=nothing)'
+using LegatePreferences; LegatePreferences.use_developer_mode(; use_legate_jll=true, legate_path=nothing)
 ```
 By default `use_legate_jll` will be set to true. However, you can set a custom branch and/or use a custom path of legate. By using disabling `use_legate_jll`, you can set `legate_path` to your custom install. 
 
@@ -55,5 +55,5 @@ conda activate [conda-env-with-legate]
 To update `LocalPreferences.toml` so that a local conda environment is used as the binary provider for cupynumeric run the following command. `conda_env` should be the absolute path to the conda environment (e.g., the value of CONDA_PREFIX when your environment is active). For example, this path is: `/home/JuliaLegate/.conda/envs/legate-gpu`.
 
 ```julia
-julia --project -e 'using Legate; Legate.use_conda("<env-path>")'
+using Legate; Legate.use_conda("<env-path>")
 ```
