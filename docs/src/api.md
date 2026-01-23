@@ -24,7 +24,7 @@ Pages = ["LegatePreferences.jl"]
 
 
 # CppAPI
-We have a Cpp API documentation located [here](/CppAPI/index.html){target="_self"}
+We have a Cpp API documentation located [here](./CppAPI/index.html){target="_self"}
 
 
-<a href="/CppAPI/index.html" target="_self">Trying this as well</a>
+<a href="./CppAPI/index.html" target="_self">Trying this as well</a>
