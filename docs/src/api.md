@@ -1,3 +1,4 @@
+# Public API
 ```@raw html
 <AuthorBadge
   author="krasow"
@@ -9,9 +10,10 @@
 />
 ```
 
-# Public API
-
-User facing functions supported by Legate.jl
+User facing functions supported by Legate.jl. The Cpp wrapper API is located
+```@raw html
+<a href="./CppAPI/index.html" target="_self">here</a>
+```
 
 ```@contents
 Pages = ["api.md"]
@@ -22,19 +24,4 @@ Depth = 2:2
 ```@autodocs
 Modules = [Legate]
 Pages = ["api.jl", "util.jl"]
-```
-
-# LegatePreferences
-This section details how to set custom build configuration options. To see more details visit our install guide [here](./install.md).
-
-```@autodocs
-Modules = [LegatePreferences]
-Pages = ["LegatePreferences.jl"]
-```
-
-
-# CppAPI
-We have a Cpp API documentation located 
-```@raw html
-<a href="./CppAPI/index.html" target="_self">here</a>
 ```
