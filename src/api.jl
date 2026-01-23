@@ -157,7 +157,7 @@ Create a store from a scalar value.
 - `scalar`: Scalar value to store.
 - `shape`: Shape of the resulting store.
 """
-function store_from_scalar(scalar::Scalar; shape::Shape=Shape(1))
+function store_from_scalar(scalar::Scalar; shape::Shape=Shape([1]))
     store_from_scalar(scalar, shape) # cxxwrap call
 end
 
@@ -174,3 +174,304 @@ time_microseconds
 Measure time in nanoseconds.
 """
 time_nanoseconds
+
+"""
+    Library
+
+Represents a computational or data library. Serves as a container for tasks, arrays, and stores.
+"""
+Library
+
+"""
+    Variable
+
+Represents a variable in the task system, typically produced or consumed by tasks.
+"""
+Variable
+
+"""
+    Constraint
+
+Represents a dependency or restriction for a task, such as ordering or memory constraints.
+"""
+Constraint
+
+"""
+    LocalTaskID
+
+A unique identifier for a task within a single process or node.
+"""
+LocalTaskID
+
+"""
+    GlobalTaskID
+
+A globally unique identifier for a task across processes or nodes.
+"""
+GlobalTaskID
+
+"""
+    StoreTarget
+
+Represents the target storage type or location for a store in the mapping layer.
+"""
+StoreTarget
+
+"""
+    Shape
+
+Represents the dimensions of an array or store. Can be constructed from a vector of `UInt64`.
+"""
+Shape
+
+"""
+    Scalar
+
+Represents a scalar value used in tasks. Can be constructed from `Float32`, `Float64`, or `Int`.
+"""
+Scalar
+
+"""
+    Slice
+
+Represents a slice of an array or store. Can be constructed from optional start and stop indices.
+"""
+Slice
+
+"""
+    PhysicalStore
+
+Represents a physical storage container. Provides methods to query its dimensions, type, and accessibility.
+"""
+PhysicalStore
+
+"""
+    dim(PhysicalStore) -> Int
+
+Return the number of dimensions of the physical store.
+"""
+dim
+
+"""
+    type(PhysicalStore) -> DataType
+
+Return the data type of elements stored in the physical store.
+"""
+type
+
+"""
+    is_readable(PhysicalStore) -> Bool
+
+Check if the physical store can be read.
+"""
+is_readable
+
+"""
+    is_writable(PhysicalStore) -> Bool
+
+Check if the physical store can be written to.
+"""
+is_writable
+
+"""
+    is_reducible(PhysicalStore) -> Bool
+
+Check if the physical store supports reduction operations.
+"""
+is_reducible
+
+"""
+    valid(PhysicalStore) -> Bool
+
+Check if the physical store is in a valid state.
+"""
+valid
+
+"""
+    LogicalStore
+
+Represents a logical view over a physical store. Supports reinterpretation, promotion, slicing, and storage queries.
+"""
+LogicalStore
+
+"""
+    dim(LogicalStore) -> Int
+
+Return the number of dimensions of the logical store.
+"""
+dim
+
+"""
+    type(LogicalStore) -> LegateType
+
+Return the data type of elements in the logical store.
+"""
+type
+
+"""
+    reinterpret_as(LogicalStore, T::LegateType) -> LogicalStore
+
+Return a view of the logical store reinterpreted as type `T`.
+"""
+reinterpret_as
+
+"""
+    promote(LogicalStore, T::LegateType) -> LogicalStore
+
+Return a new logical store with elements promoted to type `T`.
+"""
+promote
+
+"""
+    slice(LogicalStore, indices...) -> LogicalStore
+
+Return a sliced view of the logical store according to the given indices.
+"""
+slice
+
+"""
+    get_physical_store(LogicalStore) -> PhysicalStore
+
+Return the underlying physical store of this logical store.
+"""
+get_physical_store
+
+"""
+    equal_storage(store1::LogicalStore, store2::LogicalStore) -> Bool
+
+Check if two logical stores refer to the same underlying physical store.
+"""
+equal_storage
+
+"""
+    PhysicalArray
+
+A physical array container. Provides access to dimensions, type, and raw data pointer.
+"""
+PhysicalArray
+
+"""
+    nullable(PhysicalArray) -> Bool
+
+Check if the array supports null values.
+"""
+nullable
+
+"""
+    dim(PhysicalArray) -> Int
+
+Return the number of dimensions of the physical array.
+"""
+dim
+
+"""
+    type(PhysicalArray) -> LegateType
+
+Return the data type of the physical array elements.
+"""
+type
+
+"""
+    data(PhysicalArray) -> Ptr{T}
+
+Return a pointer to the raw data of the physical array.
+"""
+data
+
+"""
+    LogicalArray
+
+A logical view over a physical array. Supports unbound views and nullability checks.
+"""
+LogicalArray
+
+"""
+    dim(LogicalArray) -> Int
+
+Return the number of dimensions of the logical array.
+"""
+dim
+
+"""
+    type(LogicalArray) -> DataType
+
+Return the data type of elements in the logical array.
+"""
+type
+
+"""
+    unbound(LogicalArray) -> Bool
+
+Check if the logical array is unbound (not tied to a physical store).
+"""
+unbound
+
+"""
+    nullable(LogicalArray) -> Bool
+
+Check if the logical array supports null values.
+"""
+nullable
+
+"""
+    AutoTask
+
+Represents an automatically scheduled task. Supports adding inputs, outputs, scalars, and constraints.
+"""
+AutoTask
+
+"""
+    add_input(task::AutoTask, LogicalArray) -> Variable
+
+Add a logical array as an input to the task.
+"""
+add_input
+
+"""
+    add_output(task::AutoTask, LogicalArray) -> Variable
+
+Add a logical array as an output of the task.
+"""
+add_output
+
+"""
+    add_scalar(task::AutoTask, scalar::Scalar)
+
+Add a scalar argument to the task.
+"""
+add_scalar
+
+"""
+    add_constraint(task::AutoTask, c::Constraint)
+
+Add a constraint to the task.
+"""
+add_constraint
+
+"""
+    ManualTask
+
+Represents a manually scheduled task. Supports adding inputs, outputs, and scalars.
+"""
+ManualTask
+
+"""
+    add_input(task::ManualTask, LogicalStore)
+
+Add a logical store as an input to the task.
+"""
+add_input
+
+"""
+    add_output(task::ManualTask, LogicalStore)
+
+Add a logical store as an output of the task.
+"""
+add_output
+
+"""
+    add_scalar(task::ManualTask, scalar::Scalar)
+
+Add a scalar argument to the task.
+"""
+add_scalar
