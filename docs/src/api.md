@@ -20,8 +20,26 @@ Pages = ["api.md"]
 Depth = 2:2
 ```
 
-
+## Runtime Control and Performance Timing
 ```@autodocs
 Modules = [Legate]
-Pages = ["api.jl", "util.jl"]
+Pages = ["api/runtime.jl"]
+```
+
+## Data Structures and Storage Management
+```@autodocs
+Modules = [Legate]
+Pages = ["api/data.jl"]
+```
+
+## Task Creation and Execution
+```@autodocs
+Modules = [Legate]
+Pages = ["api/task.jl"]
+```
+
+## Core Types and Interfaces 
+```@autodocs
+Modules = [Legate]
+Pages = ["api/types.jl"]
 ```

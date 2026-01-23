@@ -87,7 +87,12 @@ end
 
 include("util.jl")
 include("type.jl")
-include("api.jl")
+
+# api functions and documentation
+include("api/types.jl")
+include("api/runtime.jl")
+include("api/data.jl")
+include("api/tasks.jl")
 
 ### These functions guard against a user trying
 ### to start multiple runtimes and also to allow
