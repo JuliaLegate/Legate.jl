@@ -97,12 +97,12 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .constructor<double>()
       .constructor<int>();  // julia lets me make with ints???
 
-  mod.add_type<legate::Slice>("Slice")
-      .constructor<std::optional<int64_t>, std::optional<int64_t>>();
-
   mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(
           WrapDefault());
+
+  mod.add_type<legate::Slice>("Slice")
+      .constructor<std::optional<int64_t>, std::optional<int64_t>>();
 
   mod.add_type<Parametric<TypeVar<1>>>("StoreTargetOptional")
       .apply<std::optional<legate::mapping::StoreTarget>>(WrapDefault());
