@@ -27,16 +27,6 @@ We support using a custom install version of Legate. See https://docs.nvidia.com
 
 We require that you have a g++ capable compiler of C++ 20, and a recent version CMake >= 3.26.
 
-
->[!TODO]
-> Right now, building Legate with CUDA support requires both the CUDA driver library (libcuda.so) and the CUDA runtime library (libcudart.so) to be discoverable on the system library path. Legate includes an automatic configure step that detects which CUDA components are available.
-> Automatic detection and use of CUDA versions provided via JLL packages is not yet implemented and remains a TODO.
-> In deps/cpp_wrapper.log, you will see the following. A CUDAToolkit version that is not self-contained with our JLL distributions.
-> ```
-> -- Found CUDAToolkit: /usr/local/cuda-13.0/targets/x86_64-linux/include (found version "13.0.48")
-> ```
-
-
 To use developer mode, 
 ```julia
 using LegatePreferences; LegatePreferences.use_developer_mode(; use_legate_jll=true, legate_path=nothing)
@@ -46,6 +36,13 @@ By default `use_legate_jll` will be set to true. However, you can set a custom b
 using LegatePreferences; LegatePreferences.use_developer_mode(;use_legate_jll=false,  legate_path="/path/to/legate/root")
 
 ```
+
+> [!TODO]
+> Right now, building Legate with CUDA support requires both the CUDA driver library (libcuda.so) and the CUDA runtime library (libcudart.so) to be discoverable on the system library path.
+> Automatic detection and use of CUDA versions provided via JLL packages is not yet implemented and remains a TODO.
+>
+> In `deps/cpp_wrapper.log`, you will a CUDAToolkit version that is not self-contained with our JLL distributions.
+
 
 ## Link Against Existing Conda Environment
 
