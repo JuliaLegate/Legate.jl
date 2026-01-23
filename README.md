@@ -4,7 +4,7 @@ Julia Bindings for nv-legate
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 > [!WARNING]  
-> Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and robustness. Our public beta launch is targeted for Fall 2025.
+> Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and robustness.
 
 ## Minimum prereqs
 - Ubuntu 20.04 or RHEL 8
@@ -27,21 +27,15 @@ juliaup default 1.11
 ```
 
 ### 2. Download Legate.jl
-Legate.jl is not on the general registry yet. To add Legate.jl to your environment run:
+To add Legate.jl to your environment run:
+```julia
+pkg> add Legate
+```
+Or, using the `Pkg` API:
 ```julia
 using Pkg; Pkg.add(url = "https://github.com/JuliaLegate/Legate.jl", rev = "main")
 ```
-The `rev` option can be main or any tagged version.  By default, this will use JLLs [legate_jll](https://github.com/JuliaPackaging/Yggdrasil/tree/master/L/legate) and [legate_jl_wrapper_jll](https://github.com/JuliaPackaging/Yggdrasil/tree/master/L/legate_jl_wrapper).
-
-To contribute to Legate.jl, we recommend cloning the repository and manually triggering the build process with `Pkg.build` or adding it to one of your existing environments with `Pkg.develop`. This will install clone[legate_jl_wrapper_jll](https://github.com/JuliaLegate/legate_jl_wrapper) into `/deps`. This will cause the wrapper to be built from source, bypassing the `legate_jl_wrapper_jll` prebuilt binary.
-
-```bash
-git clone https://github.com/JuliaLegate/Legate.jl.git
-julia --project=. -e 'using Pkg; Pkg.develop(path = "Legate.jl/lib/LegatePreferences")'
-julia --project=. -e 'using Pkg; Pkg.develop(path = "Legate.jl")'
-julia --project=. -e 'using LegatePreferences; LegatePreferences.use_developer_mode()'
-julia --project=. -e 'using Pkg; Pkg.build()'
-```
+The `rev` option can be main or any tagged version.
 
 #### 2b. Use preinstalled version of [Legate](https://github.com/nv-legate/legate)
 We support using a custom install version of Legate. See https://docs.nvidia.com/legate/latest/installation.html for details about different install configurations.
@@ -70,6 +64,21 @@ conda activate [conda-env-with-legate]
 using Pkg; Pkg.add(url = "https://github.com/JuliaLegate/Legate.jl", rev = "main")
 using LegatePreferences; LegatePreferences.use_conda("conda-env-with-legate");
 Pkg.build()
+```
+
+### 3. Contribution to Legate.jl
+
+To start, please [open an issue](https://github.com/JuliaLegate/Legate.jl/issues) that describes the problem or feature you plan to address.
+
+To contribute to Legate.jl, we recommend cloning the repository and manually triggering the build process with `Pkg.build` or adding it to one of your existing environments with `Pkg.develop`. 
+This will cause the wrapper to be built from source, bypassing the `legate_jl_wrapper_jll` prebuilt binary.
+
+```bash
+git clone https://github.com/JuliaLegate/Legate.jl.git
+julia --project=. -e 'using Pkg; Pkg.develop(path = "Legate.jl/lib/LegatePreferences")'
+julia --project=. -e 'using Pkg; Pkg.develop(path = "Legate.jl")'
+julia --project=. -e 'using LegatePreferences; LegatePreferences.use_developer_mode()'
+julia --project=. -e 'using Pkg; Pkg.build()'
 ```
 
 ## Contact

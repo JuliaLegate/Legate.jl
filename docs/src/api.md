@@ -1,3 +1,13 @@
+```@raw html
+<AuthorBadge
+  author="krasow"
+  platform="github"
+/>
+<AuthorBadge
+  author="ejmeitz"
+  platform="github"
+/>
+```
 
 # Public API
 
