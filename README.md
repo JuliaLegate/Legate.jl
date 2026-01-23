@@ -1,5 +1,5 @@
 # Legate.jl
-Julia Bindings for nv-legate
+Julia Bindings for [nv-legate](https://github.com/nv-legate/legate/)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
@@ -15,13 +15,13 @@ Julia Bindings for nv-legate
 curl -fsSL https://install.julialang.org | sh -s -- --default-channel 1.11
 ```
 
-This will install version 1.11 by default since that is what we have tested against. To verify 1.10 is the default run either of the following (you may need to source bashrc):
+This will install version 1.11 by default. To verify 1.11 is the default run either of the following (you may need to source bashrc):
 ```bash
 juliaup status
 julia --version
 ```
 
-If 1.10 is not your default, please set it to be the default. Other versions of Julia are untested.
+If 1.11 or 1.10 is not your default, please set it to be the default. Other versions of Julia are untested. 
 ```bash
 juliaup default 1.11
 ```
