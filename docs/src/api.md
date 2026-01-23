@@ -10,9 +10,9 @@
 />
 ```
 
-User facing functions supported by Legate.jl. The Cpp wrapper API is located
+User facing functions supported by Legate.jl. The cpp wrapper API is located
 ```@raw html
-<a href="./CppAPI/index.html" target="_self">here</a>
+<a href="./CppAPI/index.html" target="_self">here</a>.
 ```
 
 ```@contents

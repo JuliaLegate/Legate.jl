@@ -25,8 +25,8 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Build Options" => "install.md",
-        "Back End Details" => "usage.md",
+        "Install Guide" => "install.md",
+        "Useful info" => "usage.md",
         "Public API" => "api.md",
     ],
 )
