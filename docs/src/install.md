@@ -20,7 +20,7 @@ pkg> add LegatePreferences
 ```
 
 ## Developer mode
-> [!WARNING]  
+> [!TIP]  
 > This gives the most flexibility in installs. It is meant for developing on Legate.jl.
 
 We support using a custom install version of Legate. See https://docs.nvidia.com/legate/latest/installation.html for details about different install configurations, or building Legate from source.
@@ -37,7 +37,7 @@ using LegatePreferences; LegatePreferences.use_developer_mode(;use_legate_jll=fa
 
 ```
 
-> [!TODO]
+> [!WARNING]
 > Right now, building Legate with CUDA support requires both the CUDA driver library (libcuda.so) and the CUDA runtime library (libcudart.so) to be discoverable on the system library path.
 > Automatic detection and use of CUDA versions provided via JLL packages is not yet implemented and remains a TODO.
 >
