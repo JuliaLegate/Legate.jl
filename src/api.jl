@@ -239,6 +239,13 @@ Represents a slice of an array or store. Can be constructed from optional start 
 Slice
 
 """
+    LogicalStore
+
+Represents a logical view over a physical store. Supports reinterpretation, promotion, slicing, and storage queries.
+"""
+LogicalStore
+
+"""
     PhysicalStore
 
 Represents a physical storage container. Provides methods to query its dimensions, type, and accessibility.
@@ -246,16 +253,36 @@ Represents a physical storage container. Provides methods to query its dimension
 PhysicalStore
 
 """
-    dim(PhysicalStore) -> Int
+    LogicalArray
 
-Return the number of dimensions of the physical store.
+A logical view over a physical array. Supports unbound views and nullability checks.
+"""
+LogicalArray
+
+"""
+    PhysicalArray
+
+A physical array container. Provides access to dimensions, type, and raw data pointer.
+"""
+PhysicalArray
+
+"""
+    dim(PhysicalStore) -> Int
+    dim(LogicalStore) -> Int
+    dim(LogicalArray) -> Int
+    dim(PhysicalArray) -> Int
+
+Return the number of dimensions of the array/store.
 """
 dim
 
 """
-    type(PhysicalStore) -> DataType
-
-Return the data type of elements stored in the physical store.
+    type(PhysicalStore) -> LegateType
+    type(LogicalStore) -> LegateType
+    type(LogicalArray) -> LegateType
+    type(PhysicalArray) -> LegateType
+    
+Return the data type of elements stored in the array/store.
 """
 type
 
@@ -286,27 +313,6 @@ is_reducible
 Check if the physical store is in a valid state.
 """
 valid
-
-"""
-    LogicalStore
-
-Represents a logical view over a physical store. Supports reinterpretation, promotion, slicing, and storage queries.
-"""
-LogicalStore
-
-"""
-    dim(LogicalStore) -> Int
-
-Return the number of dimensions of the logical store.
-"""
-dim
-
-"""
-    type(LogicalStore) -> LegateType
-
-Return the data type of elements in the logical store.
-"""
-type
 
 """
     reinterpret_as(LogicalStore, T::LegateType) -> LogicalStore
@@ -344,32 +350,12 @@ Check if two logical stores refer to the same underlying physical store.
 equal_storage
 
 """
-    PhysicalArray
-
-A physical array container. Provides access to dimensions, type, and raw data pointer.
-"""
-PhysicalArray
-
-"""
+    nullable(LogicalArray) -> Bool
     nullable(PhysicalArray) -> Bool
 
 Check if the array supports null values.
 """
 nullable
-
-"""
-    dim(PhysicalArray) -> Int
-
-Return the number of dimensions of the physical array.
-"""
-dim
-
-"""
-    type(PhysicalArray) -> LegateType
-
-Return the data type of the physical array elements.
-"""
-type
 
 """
     data(PhysicalArray) -> Ptr{T}
@@ -379,39 +365,11 @@ Return a pointer to the raw data of the physical array.
 data
 
 """
-    LogicalArray
-
-A logical view over a physical array. Supports unbound views and nullability checks.
-"""
-LogicalArray
-
-"""
-    dim(LogicalArray) -> Int
-
-Return the number of dimensions of the logical array.
-"""
-dim
-
-"""
-    type(LogicalArray) -> DataType
-
-Return the data type of elements in the logical array.
-"""
-type
-
-"""
     unbound(LogicalArray) -> Bool
 
 Check if the logical array is unbound (not tied to a physical store).
 """
 unbound
-
-"""
-    nullable(LogicalArray) -> Bool
-
-Check if the logical array supports null values.
-"""
-nullable
 
 """
     AutoTask
@@ -421,25 +379,11 @@ Represents an automatically scheduled task. Supports adding inputs, outputs, sca
 AutoTask
 
 """
-    add_input(AutoTask, LogicalArray) -> Variable
+    ManualTask
 
-Add a logical array as an input to the task.
+Represents a manually scheduled task. Supports adding inputs, outputs, and scalars.
 """
-add_input
-
-"""
-    add_output(AutoTask, LogicalArray) -> Variable
-
-Add a logical array as an output of the task.
-"""
-add_output
-
-"""
-    add_scalar(AutoTask, scalar::Scalar)
-
-Add a scalar argument to the task.
-"""
-add_scalar
+ManualTask
 
 """
     add_constraint(AutoTask, c::Constraint)
@@ -449,27 +393,23 @@ Add a constraint to the task.
 add_constraint
 
 """
-    ManualTask
+    add_input(AutoTask, LogicalArray) -> Variable
+    add_input(ManualTask, LogicalStore) -> Variable
 
-Represents a manually scheduled task. Supports adding inputs, outputs, and scalars.
-"""
-ManualTask
-
-"""
-    add_input(ManualTask, LogicalStore)
-
-Add a logical store as an input to the task.
+Add a logical array/store as an input to the task.
 """
 add_input
 
 """
-    add_output(ManualTask, LogicalStore)
+    add_output(AutoTask, LogicalArray) -> Variable
+    add_output(ManualTask, LogicalStore) -> Variable
 
-Add a logical store as an output of the task.
+Add a logical array/store as an output of the task.
 """
 add_output
 
 """
+    add_scalar(AutoTask, scalar::Scalar)
     add_scalar(ManualTask, scalar::Scalar)
 
 Add a scalar argument to the task.
