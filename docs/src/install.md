@@ -31,9 +31,9 @@ To use developer mode,
 ```julia
 using LegatePreferences; LegatePreferences.use_developer_mode(; use_legate_jll=true, legate_path=nothing)
 ```
-By default `use_legate_jll` will be set to true. However, you can set a custom branch and/or use a custom path of legate. By using disabling `use_legate_jll`, you can set `legate_path` to your custom install. 
+By default `use_legate_jll` will be set to true. However, you can set a custom branch and/or use a custom path of legate. By setting `use_legate_jll=false`, you can set `legate_path` to your custom install. 
 ```julia
-using LegatePreferences; LegatePreferences.use_developer_mode(;use_legate_jll=false,  legate_path="/path/to/legate/root")
+using LegatePreferences; LegatePreferences.use_developer_mode(;use_legate_jll=false, legate_path="/path/to/legate/root")
 
 ```
 
