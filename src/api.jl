@@ -83,8 +83,8 @@ Returns a new constraint representing the alignment of `a` and `b`.
 align
 
 """
-    create_unbound_array(ty::Type;
-                         dim::Integer=1,
+    create_unbound_array(ty::LegateType;
+                         dim::Integer=1; 
                          nullable::Bool=false) -> LogicalArray
 
 Create an unbound array.
@@ -94,10 +94,12 @@ Create an unbound array.
 - `dim`: Number of dimensions.
 - `nullable`: Whether the array can contain null values.
 """
-create_unbound_array
+function create_unbound_array(ty::LegateType; dim::Integer=1, nullable::Bool=false)
+    create_unbound_array(ty, dim, nullable) # cxxwrap call
+end
 
 """
-    create_array(shape::Shape, ty::Type;
+    create_array(shape::Shape, ty::LegateType;
                  nullable::Bool=false,
                  optimize_scalar::Bool=false) -> LogicalArray
 
@@ -109,10 +111,14 @@ Create an array with a specified shape.
 - `nullable`: Whether the array can contain null values.
 - `optimize_scalar`: Whether to optimize scalar storage.
 """
-create_array
+function create_array(shape::Shape, ty::LegateType;
+    nullable::Bool=false,
+    optimize_scalar::Bool=false)
+    create_array(shape, ty, nullable, optimize_scalar) # cxxwrap call
+end
 
 """
-    create_unbound_store(ty::Type;
+    create_unbound_store(ty::LegateType;
                          dim::Integer=1) -> LogicalStore
 
 Create an unbound store.
@@ -121,10 +127,12 @@ Create an unbound store.
 - `ty`: Element type of the store.
 - `dim`: Dimensionality of the store.
 """
-create_unbound_store
+function create_unbound_store(ty::LegateType; dim::Integer=1)
+    create_unbound_store(ty, dim) # cxxwrap call
+end
 
 """
-    create_store(shape::Shape, ty::Type;
+    create_store(shape::Shape, ty::LegateType;
                  optimize_scalar::Bool=false) -> LogicalStore
 
 Create a store with a specified shape.
@@ -134,7 +142,10 @@ Create a store with a specified shape.
 - `ty`: Element type.
 - `optimize_scalar`: Whether to optimize scalar storage.
 """
-create_store
+function create_store(shape::Shape, ty::LegateType;
+    optimize_scalar::Bool=false)
+    create_store(shape, ty, optimize_scalar) # cxxwrap call
+end
 
 """
     store_from_scalar(scalar::Scalar;
@@ -146,7 +157,9 @@ Create a store from a scalar value.
 - `scalar`: Scalar value to store.
 - `shape`: Shape of the resulting store.
 """
-store_from_scalar
+function store_from_scalar(scalar::Scalar; shape::Shape=Shape(1))
+    store_from_scalar(scalar, shape) # cxxwrap call
+end
 
 """
     time_microseconds() -> UInt64

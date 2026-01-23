@@ -25,8 +25,6 @@ import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
 
-include("api.jl")
-
 include("preference.jl")
 
 const MIN_CUDA_VERSION = v"13.0"
@@ -89,6 +87,7 @@ end
 
 include("util.jl")
 include("type.jl")
+include("api.jl")
 
 ### These functions guard against a user trying
 ### to start multiple runtimes and also to allow
