@@ -6,11 +6,11 @@ Julia Bindings for [nv-legate](https://github.com/nv-legate/legate/)
 > [!WARNING]  
 > Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and robustness.
 
-## Minimum prereqs
+### Minimum prereqs
 - Ubuntu 20.04 or RHEL 8
 - Julia 1.10
 
-### 1. Install Julia through [JuliaUp](https://github.com/JuliaLang/juliaup)
+## 1. Install Julia through [JuliaUp](https://github.com/JuliaLang/juliaup)
 ```
 curl -fsSL https://install.julialang.org | sh -s -- --default-channel 1.11
 ```
@@ -26,7 +26,7 @@ If 1.11 or 1.10 is not your default, please set it to be the default. Other vers
 juliaup default 1.11
 ```
 
-### 2. Download Legate.jl
+## 2. Download Legate.jl
 To add Legate.jl to your environment run:
 ```julia
 pkg> add Legate
@@ -39,7 +39,7 @@ The `rev` option can be main or any tagged version.
 
 For more install instructions, please visit out install guide.
 
-### 3. Contribution to Legate.jl
+## 3. Contribution to Legate.jl
 
 To start, please [open an issue](https://github.com/JuliaLegate/Legate.jl/issues) that describes the problem or feature you plan to address.
 
