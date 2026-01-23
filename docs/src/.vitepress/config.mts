@@ -64,7 +64,6 @@ export default defineConfig({
       ], 
     },
   },
-  ignoreDeadLinks: true,
   markdown: {
     math: true,
     config(md) {
