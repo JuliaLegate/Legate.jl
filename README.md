@@ -37,7 +37,7 @@ using Pkg; Pkg.add(url = "https://github.com/JuliaLegate/Legate.jl", rev = "main
 ```
 The `rev` option can be main or any tagged version.
 
-For more install instructions, please visit [here](./install)
+For more install instructions, please visit out install guide.
 
 ### 3. Contribution to Legate.jl
 
