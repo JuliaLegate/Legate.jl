@@ -153,18 +153,26 @@ Check if the physical store is in a valid state.
 valid
 
 """
-    reinterpret_as(LogicalStore, T::LegateType) -> LogicalStore
+    reinterpret_as(LogicalStore, T) -> LogicalStore
 
 Return a view of the logical store reinterpreted as type `T`.
 """
-reinterpret_as
+function reinterpret_as(
+    store::Union{LogicalStore,LogicalStoreAllocated}, ::Type{T}
+) where {T<:SUPPORTED_TYPES}
+    reinterpret_as(store, to_legate_type(T)) # cxxwrap call
+end
 
 """
-    promote(LogicalStore, T::LegateType) -> LogicalStore
+    promote(LogicalStore, T) -> LogicalStore
 
 Return a new logical store with elements promoted to type `T`.
 """
-promote
+function promote(
+    store::Union{LogicalStore,LogicalStoreAllocated}, ::Type{T}
+) where {T<:SUPPORTED_TYPES}
+    promote(store, to_legate_type(T)) # cxxwrap call
+end
 
 """
     slice(LogicalStore, indices...) -> LogicalStore
