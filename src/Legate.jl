@@ -90,8 +90,7 @@ end
 #! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
-include("util.jl")
-include("type.jl")
+include("type_map.jl")
 
 # api functions and documentation
 include("api/types.jl")

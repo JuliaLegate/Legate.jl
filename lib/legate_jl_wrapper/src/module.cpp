@@ -164,10 +164,11 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("has_started", &legate_wrapper::runtime::has_started);
   mod.method("has_finished", &legate_wrapper::runtime::has_finished);
   /* tasking */
-  mod.method("create_auto_task", &legate_wrapper::runtime::create_auto_task);
-  mod.method("submit_auto_task", &legate_wrapper::runtime::submit_auto_task);
+  mod.method("align", &legate_wrapper::tasking::align);
+  mod.method("create_auto_task", &legate_wrapper::tasking::create_auto_task);
+  mod.method("submit_auto_task", &legate_wrapper::tasking::submit_auto_task);
   mod.method("submit_manual_task",
-             &legate_wrapper::runtime::submit_manual_task);
+             &legate_wrapper::tasking::submit_manual_task);
   /* array management */
   mod.method("create_unbound_array",
              &legate_wrapper::data::create_unbound_array);
@@ -176,7 +177,6 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::data::create_unbound_store);
   mod.method("create_store", &legate_wrapper::data::create_store);
   mod.method("store_from_scalar", &legate_wrapper::data::store_from_scalar);
-  mod.method("align", &legate_wrapper::data::align);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);
   /* timing */

@@ -102,3 +102,10 @@ LogicalArray
 A physical array container. Provides access to dimensions, type, and raw data pointer.
 """
 PhysicalArray
+
+"""
+    LegateType
+
+Datatype of object within Legate. See `Legate.supported_types()` to see supported types.
+"""
+LegateType

@@ -22,6 +22,9 @@
 #include "legate.h"
 #include "legion/legion_config.h"
 
+// forced to return a std::int32_t instead of enum code
+inline std::int32_t code(legate::Type ty) { return (int32_t)ty.code(); }
+
 void wrap_type_enums(jlcxx::Module& mod) {
   auto lt = mod.add_type<legate::Type>("LegateType");
 
@@ -46,9 +49,7 @@ void wrap_type_enums(jlcxx::Module& mod) {
   mod.set_const("STRUCT", legate::Type::Code::STRUCT);
   mod.set_const("STRING", legate::Type::Code::STRING);
   mod.set_const("LIST", legate::Type::Code::LIST);
-
-  lt.method("code", &legate::Type::code);
-  lt.method("to_string", &legate::Type::to_string);
+  mod.method("code", &code);
 }
 
 void wrap_type_getters(jlcxx::Module& mod) {

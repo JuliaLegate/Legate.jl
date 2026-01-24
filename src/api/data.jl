@@ -1,4 +1,20 @@
 to_cxx_vector(shape) = CxxWrap.StdVector([UInt64(d) for d in shape])
+to_string(ty::LegateType) = code_type_map[code(ty)]
+
+function Base.show(io::IO, ty::LegateType)
+    println(io, code_type_map[code(ty)])
+end
+
+function Base.print(ty::LegateType)
+    Base.show(stdout, ty)
+end
+
+"""
+    supported_types()
+
+See Legate.jl supported data types
+"""
+supported_types() = SUPPORTED_TYPES
 
 """
     string_to_scalar(str::AbstractString) -> Scalar
@@ -98,14 +114,6 @@ end
 Return the number of dimensions of the array/store.
 """
 dim
-
-function Base.show(io::IO, ty::LegateType)
-    println(io, "Type: ", code_type_map[Int(code(ty))])
-end
-
-function Base.print(ty::LegateType)
-    Base.show(stdout, ty)
-end
 
 """
     type(PhysicalStore) -> LegateType

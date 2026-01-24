@@ -63,6 +63,18 @@ inline bool has_started() { return legate::has_started(); }
  * @brief Check whether the Legate runtime has finished.
  */
 inline bool has_finished() { return legate::has_finished(); }
+}  // namespace runtime
+
+namespace tasking {
+/**
+ * @ingroup legate_wrapper
+ * @brief Align two variables.
+ *
+ * Returns a new variable representing the alignment of `a` and `b`.
+ */
+inline Constraint align(const Variable& a, const Variable& b) {
+  return legate::align(a, b);
+}
 
 /**
  * @ingroup legate_wrapper
@@ -99,7 +111,7 @@ inline auto submit_manual_task(Runtime* rt, ManualTask& task) {
   return rt->submit(std::move(task));
 }
 
-}  // namespace runtime
+}  // namespace tasking
 
 namespace data {
 /**
@@ -109,16 +121,6 @@ namespace data {
  * @param str The string to convert.
  */
 inline Scalar string_to_scalar(std::string str) { return Scalar(str); }
-
-/**
- * @ingroup legate_wrapper
- * @brief Align two variables.
- *
- * Returns a new variable representing the alignment of `a` and `b`.
- */
-inline Constraint align(const Variable& a, const Variable& b) {
-  return legate::align(a, b);
-}
 
 /**
  * @ingroup legate_wrapper
