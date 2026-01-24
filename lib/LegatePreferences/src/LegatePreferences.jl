@@ -68,6 +68,18 @@ function has_cuda_gpu()::Bool
     return false
 end
 
+function maybe_warn_prerelease()
+    load_preference(@__MODULE__, "legate_suppress_prerelease_warning", false) && return nothing
+
+    @warn """
+        Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. 
+        Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be more seamless
+        and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and robustness.
+    """
+
+    _set("suppress_prerelease_warning" => true;)
+end
+
 function __init__()
     if MODE == MODE_JLL
         if has_cuda_gpu()

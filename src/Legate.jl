@@ -116,11 +116,9 @@ function _start_runtime()
 
     Legate.start_legate()
     @debug "Started Legate"
-    @warn " Leagte.jl and cuNumeric.jl are under active development at the moment. This is a pre-release API and is subject to change. \
-            Stability is not guaranteed until the first official release. We are actively working to improve the build experience to be \
-            more seamless and Julia-friendly. In parallel, we're developing a comprehensive testing framework to ensure reliability and \
-            robustness. Thank you for your patience and support as we work towards these goals.
-        "
+
+    LegatePreferences.maybe_warn_prerelease()
+
     Base.atexit(Legate.legate_finish)
     return RUNTIME_ACTIVE
 end
