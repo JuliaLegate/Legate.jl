@@ -1,0 +1,63 @@
+name: Docs
+on:
+  push:
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'src/**'
+      - 'docs/src/**'
+      - 'docs/make.jl'
+      - 'docs/Project.toml'
+      - 'README.md'
+      - 'lib/LegatePreferences/src*'
+    tags:
+      - 'v*'
+    branches:
+      - main
+  pull_request:
+    paths:
+    - '.github/workflows/docs.yml'
+    - 'src/**'
+    - 'docs/src/**'
+    - 'docs/make.jl'
+    - 'docs/Project.toml'
+    - 'README.md'
+    - 'lib/LegatePreferences/src*'
+jobs:
+  docs:
+    name : Documentation
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: read
+      statuses: write
+    runs-on: ubuntu-latest
+    env:
+      LEGATE_AUTO_CONFIG: 0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ssciwr/doxygen-install@v1
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.11'
+      - uses: julia-actions/cache@v2
+      - name: Cleanup old Legate
+        run: |
+          julia --color=yes -e 'using Pkg; Pkg.rm("Legate")' || true # ensure clean env
+
+      - name: Setup Legate.jl
+        run: |
+          julia --color=yes --project=docs -e '
+              using Pkg
+              Pkg.develop(PackageSpec(path = "lib/LegatePreferences"))
+              Pkg.develop(PackageSpec(path = "."))
+          '
+      - name: Instantiate docs environment
+        run: |
+          julia --color=yes --project=docs -e '
+            using Pkg
+            Pkg.instantiate()'
+      - name: Build documentation
+        run: julia --color=yes --project=docs docs/make.jl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}

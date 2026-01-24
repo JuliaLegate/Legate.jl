@@ -17,13 +17,12 @@
 #  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 # =#
 
-
-function is_legate_installed(legate_dir::String; throw_errors::Bool = false)
+function is_legate_installed(legate_dir::String; throw_errors::Bool=false)
     include_dir = joinpath(legate_dir, "include")
     if !isdir(joinpath(include_dir, "legate/legate"))
         throw_errors && @error "Legate.jl: Cannot find include/legate/legate in $(legate_dir)"
         return false
-    end 
+    end
     return true
 end
 
@@ -33,8 +32,8 @@ function parse_legate_version(legate_dir)
     version = nothing
     open(version_file, "r") do f
         data = readlines(f)
-        major = parse(Int, split(data[end-2])[end])
-        minor = lpad(split(data[end-1])[end], 2, '0')
+        major = parse(Int, split(data[end - 2])[end])
+        minor = lpad(split(data[end - 1])[end], 2, '0')
         patch = lpad(split(data[end])[end], 2, '0')
         version = "$(major).$(minor).$(patch)"
     end
@@ -74,36 +73,43 @@ function check_jll(m::Module)
     if !m.is_available()
         m_host_cuda = legate_jll.host_platform["cuda"]
 
-        if(m_host_cuda == "none")
-            error("$(string(m)) installed but not available on this platform.\n $(string(legate_jll.host_platform))")
+        if (m_host_cuda == "none")
+            error(
+                "$(string(m)) installed but not available on this platform.\n $(string(legate_jll.host_platform))"
+            )
         end
 
         v_host_cuda = VersionNumber(m_host_cuda)
         valid_cuda_version = MIN_CUDA_VERSION <= v_host_cuda <= MAX_CUDA_VERSION
         if !valid_cuda_version
-            error("$(string(m)) installed but not available on this platform. Host CUDA ver: $(v_host_cuda) not in range supported by $(string(m)): $(MIN_CUDA_VERSION)-$(MAX_CUDA_VERSION).")
+            error(
+                "$(string(m)) installed but not available on this platform. Host CUDA ver: $(v_host_cuda) not in range supported by $(string(m)): $(MIN_CUDA_VERSION)-$(MAX_CUDA_VERSION)."
+            )
         else
             error("$(string(m)) installed but not available on this platform. Unknown reason.")
         end
     end
 end
 
-
 function find_paths(
-        mode::String;
-        legate_jll_module::Union{Module, Nothing} = nothing,
-        legate_jll_wrapper_module::Union{Module, Nothing} = nothing    
+    mode::String;
+    legate_jll_module::Union{Module,Nothing}=nothing,
+    legate_jll_wrapper_module::Union{Module,Nothing}=nothing,
+)
+    liblegate_path, liblegate_wrapper_path = _find_paths(
+        to_mode(mode), legate_jll_module, legate_jll_wrapper_module
     )
-    liblegate_path, liblegate_wrapper_path = _find_paths(to_mode(mode), legate_jll_module, legate_jll_wrapper_module)
-    set_preferences!(LegatePreferences, "LEGATE_LIBDIR" => liblegate_path, force=true)
-    set_preferences!(LegatePreferences, "LEGATE_WRAPPER_LIBDIR" => liblegate_wrapper_path, force=true)
+    set_preferences!(LegatePreferences, "LEGATE_LIBDIR" => liblegate_path; force=true)
+    set_preferences!(
+        LegatePreferences, "LEGATE_WRAPPER_LIBDIR" => liblegate_wrapper_path; force=true
+    )
 end
 
 function _find_paths(
-        mode::JLL,
-        legate_jll_module::Module,
-        legate_jll_wrapper_module::Module
-    )
+    mode::JLL,
+    legate_jll_module::Module,
+    legate_jll_wrapper_module::Module,
+)
     check_jll(legate_jll_module)
     check_jll(legate_jll_wrapper_module)
     legate_lib_dir = joinpath(legate_jll_module.artifact_dir, "lib")
@@ -112,21 +118,20 @@ function _find_paths(
 end
 
 function _find_paths(
-        mode::Developer,
-        legate_jll_module,
-        legate_jll_wrapper_module::Nothing
-    )
-
+    mode::Developer,
+    legate_jll_module,
+    legate_jll_wrapper_module::Nothing,
+)
     legate_path = ""
     use_legate_jll = load_preference(LegatePreferences, "legate_use_jll", true)
-    
+
     if use_legate_jll == false
         legate_path = load_preference(LegatePreferences, "legate_path", nothing)
         check_legate_install(legate_path)
     else
         check_jll(legate_jll_module)
         legate_path = legate_jll.artifact_dir
-    end 
+    end
 
     pkg_root = abspath(joinpath(@__DIR__, "../"))
     legate_wrapper_lib = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build", "lib")
@@ -135,15 +140,16 @@ function _find_paths(
 end
 
 function _find_paths(
-        mode::Conda,
-        legate_jll_module::Nothing,
-        legate_jll_wrapper_module::Module
-    )
-
+    mode::Conda,
+    legate_jll_module::Nothing,
+    legate_jll_wrapper_module::Module,
+)
     @warn "mode = conda may break. We are using a subset of libraries from conda."
 
     conda_env = load_preference(LegatePreferences, "legate_conda_env", nothing)
-    isnothing(conda_env) && error("legate_conda_env preference must be set in LocalPreferences.toml when using conda mode")
+    isnothing(conda_env) && error(
+        "legate_conda_env preference must be set in LocalPreferences.toml when using conda mode"
+    )
 
     check_legate_install(conda_env)
     legate_path = conda_env
@@ -158,16 +164,19 @@ const DEPS_MAP = Dict(
     "MPI" => "libmpi",
     "NCCL" => "libnccl",
     "CUDA_DRIVER" => "libcuda",
-    "CUDA_RUNTIME" => "libcudart"
+    "CUDA_RUNTIME" => "libcudart",
 )
 function find_dependency_paths(::Type{LegatePreferences.JLL})
-    results = Dict{String, String}()
+    results = Dict{String,String}()
 
     paths_to_search = copy(legate_jll.LIBPATH_list)
     # If we have CUDA support try to find some other paths
     if isdefined(legate_jll, :NCCL_jll)
         append!(paths_to_search, legate_jll.NCCL_jll.CUDA_Runtime_jll.LIBPATH_list)
-        push!(paths_to_search, joinpath(legate_jll.NCCL_jll.CUDA_Runtime_jll.CUDA_Driver_jll.artifact_dir, "lib"))
+        push!(
+            paths_to_search,
+            joinpath(legate_jll.NCCL_jll.CUDA_Runtime_jll.CUDA_Driver_jll.artifact_dir, "lib"),
+        )
     end
 
     for (name, lib) in DEPS_MAP
@@ -176,5 +185,5 @@ function find_dependency_paths(::Type{LegatePreferences.JLL})
     return results
 end
 
-find_dependency_paths(::Type{LegatePreferences.Developer}) = Dict{String, String}()
-find_dependency_paths(::Type{LegatePreferences.Conda}) = Dict{String, String}()
+find_dependency_paths(::Type{LegatePreferences.Developer}) = Dict{String,String}()
+find_dependency_paths(::Type{LegatePreferences.Conda}) = Dict{String,String}()

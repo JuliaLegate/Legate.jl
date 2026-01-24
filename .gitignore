@@ -9,6 +9,15 @@ build/*
 build.log
 *.err
 *.log
+.envrc
+.vscode
+node_modules
+package-lock.json
+
+_doxygen/
+_doxygen/**
+CppAPI/
+CppAPI/**
 
 deps_install.patch
 
