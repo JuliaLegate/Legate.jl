@@ -1,3 +1,5 @@
+to_cxx_vector(shape) = CxxWrap.StdVector([UInt64(d) for d in shape])
+
 """
     string_to_scalar(str::AbstractString) -> Scalar
 
@@ -6,9 +8,8 @@ Convert a string to a `Scalar`.
 string_to_scalar
 
 """
-    create_unbound_array(ty::LegateType;
-                         dim::Integer=1; 
-                         nullable::Bool=false) -> LogicalArray
+    create_array(ty::LegateType; dim::Integer=1; 
+                 nullable::Bool=false) -> LogicalArray
 
 Create an unbound array.
 
@@ -17,14 +18,15 @@ Create an unbound array.
 - `dim`: Number of dimensions.
 - `nullable`: Whether the array can contain null values.
 """
-function create_unbound_array(ty::LegateType; dim::Integer=1, nullable::Bool=false)
-    create_unbound_array(ty, dim, nullable) # cxxwrap call
+function create_array(ty::T; dim::Integer=1, nullable::Bool=false) where {T<:SUPPORTED_TYPES}
+    create_unbound_array(to_legate_type(ty), dim, nullable) # cxxwrap call
 end
 
 """
-    create_array(shape::Shape, ty::LegateType;
+    create_array(shape::Vector{B}, ty::T;
                  nullable::Bool=false,
-                 optimize_scalar::Bool=false) -> LogicalArray
+                 optimize_scalar::Bool=false) 
+    where {T<:SUPPORTED_TYPES, B<:Integer} -> LogicalArray
 
 Create an array with a specified shape.
 
@@ -34,15 +36,15 @@ Create an array with a specified shape.
 - `nullable`: Whether the array can contain null values.
 - `optimize_scalar`: Whether to optimize scalar storage.
 """
-function create_array(shape::Shape, ty::LegateType;
+function create_array(shape::Vector{B}, ty::T;
     nullable::Bool=false,
-    optimize_scalar::Bool=false)
-    create_array(shape, ty, nullable, optimize_scalar) # cxxwrap call
+    optimize_scalar::Bool=false) where {T<:SUPPORTED_TYPES,B<:Integer}
+    shape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type
+    create_array(shape, to_legate_type(ty), nullable, optimize_scalar) # cxxwrap call
 end
 
 """
-    create_unbound_store(ty::LegateType;
-                         dim::Integer=1) -> LogicalStore
+    create_store(ty::T; dim::Integer=1) -> LogicalStore
 
 Create an unbound store.
 
@@ -50,13 +52,14 @@ Create an unbound store.
 - `ty`: Element type of the store.
 - `dim`: Dimensionality of the store.
 """
-function create_unbound_store(ty::LegateType; dim::Integer=1)
-    create_unbound_store(ty, dim) # cxxwrap call
+function create_store(ty::T; dim::Integer=1) where {T<:SUPPORTED_TYPES}
+    create_unbound_store(to_legate_type(ty), dim) # cxxwrap call
 end
 
 """
-    create_store(shape::Shape, ty::LegateType;
-                 optimize_scalar::Bool=false) -> LogicalStore
+    create_store(shape::Vector{B}, ty::T;
+                 optimize_scalar::Bool=false) 
+    where {T<:SUPPORTED_TYPES, B<:Integer} -> LogicalStore
 
 Create a store with a specified shape.
 
@@ -65,14 +68,15 @@ Create a store with a specified shape.
 - `ty`: Element type.
 - `optimize_scalar`: Whether to optimize scalar storage.
 """
-function create_store(shape::Shape, ty::LegateType;
-    optimize_scalar::Bool=false)
-    create_store(shape, ty, optimize_scalar) # cxxwrap call
+function create_store(shape::Vector{B}, ty::T;
+    optimize_scalar::Bool=false) where {T<:SUPPORTED_TYPES,B<:Integer}
+    lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type
+    create_store(lshape, to_legate_type(ty), optimize_scalar) # cxxwrap call
 end
 
 """
-    store_from_scalar(scalar::Scalar;
-                      shape::Shape=Shape(1)) -> LogicalStore
+    create_store(scalar::T; shape::Vector{B}=[1]) 
+    where {T<:SUPPORTED_TYPES, B<:Integer} -> LogicalStore
 
 Create a store from a scalar value.
 
@@ -80,8 +84,9 @@ Create a store from a scalar value.
 - `scalar`: Scalar value to store.
 - `shape`: Shape of the resulting store.
 """
-function store_from_scalar(scalar::Scalar; shape::Shape=Shape([1]))
-    store_from_scalar(scalar, shape) # cxxwrap call
+function create_store(scalar::T; shape::Vector{B}=[1]) where {T<:SUPPORTED_TYPES,B<:Integer}
+    lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type   
+    store_from_scalar(Legate.Scalar(scalar), lshape) # cxxwrap call
 end
 
 """
@@ -94,6 +99,14 @@ Return the number of dimensions of the array/store.
 """
 dim
 
+function Base.show(io::IO, ty::LegateType)
+    println(io, "Type: ", code_type_map[Int(code(ty))])
+end
+
+function Base.print(ty::LegateType)
+    Base.show(stdout, ty)
+end
+
 """
     type(PhysicalStore) -> LegateType
     type(LogicalStore) -> LegateType
@@ -103,6 +116,13 @@ dim
 Return the data type of elements stored in the array/store.
 """
 type
+
+"""
+    code(ty::LegateType) -> Int
+
+Return the internal code representing the `LegateType`.
+"""
+code
 
 """
     is_readable(PhysicalStore) -> Bool

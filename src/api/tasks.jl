@@ -1,5 +1,5 @@
 """
-    create_auto_task(rt::Runtime, lib::Library, id::LocalTaskID) -> AutoTask
+    create_task(rt::Runtime, lib::Library, id::LocalTaskID) -> AutoTask
 
 Create an auto task in the runtime.
 
@@ -8,21 +8,16 @@ Create an auto task in the runtime.
 - `lib`: The library to associate with the task.
 - `id`: The local task identifier.
 """
-create_auto_task
+create_task(rt::Runtime, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
 
 """
-    submit_auto_task(rt::Runtime, AutoTask)
+    submit_task(rt::Runtime, AutoTask)
+    submit_task(rt::Runtime, ManualTask)
 
-Submit an auto task to the runtime.
+Submit an manual/auto task to the runtime.
 """
-submit_auto_task
-
-"""
-    submit_manual_task(rt::Runtime, ManualTask)
-
-Submit a manual task to the runtime.
-"""
-submit_manual_task
+submit_task(rt::Runtime, task::AutoTask) = submit_auto_task(rt, task)
+submit_task(rt::Runtime, task::ManualTask) = submit_manual_task(rt, task)
 
 """
     align(a::Variable, b::Variable) -> Constraint

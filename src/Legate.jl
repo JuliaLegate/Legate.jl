@@ -32,6 +32,11 @@ const MAX_CUDA_VERSION = v"13.9.999"
 const SUPPORTED_LEGATE_VERSIONS = ["25.10.00", "25.11.00"]
 const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
 
+const SUPPORTED_INT_TYPES = Union{Int32,Int64}
+const SUPPORTED_FLOAT_TYPES = Union{Float32,Float64}
+const SUPPORTED_NUMERIC_TYPES = Union{SUPPORTED_INT_TYPES,SUPPORTED_FLOAT_TYPES}
+const SUPPORTED_TYPES = Union{SUPPORTED_INT_TYPES,SUPPORTED_FLOAT_TYPES,Bool}
+
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
 # This will also include the relevant JLLs if necessary.
 @static if LegatePreferences.MODE == "jll"
