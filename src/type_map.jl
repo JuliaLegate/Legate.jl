@@ -60,6 +60,6 @@ global const code_type_map = Dict{Int,Type}(
 
 to_legate_type(T::Type) = Legate.type_map[T]()
 
-function LType(T::Type)
-    return Legate.type_map[T]()
-end
+# This is the same function as the above. 
+# TODO, check if anycode depends on LType calls.
+LType(T::Type) = to_legate_type(T)
