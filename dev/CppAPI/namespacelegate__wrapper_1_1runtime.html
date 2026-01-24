@@ -104,59 +104,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:a1a57d668a29205b6359bf0daa2a669b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether the Legate runtime has started.  <br /></td></tr>
 <tr class="memitem:a437ea6ff893ade42f8930d335217c105" id="r_a437ea6ff893ade42f8930d335217c105"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a437ea6ff893ade42f8930d335217c105">has_finished</a> ()</td></tr>
 <tr class="memdesc:a437ea6ff893ade42f8930d335217c105"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether the Legate runtime has finished.  <br /></td></tr>
-<tr class="memitem:a151e258327e3ca9e26f1e69b8ace056d" id="r_a151e258327e3ca9e26f1e69b8ace056d"><td class="memItemLeft" align="right" valign="top">AutoTask&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a151e258327e3ca9e26f1e69b8ace056d">create_auto_task</a> (Runtime *rt, Library lib, LocalTaskID id)</td></tr>
-<tr class="memdesc:a151e258327e3ca9e26f1e69b8ace056d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an auto task in the runtime.  <br /></td></tr>
-<tr class="memitem:ad7573ff9e332b209bb9e5c5b56ae4e97" id="r_ad7573ff9e332b209bb9e5c5b56ae4e97"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad7573ff9e332b209bb9e5c5b56ae4e97">submit_auto_task</a> (Runtime *rt, AutoTask &amp;task)</td></tr>
-<tr class="memdesc:ad7573ff9e332b209bb9e5c5b56ae4e97"><td class="mdescLeft">&#160;</td><td class="mdescRight">Submit an auto task to the runtime.  <br /></td></tr>
-<tr class="memitem:a160f28d1b16a7f494354d294f0ac9b0d" id="r_a160f28d1b16a7f494354d294f0ac9b0d"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a160f28d1b16a7f494354d294f0ac9b0d">submit_manual_task</a> (Runtime *rt, ManualTask &amp;task)</td></tr>
-<tr class="memdesc:a160f28d1b16a7f494354d294f0ac9b0d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Submit a manual task to the runtime.  <br /></td></tr>
 </table>
 <a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
-<a id="a151e258327e3ca9e26f1e69b8ace056d" name="a151e258327e3ca9e26f1e69b8ace056d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a151e258327e3ca9e26f1e69b8ace056d">&#9670;&#160;</a></span>create_auto_task()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">AutoTask legate_wrapper::runtime::create_auto_task </td>
-          <td>(</td>
-          <td class="paramtype">Runtime *</td>          <td class="paramname"><span class="paramname"><em>rt</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">Library</td>          <td class="paramname"><span class="paramname"><em>lib</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">LocalTaskID</td>          <td class="paramname"><span class="paramname"><em>id</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Create an auto task in the runtime. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">rt</td><td>Pointer to the Runtime instance. </td></tr>
-    <tr><td class="paramname">lib</td><td>The Library to use for the task. </td></tr>
-    <tr><td class="paramname">id</td><td>LocalTaskID for the new task. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>An AutoTask instance. </dd></dl>
-
-</div>
-</div>
 <a id="a5b93eebd06dc138ffd1282dfeb5e95b6" name="a5b93eebd06dc138ffd1282dfeb5e95b6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5b93eebd06dc138ffd1282dfeb5e95b6">&#9670;&#160;</a></span>get_runtime()</h2>
 
@@ -289,82 +238,6 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Start the Legate runtime. </p>
-
-</div>
-</div>
-<a id="ad7573ff9e332b209bb9e5c5b56ae4e97" name="ad7573ff9e332b209bb9e5c5b56ae4e97"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad7573ff9e332b209bb9e5c5b56ae4e97">&#9670;&#160;</a></span>submit_auto_task()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">auto legate_wrapper::runtime::submit_auto_task </td>
-          <td>(</td>
-          <td class="paramtype">Runtime *</td>          <td class="paramname"><span class="paramname"><em>rt</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">AutoTask &amp;</td>          <td class="paramname"><span class="paramname"><em>task</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Submit an auto task to the runtime. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">rt</td><td>Pointer to the Runtime instance. </td></tr>
-    <tr><td class="paramname">task</td><td>The AutoTask to submit. </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<a id="a160f28d1b16a7f494354d294f0ac9b0d" name="a160f28d1b16a7f494354d294f0ac9b0d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a160f28d1b16a7f494354d294f0ac9b0d">&#9670;&#160;</a></span>submit_manual_task()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">auto legate_wrapper::runtime::submit_manual_task </td>
-          <td>(</td>
-          <td class="paramtype">Runtime *</td>          <td class="paramname"><span class="paramname"><em>rt</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">ManualTask &amp;</td>          <td class="paramname"><span class="paramname"><em>task</em></span>&#160;)</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Submit a manual task to the runtime. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">rt</td><td>Pointer to the Runtime instance. </td></tr>
-    <tr><td class="paramname">task</td><td>The ManualTask to submit. </td></tr>
-  </table>
-  </dd>
-</dl>
 
 </div>
 </div>
