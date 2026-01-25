@@ -19,8 +19,8 @@
 using Preferences
 using LegatePreferences: LegatePreferences
 
-const SUPPORTED_LEGATE_VERSIONS = ["25.10.00", "25.11.00"]
-const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
+const MIN_LEGATE_VERSION = v"25.10.00"
+const MAX_LEGATE_VERSION = v"25.11.00"
 
 up_dir(dir::String) = abspath(joinpath(dir, ".."))
 
@@ -64,12 +64,12 @@ function get_version(version_file)
     open(version_file, "r") do f
         data = readlines(f)
         major = parse(Int, split(data[end - 2])[end])
-        minor = lpad(split(data[end - 1])[end], 2, '0')
-        patch = lpad(split(data[end])[end], 2, '0')
-        version = "$(major).$(minor).$(patch)"
+        minor = parse(Int, lpad(split(data[end - 1])[end], 2, '0'))
+        patch = parse(Int, lpad(split(data[end])[end], 2, '0'))
+        version = VersionNumber(major, minor, patch)
     end
     if isnothing(version)
-        error("cuNumeric.jl: Failed to parse version for $(version_file)")
+        error("Legate.jl: Failed to parse version for $(version_file)")
     end
     return version
 end
@@ -79,10 +79,14 @@ function get_legate_version(legate_root::String)
     return get_version(version_file)
 end
 
+function is_supported_version(version::VersionNumber)
+    return MIN_LEGATE_VERSION <= version && version <= MAX_LEGATE_VERSION
+end
+
 function legate_valid(legate_root::String)
     # todo check if legate_root matches the version that we are installing.
     version_legate = get_legate_version(legate_root)
-    return version_legate ∈ SUPPORTED_LEGATE_VERSIONS # return true if equal
+    return is_supported_version(version_legate)
 end
 
 # patch legion. The readme below talks about our compilation error
@@ -95,15 +99,16 @@ function patch_legion(repo_root::String, legate_root::String)
     run_sh(`bash $legion_patch $repo_root $legate_root`, "legion_patch")
 end
 
-function build_jlcxxwrap(repo_root)
+function build_jlcxxwrap(repo_root, legate_root)
     @info "libcxxwrap: Downloading"
     build_libcxxwrap = joinpath(repo_root, "scripts/install_cxxwrap.sh")
 
     version_path = joinpath(DEPOT_PATH[1], "dev/libcxxwrap_julia_jll/override/LEGATE_INSTALL.txt")
 
     if isfile(version_path)
-        version = strip(read(version_path, String))
-        if version ∈ SUPPORTED_LEGATE_VERSIONS
+        version = VersionNumber(strip(read(version_path, String)))
+        @info "libcxxwrap: Found Legate $version"
+        if is_supported_version(version)
             @info "libcxxwrap: Found supported version built with Legate.jl: $version"
             return nothing
         else
@@ -116,7 +121,7 @@ function build_jlcxxwrap(repo_root)
     @info "libcxxwrap: Running build script: $build_libcxxwrap"
     run_sh(`bash $build_libcxxwrap $repo_root`, "libcxxwrap")
     open(version_path, "w") do io
-        write(io, LATEST_LEGATE_VERSION)
+        write(io, get_legate_version(legate_root))
     end
 end
 
@@ -195,16 +200,15 @@ function build(mode)
 
     if mode == LegatePreferences.MODE_DEVELOPER
         install_dir = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build")
-        build_jlcxxwrap(pkg_root) # $pkg_root/libcxxwrap-julia 
-        # build_cpp_wrapper wants roots of every library
-        legate_root = up_dir(legate_lib)
+        build_jlcxxwrap(pkg_root, legate_root) # $pkg_root/lib/libcxxwrap-julia 
         if !legate_valid(legate_root)
             error(
-                "Legate.jl: legate library at $(legate_root) is not a supported version. 
-                 Supported versions are: $(SUPPORTED_LEGATE_VERSIONS).",
+                "Legate.jl: Unsupported Legate version at $(legate_root). " *
+                "Installed version: $(installed_version) not in range supported: " *
+                "$(MIN_LEGATE_VERSION)-$(MAX_LEGATE_VERSION).",
             )
         end
-        build_cpp_wrapper(pkg_root, legate_root, install_dir) # $pkg_root/legate_jl_wrapper
+        build_cpp_wrapper(pkg_root, legate_root, install_dir) # $pkg_root/lib/legate_jl_wrapper
     end
 end
 

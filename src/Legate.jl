@@ -29,8 +29,8 @@ include("preference.jl")
 
 const MIN_CUDA_VERSION = v"13.0"
 const MAX_CUDA_VERSION = v"13.9.999"
-const SUPPORTED_LEGATE_VERSIONS = ["25.10.00", "25.11.00"]
-const LATEST_LEGATE_VERSION = SUPPORTED_LEGATE_VERSIONS[end]
+const MIN_LEGATE_VERSION = v"25.10.00"
+const MAX_LEGATE_VERSION = v"25.11.00"
 
 const SUPPORTED_INT_TYPES = Union{Int32,Int64}
 const SUPPORTED_FLOAT_TYPES = Union{Float32,Float64}
@@ -67,7 +67,8 @@ elseif LegatePreferences.MODE == "conda"
     )
 else
     error(
-        "Legate.jl: Unknown mode $(LegatePreferences.MODE). Must be one of 'jll', 'developer', or 'conda'."
+        "Legate.jl: Unknown mode $(LegatePreferences.MODE)." *
+        "Must be one of 'jll', 'developer', or 'conda'.",
     )
 end
 
@@ -83,7 +84,8 @@ const LEGATE_LIB_PATH = joinpath(LEGATE_LIBDIR, "liblegate.so")
 
 if !isfile(WRAPPER_LIB_PATH)
     error(
-        "Could not find legate wrapper library. $(WRAPPER_LIB_PATH) is not a file. Check LocalPreferences.toml. If in developer mode try Pkg.build()"
+        "Could not find legate wrapper library. $(WRAPPER_LIB_PATH) is not a file." *
+        "Check LocalPreferences.toml. If in developer mode try Pkg.build()",
     )
 end
 
