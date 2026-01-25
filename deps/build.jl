@@ -85,7 +85,7 @@ function build_jlcxxwrap(repo_root, legate_root)
     @info "libcxxwrap: Running build script: $build_libcxxwrap"
     run_sh(`bash $build_libcxxwrap $repo_root`, "libcxxwrap")
     open(version_path, "w") do io
-        write(io, get_legate_version(legate_root))
+        write(io, string(get_legate_version(legate_root)))
     end
 end
 
