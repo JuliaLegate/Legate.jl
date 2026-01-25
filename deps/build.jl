@@ -17,7 +17,7 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
 using Preferences
-using LegatePreferences: LegatePreferences
+using LegatePreferences
 
 include("version.jl")
 
