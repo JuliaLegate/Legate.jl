@@ -19,10 +19,7 @@
 using Preferences
 using LegatePreferences: LegatePreferences
 
-const MIN_LEGATE_VERSION = v"25.10.00"
-const MAX_LEGATE_VERSION = v"25.11.00"
-
-up_dir(dir::String) = abspath(joinpath(dir, ".."))
+include("version.jl")
 
 # Automatically pipes errors to new file
 # and appends stdout to build.log
@@ -59,52 +56,19 @@ function run_sh(cmd::Cmd, filename::String)
     end
 end
 
-function get_version(version_file)
-    version = nothing
-    open(version_file, "r") do f
-        data = readlines(f)
-        major = parse(Int, split(data[end - 2])[end])
-        minor = parse(Int, lpad(split(data[end - 1])[end], 2, '0'))
-        patch = parse(Int, lpad(split(data[end])[end], 2, '0'))
-        version = VersionNumber(major, minor, patch)
-    end
-    if isnothing(version)
-        error("Legate.jl: Failed to parse version for $(version_file)")
-    end
-    return version
-end
-
-function get_legate_version(legate_root::String)
-    version_file = joinpath(legate_root, "include", "legate/legate", "version.h")
-    return get_version(version_file)
-end
-
-function is_supported_version(version::VersionNumber)
-    return MIN_LEGATE_VERSION <= version && version <= MAX_LEGATE_VERSION
-end
-
-function legate_valid(legate_root::String)
-    # todo check if legate_root matches the version that we are installing.
-    version_legate = get_legate_version(legate_root)
-    return is_supported_version(version_legate)
-end
-
 # patch legion. The readme below talks about our compilation error
 # https://github.com/ejmeitz/cuNumeric.jl/blob/main/scripts/README.md
 function patch_legion(repo_root::String, legate_root::String)
-    @info "Legate.jl: Patching Legion"
-
-    legion_patch = joinpath(repo_root, "scripts/patch_legion.sh")
-    @info "Legate.jl: Running legion patch script: $legion_patch"
-    run_sh(`bash $legion_patch $repo_root $legate_root`, "legion_patch")
+    if !check_if_patch(legate_root)
+        legion_patch = joinpath(repo_root, "scripts/patch_legion.sh")
+        @info "Legate.jl: Running legion patch script: $legion_patch"
+        run_sh(`bash $legion_patch $repo_root $legate_root`, "legion_patch")
+    end
 end
 
 function build_jlcxxwrap(repo_root, legate_root)
-    @info "libcxxwrap: Downloading"
     build_libcxxwrap = joinpath(repo_root, "scripts/install_cxxwrap.sh")
-
     version_path = joinpath(DEPOT_PATH[1], "dev/libcxxwrap_julia_jll/override/LEGATE_INSTALL.txt")
-
     if isfile(version_path)
         version = VersionNumber(strip(read(version_path, String)))
         @info "libcxxwrap: Found Legate $version"
@@ -151,34 +115,14 @@ function build_cpp_wrapper(repo_root, legate_root, install_root)
     run_sh(`bash $bld_command`, "cpp_wrapper")
 end
 
-function replace_nothing_jll(lib, jll)
-    if isnothing(lib)
-        eval(:(using $(jll)))
-        jll_mod = getfield(Main, jll)
-        lib = joinpath(jll_mod.artifact_dir, "lib")
-    end
-    return lib
-end
-
-function replace_nothing_conda_jll(mode, root, jll)
-    if isnothing(root)
-        if mode == LegatePreferences.MODE_CONDA
-            root = load_preference(LegatePreferences, "legate_conda_env", nothing)
-        else
-            eval(:(using $(jll)))
-            jll_mod = getfield(Main, jll)
-            root = jll_mod.artifact_dir
-        end
-    end
+function _find_jll_artifact_dir(jll)
+    eval(:(using $(jll)))
+    jll_mod = getfield(Main, jll)
+    root = jll_mod.artifact_dir
     return root
 end
 
-function build(mode)
-    if mode == LegatePreferences.MODE_JLL
-        @warn "No reason to Build on JLL mode. Exiting Build"
-        return nothing
-    end
-
+function _start_build()
     pkg_root = up_dir(@__DIR__)
     deps_dir = joinpath(@__DIR__)
 
@@ -188,29 +132,59 @@ function build(mode)
     end
 
     @info "Legate.jl: Parsed Package Dir as: $(pkg_root)"
-    # can be nothing so this errors if not set
-    legate_root = load_preference(LegatePreferences, "legate_path", nothing)
-    legate_root = replace_nothing_conda_jll(mode, legate_root, :legate_jll)
-    legate_lib = joinpath(legate_root, "lib")
-
-    # only patch if not legate_jll
-    if mode == LegatePreferences.MODE_DEVELOPER || mode == LegatePreferences.MODE_CONDA
-        patch_legion(pkg_root, up_dir(legate_lib))
-    end
-
-    if mode == LegatePreferences.MODE_DEVELOPER
-        install_dir = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build")
-        build_jlcxxwrap(pkg_root, legate_root) # $pkg_root/lib/libcxxwrap-julia 
-        if !legate_valid(legate_root)
-            error(
-                "Legate.jl: Unsupported Legate version at $(legate_root). " *
-                "Installed version: $(installed_version) not in range supported: " *
-                "$(MIN_LEGATE_VERSION)-$(MAX_LEGATE_VERSION).",
-            )
-        end
-        build_cpp_wrapper(pkg_root, legate_root, install_dir) # $pkg_root/lib/legate_jl_wrapper
-    end
+    return pkg_root
 end
 
-const mode = load_preference(LegatePreferences, "legate_mode", LegatePreferences.MODE_JLL)
-build(mode)
+"""
+    build CxxWrap and legate_jl_wrapper
+"""
+function build_deps(pkg_root, legate_root)
+    install_dir = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build")
+    build_jlcxxwrap(pkg_root, legate_root) # $pkg_root/lib/libcxxwrap-julia 
+    if !legate_valid(legate_root)
+        error(
+            "Legate.jl: Unsupported Legate version at $(legate_root). " *
+            "Installed version: $(installed_version) not in range supported: " *
+            "$(MIN_LEGATE_VERSION)-$(MAX_LEGATE_VERSION).",
+        )
+    end
+    build_cpp_wrapper(pkg_root, legate_root, install_dir) # $pkg_root/lib/legate_jl_wrapper
+end
+
+function build(::LegatePreferences.JLL)
+    @warn "No reason to Build on JLL mode. Exiting Build"
+    return nothing
+end
+
+function build(::LegatePreferences.Conda)
+    @warn "Conda Build does not currently pass our CI. Proceed with caution."
+    pkg_root = _start_build()
+
+    legate_root = load_preference(LegatePreferences, "legate_conda_env", nothing)
+    if isnothing(legate_root)
+        error("This shouldn't happen. legate_conda_env = nothing?")
+    end
+
+    is_legate_installed(legate_root; throw_errors=true)
+    patch_legion(pkg_root, legate_root)
+    build_deps(pkg_root, legate_root)
+end
+
+function build(::LegatePreferences.Developer)
+    pkg_root = _start_build()
+
+    # can be nothing so this errors if not set
+    legate_root = load_preference(LegatePreferences, "legate_path", nothing)
+    if isnothing(legate_root)
+        # we are using legate_jll for legate
+        legate_root = _find_jll_artifact_dir(:legate_jll)
+    else
+        # this means we have a custom path set
+        is_legate_installed(legate_root; throw_errors=true)
+        patch_legion(pkg_root, legate_root)
+    end
+    build_deps(pkg_root, legate_root)
+end
+
+const mode_str = load_preference(LegatePreferences, "legate_mode", LegatePreferences.MODE_JLL)
+build(LegatePreferences.to_mode(mode_str))

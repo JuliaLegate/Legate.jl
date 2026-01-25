@@ -25,12 +25,8 @@ import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
 
+include(joinpath(@__DIR__, "../deps/version.jl"))
 include("preference.jl")
-
-const MIN_CUDA_VERSION = v"13.0"
-const MAX_CUDA_VERSION = v"13.9.999"
-const MIN_LEGATE_VERSION = v"25.10.00"
-const MAX_LEGATE_VERSION = v"25.11.00"
 
 const SUPPORTED_INT_TYPES = Union{Int32,Int64}
 const SUPPORTED_FLOAT_TYPES = Union{Float32,Float64}
