@@ -21,55 +21,22 @@ function get_install_liblegate()
     return LEGATE_LIBDIR
 end
 
-function is_legate_installed(legate_dir::String; throw_errors::Bool=false)
-    include_dir = joinpath(legate_dir, "include")
-    if !isdir(joinpath(include_dir, "legate/legate"))
-        throw_errors && @error "Legate.jl: Cannot find include/legate/legate in $(legate_dir)"
-        return false
-    end
-    return true
-end
-
-function parse_legate_version(legate_dir)
-    version_file = joinpath(legate_dir, "include", "legate/legate", "version.h")
-
-    version = nothing
-    open(version_file, "r") do f
-        data = readlines(f)
-        major = parse(Int, split(data[end - 2])[end])
-        minor = lpad(split(data[end - 1])[end], 2, '0')
-        patch = lpad(split(data[end])[end], 2, '0')
-        version = "$(major).$(minor).$(patch)"
+function check_legate_install(legate_root)
+    is_legate_installed(legate_root; throw_errors=true)
+    if !legate_valid(legate_root)
+        error(
+            "Legate.jl: Unsupported Legate version at $(legate_root). " *
+            "Installed version: $(get_legate_version(legate_root)) not in range supported: " *
+            "$(MIN_LEGATE_VERSION)-$(MAX_LEGATE_VERSION).",
+        )
     end
 
-    if isnothing(version)
-        error("Legate.jl: Failed to parse version")
-    end
-    return version
-end
-
-function check_if_patch(legate_dir)
-    patch = joinpath(legate_dir, "include", "legate/legate", "patch")
-    if isfile(patch)
-        return true
-    end
-    return false
-end
-
-function check_legate_install(legate_dir)
-    is_legate_installed(legate_dir; throw_errors=true)
-
-    installed_version = parse_legate_version(legate_dir)
-    if installed_version ∉ SUPPORTED_LEGATE_VERSIONS
-        error("Legate.jl: $(legate_dir) detected unsupported version $(installed_version)")
-    end
-
-    patch = check_if_patch(legate_dir)
+    patch = check_if_patch(legate_root)
     if patch == false
         error("Legate.jl: legate does not have patch. Please run Pkg.build()")
     end
 
-    @info "Legate.jl: Found a valid install in: $(legate_dir)"
+    @info "Legate.jl: Found a valid install in: $(legate_root)"
     return true
 end
 
@@ -87,7 +54,8 @@ function check_jll(m::Module)
         valid_cuda_version = MIN_CUDA_VERSION <= v_host_cuda <= MAX_CUDA_VERSION
         if !valid_cuda_version
             error(
-                "$(string(m)) installed but not available on this platform. Host CUDA ver: $(v_host_cuda) not in range supported by $(string(m)): $(MIN_CUDA_VERSION)-$(MAX_CUDA_VERSION)."
+                "$(string(m)) installed but not available on this platform." *
+                "Host CUDA ver: $(v_host_cuda) not in range supported by $(string(m)): $(MIN_CUDA_VERSION)-$(MAX_CUDA_VERSION).",
             )
         else
             error("$(string(m)) installed but not available on this platform. Unknown reason.")
