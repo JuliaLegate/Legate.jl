@@ -1,5 +1,6 @@
 """
     create_task(rt::Runtime, lib::Library, id::LocalTaskID) -> AutoTask
+    create_task(rt::Runtime, lib::Library, id::Int) -> AutoTask
 
 Create an auto task in the runtime.
 
@@ -9,6 +10,10 @@ Create an auto task in the runtime.
 - `id`: The local task identifier.
 """
 create_task(rt::Runtime, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
+# This is useful for custom Julia tasks
+# function create_task(rt::Runtime, lib::Library, id::Function) 
+# create_auto_task(rt, lib, id)
+# end 
 
 """
     submit_task(rt::Runtime, AutoTask)

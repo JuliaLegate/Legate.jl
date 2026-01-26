@@ -22,6 +22,7 @@
 
 #include "jlcxx/jlcxx.hpp"
 #include "jlcxx/stl.hpp"
+#include "task.h"
 #include "types.h"
 #include "wrapper.inl"
 
@@ -182,4 +183,6 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   /* timing */
   mod.method("time_microseconds", &legate_wrapper::time::time_microseconds);
   mod.method("time_nanoseconds", &legate_wrapper::time::time_nanoseconds);
+
+  wrap_ufi(mod);
 }

@@ -89,6 +89,7 @@ end
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
 include("type_map.jl")
+include("ufi.jl")
 
 # api functions and documentation
 include("api/types.jl")
