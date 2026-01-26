@@ -93,6 +93,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
   mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
 
+  // mod.add_type<DomainPoint>("DomainPoint").constructor<Point>();
+  // mod.add_type<Domain>("Domain").constructor<DomainPoint, DomainPoint>();
+
   mod.add_type<Scalar>("Scalar")
       .constructor<float>()
       .constructor<double>()

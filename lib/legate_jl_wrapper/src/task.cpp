@@ -62,16 +62,9 @@ struct TaskEntry {
 
 static std::unordered_map<uint32_t, TaskEntry> task_table;
 
-void register_julia_task(uint32_t task_id, const char* so_path,
-                         const char* symbol_name) {
-  void* handle = dlopen(so_path, RTLD_NOW | RTLD_LOCAL);
-  assert(handle && "dlopen failed");
-
-  auto fn = reinterpret_cast<julia_task_fn_t>(dlsym(handle, symbol_name));
-  assert(fn && "dlsym failed");
-
-  auto [it, inserted] = task_table.emplace(task_id, TaskEntry{fn});
-
+void register_julia_task(uint32_t task_id, void* fn) {
+  auto cast = reinterpret_cast<julia_task_fn_t>(fn);  // just to verify the type
+  auto [it, inserted] = task_table.emplace(task_id, TaskEntry{cast});
   assert(inserted && "task_id already registered");
 }
 
@@ -79,8 +72,7 @@ void register_julia_task(uint32_t task_id, const char* so_path,
   std::int32_t task_id = context.scalar(0).value<std::int32_t>();
   auto it = task_table.find(task_id);
   assert(it != task_table.end());
-
-  julia_task_fn_t fn = it->second.cpu_fn;
+  julia_task_fn_t fn = reinterpret_cast<julia_task_fn_t>(it->second.cpu_fn);
 
   const std::size_t num_inputs = context.num_inputs();
   const std::size_t num_outputs = context.num_outputs();
@@ -125,4 +117,6 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("ufi_interface_register", &ufi::ufi_interface_register);
   mod.method("register_julia_task", &ufi::register_julia_task);
   mod.method("create_library", &ufi::create_library);
+  mod.set_const("JULIA_CUSTOM_TASK",
+                legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
 }

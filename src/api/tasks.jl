@@ -1,6 +1,5 @@
 """
     create_task(rt::Runtime, lib::Library, id::LocalTaskID) -> AutoTask
-    create_task(rt::Runtime, lib::Library, id::Int) -> AutoTask
 
 Create an auto task in the runtime.
 
@@ -9,11 +8,8 @@ Create an auto task in the runtime.
 - `lib`: The library to associate with the task.
 - `id`: The local task identifier.
 """
-create_task(rt::Runtime, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
-# This is useful for custom Julia tasks
-# function create_task(rt::Runtime, lib::Library, id::Function) 
-# create_auto_task(rt, lib, id)
-# end 
+create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
+# create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain) = create_manual_task(rt, lib, id, domain)
 
 """
     submit_task(rt::Runtime, AutoTask)
@@ -21,8 +17,8 @@ create_task(rt::Runtime, lib::Library, id::LocalTaskID) = create_auto_task(rt, l
 
 Submit an manual/auto task to the runtime.
 """
-submit_task(rt::Runtime, task::AutoTask) = submit_auto_task(rt, task)
-submit_task(rt::Runtime, task::ManualTask) = submit_manual_task(rt, task)
+submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
+submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
 
 """
     align(a::Variable, b::Variable) -> Constraint
