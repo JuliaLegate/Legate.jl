@@ -117,54 +117,35 @@ function execute_julia_task(req::TaskRequest)
     @info "Step 2: Got task function"
 
     n = req.n
-    @info "Step 3: Allocating arrays" n req.task_id
-
-    # Allocate Julia arrays (safe on this Julia thread!)
-    a = Vector{Float32}(undef, n)
-    b = Vector{Float32}(undef, n)
-    c = Vector{Float32}(undef, n)
+    @info "Step 3: Wrapping pointers (zero-copy)" n req.task_id
 
     # Task 50001 is init - it only writes outputs, no inputs
     # Task 50002 is compute - it reads inputs and writes output
     if req.task_id == 0xc351  # 50001 in hex
-        @info "Init task - loading output pointers only"
+        @info "Init task - wrapping output pointers"
         ptr_a = Ptr{Float32}(unsafe_load(req.outputs_ptr, 1))
         ptr_b = Ptr{Float32}(unsafe_load(req.outputs_ptr, 2))
         ptr_c = Ptr{Float32}(unsafe_load(req.outputs_ptr, 3))
 
+        a = unsafe_wrap(Vector{Float32}, ptr_a, n)
+        b = unsafe_wrap(Vector{Float32}, ptr_b, n)
+        c = unsafe_wrap(Vector{Float32}, ptr_c, n)
+
         @info "Step 4: Executing init task"
-        # Execute task (initializes a, b, c)
         task_fun(a, b, c)
 
-        @info "Step 5: Copying results back (all outputs)"
-        # Copy all results back
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
-            ptr_a, pointer(a), n * sizeof(Float32))
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
-            ptr_b, pointer(b), n * sizeof(Float32))
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
-            ptr_c, pointer(c), n * sizeof(Float32))
     else  # 50002 - compute task
-        @info "Compute task - loading input and output pointers"
+        @info "Compute task - wrapping pointers"
         ptr_a = Ptr{Float32}(unsafe_load(req.inputs_ptr, 1))
         ptr_b = Ptr{Float32}(unsafe_load(req.inputs_ptr, 2))
         ptr_c = Ptr{Float32}(unsafe_load(req.outputs_ptr, 1))
 
-        @info "Step 4: Copying input data"
-        # Copy inputs from C++
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
-            pointer(a), ptr_a, n * sizeof(Float32))
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
-            pointer(b), ptr_b, n * sizeof(Float32))
+        a = unsafe_wrap(Vector{Float32}, ptr_a, n)
+        b = unsafe_wrap(Vector{Float32}, ptr_b, n)
+        c = unsafe_wrap(Vector{Float32}, ptr_c, n)
 
         @info "Step 5: Executing compute task"
-        # Execute task
         task_fun(a, b, c)
-
-        @info "Step 6: Copying result back"
-        # Copy result back
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
-            ptr_c, pointer(c), n * sizeof(Float32))
     end
 
     @info "Julia task completed successfully!"
