@@ -42,7 +42,7 @@ struct ufiFunctor {
   int64_t* dims_ptr = nullptr;
 
   ufiFunctor() = default;
-  ufiFunctor(int* n, int64_t* d) : ndim_ptr(n), dims_ptr(d) {}
+  ufiFunctor(int* ndim, int64_t* dims) : ndim_ptr(ndim), dims_ptr(dims) {}
 
   template <legate::Type::Code CODE, int DIM>
   void operator()(ufi::AccessMode mode, std::uintptr_t& p,
@@ -86,7 +86,6 @@ struct TaskRequestData {
   uint32_t task_id;
   void** inputs_ptr;
   void** outputs_ptr;
-  int64_t n;
   size_t num_inputs;
   size_t num_outputs;
   int ndim;
@@ -171,10 +170,6 @@ void register_julia_task(uint32_t task_id, void* fn) {
     outputs.push_back(reinterpret_cast<void*>(p));
   }
 
-  // Total elements (legacy support)
-  int64_t n = 1;
-  for (int d = 0; d < ndim; ++d) n *= dims[d];
-
   // Heap allocate arguments to ensure they are accessible to Julia
   // accessing C++ stack memory from the adopted thread can be problematic
   void** inputs_ptr = (void**)malloc(sizeof(void*) * num_inputs);
@@ -199,7 +194,6 @@ void register_julia_task(uint32_t task_id, void* fn) {
   g_request_ptr->task_id = task_id;  // Pass task ID instead of pointer
   g_request_ptr->inputs_ptr = inputs_ptr;
   g_request_ptr->outputs_ptr = outputs_ptr;
-  g_request_ptr->n = n;
   g_request_ptr->num_inputs = num_inputs;
   g_request_ptr->num_outputs = num_outputs;
   g_request_ptr->ndim = ndim;

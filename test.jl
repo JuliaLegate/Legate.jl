@@ -45,13 +45,12 @@ mutable struct TaskRequest
     task_id::UInt32  # Task ID instead of pointer
     inputs_ptr::Ptr{Ptr{Cvoid}}
     outputs_ptr::Ptr{Ptr{Cvoid}}
-    n::Int64
     num_inputs::Csize_t
     num_outputs::Csize_t
     ndim::Cint
     dims::NTuple{3,Int64}
 
-    TaskRequest() = new(0, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
+    TaskRequest() = new(0, C_NULL, C_NULL, 0, 0, 0, (0, 0, 0))
 end
 
 # Thread-safe task registry
@@ -112,10 +111,7 @@ function execute_julia_task(req::TaskRequest)
         task_fun = TASK_REGISTRY[req.task_id]
     end
 
-    @info "Step 2: Got task function"
-
-    n = req.n
-    @info "Step 3: Wrapping pointers (zero-copy)" n req.task_id
+    @info "Step 2: Got task function" req.task_id
 
     # Dynamic argument collection
     args = Vector{AbstractArray}()
@@ -131,7 +127,7 @@ function execute_julia_task(req::TaskRequest)
         @error("Unknown number of dimensions: $(req.ndim)")
     end
 
-    @info "Step 4: Constructing shape tuple" dims
+    @info "Step 3: Constructing shape tuple" dims
 
     # 1. Process inputs
     for i in 1:req.num_inputs
@@ -145,12 +141,12 @@ function execute_julia_task(req::TaskRequest)
         push!(args, unsafe_wrap(Array, ptr, dims))
     end
 
-    @info "Step 4: Executing task with $(length(args)) arguments of shape $dims"
+    @info "Step 3: Executing task with $(length(args)) arguments of shape $dims"
 
     # Execute task with splatted arguments
     task_fun(args...)
 
-    @info "Julia task completed successfully!"
+    @info "Julia task completed successfully!" req.task_id
 
     # Decrement pending task counter and notify if empty
     val = Threads.atomic_sub!(PENDING_TASKS, 1)
@@ -187,19 +183,6 @@ end
 # Get pointer to TaskRequest for C++ to write to
 function get_request_ptr()
     return Base.unsafe_convert(Ptr{Cvoid}, CURRENT_REQUEST)
-end
-
-# Completion callback that C++ will call
-Base.@ccallable function completion_callback()::Cvoid
-    # This will be called from C++ to signal task completion
-    # Just a placeholder for now - C++ uses condition variable
-    return nothing
-end
-
-# Register completion callback pointer
-function register_completion_callback()
-    COMPLETION_CALLBACK[] = @cfunction(completion_callback, Cvoid, ())
-    return COMPLETION_CALLBACK[]
 end
 
 function test_driver()
