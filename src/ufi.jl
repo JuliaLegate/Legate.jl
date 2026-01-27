@@ -41,7 +41,7 @@ function default_alignment(
     end
 end
 
-const TaskFunType = FunctionWrapper{Nothing,Tuple{AbstractArray,AbstractArray,AbstractArray}}
+const TaskFunType = FunctionWrapper{Nothing,Tuple{Vector{AbstractArray}}}
 
 struct JuliaTask
     fun::TaskFunType
@@ -151,8 +151,8 @@ function execute_julia_task(req::TaskRequest)
 
     @info "Step 3: Executing task with $(length(args)) arguments of shape $dims"
 
-    # Execute task with splatted arguments
-    task_fun(args...)
+    # Execute task with vector argument (no splatting)
+    task_fun(args)
 
     @info "Julia task completed successfully!" req.task_id
 
