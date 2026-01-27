@@ -38,14 +38,28 @@ UFI(read, read_accessor);
 UFI(write, write_accessor);
 
 struct ufiFunctor {
+  int* ndim_ptr = nullptr;
+  int64_t* dims_ptr = nullptr;
+
+  ufiFunctor() = default;
+  ufiFunctor(int* n, int64_t* d) : ndim_ptr(n), dims_ptr(d) {}
+
   template <legate::Type::Code CODE, int DIM>
-  void operator()(AccessMode mode, std::uintptr_t& p,
-                  const legate::PhysicalArray& arr) {
+  void operator()(ufi::AccessMode mode, std::uintptr_t& p,
+                  const legate::PhysicalArray& rf) {
+    if (ndim_ptr && *ndim_ptr == 0) {
+      *ndim_ptr = DIM;
+      auto shp = rf.shape<DIM>();
+      for (int i = 0; i < DIM && i < 3; ++i) {
+        dims_ptr[i] = shp.hi[i] - shp.lo[i] + 1;
+      }
+    }
+
     using CppT = typename legate_util::code_to_cxx<CODE>::type;
-    if (mode == AccessMode::READ)
-      ufi_read<CppT, DIM>(p, arr);
+    if (mode == ufi::AccessMode::READ)
+      ufi::ufi_read<CppT, DIM>(p, rf);
     else
-      ufi_write<CppT, DIM>(p, arr);
+      ufi::ufi_write<CppT, DIM>(p, rf);
   }
 };
 
@@ -69,12 +83,14 @@ static std::unordered_map<uint32_t, TaskEntry> task_table;
 
 // TaskRequest struct  - matches Julia's TaskRequest mutable struct
 struct TaskRequestData {
-  uint32_t task_id;  // Task ID instead of pointer
+  uint32_t task_id;
   void** inputs_ptr;
   void** outputs_ptr;
   int64_t n;
   size_t num_inputs;
   size_t num_outputs;
+  int ndim;
+  int64_t dims[3];  // Up to 3 dimensions
 };
 
 // Global state
@@ -127,16 +143,19 @@ void register_julia_task(uint32_t task_id, void* fn) {
   std::vector<void*> inputs;
   std::vector<void*> outputs;
 
+  int ndim = 0;
+  int64_t dims[3] = {1, 1, 1};
+  ufiFunctor functor{&ndim, dims};
+
   for (std::size_t i = 0; i < num_inputs; ++i) {
     auto ps = context.input(i);
     auto code = ps.type().code();
     auto dim = ps.dim();
     // store the raw pointer
     std::uintptr_t p;
-    legate::double_dispatch(dim, code, ufiFunctor{}, ufi::AccessMode::READ, p,
-                            ps);
+    legate::double_dispatch(dim, code, functor, ufi::AccessMode::READ, p, ps);
     assert(p != 0);
-    std::fprintf(stderr, "p = 0x%lx\n", (unsigned long)p);
+    // std::fprintf(stderr, "p = 0x%lx\n", (unsigned long)p);
     inputs.push_back(reinterpret_cast<void*>(p));
   }
 
@@ -146,14 +165,15 @@ void register_julia_task(uint32_t task_id, void* fn) {
     auto dim = ps.dim();
     // store the raw pointer
     std::uintptr_t p;
-    legate::double_dispatch(dim, code, ufiFunctor{}, ufi::AccessMode::WRITE, p,
-                            ps);
+    legate::double_dispatch(dim, code, functor, ufi::AccessMode::WRITE, p, ps);
     assert(p != 0);
-    std::fprintf(stderr, "p = 0x%lx\n", (unsigned long)p);
+    // std::fprintf(stderr, "p = 0x%lx\n", (unsigned long)p);
     outputs.push_back(reinterpret_cast<void*>(p));
   }
 
-  const int64_t n = 100;
+  // Total elements (legacy support)
+  int64_t n = 1;
+  for (int d = 0; d < ndim; ++d) n *= dims[d];
 
   // Heap allocate arguments to ensure they are accessible to Julia
   // accessing C++ stack memory from the adopted thread can be problematic
@@ -182,6 +202,8 @@ void register_julia_task(uint32_t task_id, void* fn) {
   g_request_ptr->n = n;
   g_request_ptr->num_inputs = num_inputs;
   g_request_ptr->num_outputs = num_outputs;
+  g_request_ptr->ndim = ndim;
+  for (int i = 0; i < 3; ++i) g_request_ptr->dims[i] = dims[i];
 
   // Reset completion flag
   g_task_done.store(false);

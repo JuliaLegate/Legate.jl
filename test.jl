@@ -2,7 +2,8 @@ using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
 using Legate
 
-const TaskFunType = FunctionWrapper{Nothing,Tuple{Vector{Float32},Vector{Float32},Vector{Float32}}}
+# Define a function wrapper type that can accept generic arrays
+const TaskFunType = FunctionWrapper{Nothing,Tuple{AbstractArray,AbstractArray,AbstractArray}}
 
 struct JuliaTask
     fun::TaskFunType
@@ -11,13 +12,13 @@ end
 const my_task_ref = Ref{JuliaTask}()
 const my_init_task_ref = Ref{JuliaTask}()
 
-function task_test(a::Vector{Float32}, b::Vector{Float32}, c::Vector{Float32})
+function task_test(a::AbstractArray, b::AbstractArray, c::AbstractArray)
     @inbounds @simd for i in eachindex(a)
         c[i] = a[i] + b[i]
     end
 end
 
-function task_init(a::Vector{Float32}, b::Vector{Float32}, c::Vector{Float32})
+function task_init(a::AbstractArray, b::AbstractArray, c::AbstractArray)
     @inbounds @simd for i in eachindex(a)
         a[i] = rand(Float32)
         b[i] = rand(Float32)
@@ -27,10 +28,10 @@ end
 
 # Store the wrapped function
 const my_task = JuliaTask(
-    FunctionWrapper{Nothing,Tuple{Vector{Float32},Vector{Float32},Vector{Float32}}}(task_test)
+    FunctionWrapper{Nothing,Tuple{AbstractArray,AbstractArray,AbstractArray}}(task_test)
 )
 const my_init_task = JuliaTask(
-    FunctionWrapper{Nothing,Tuple{Vector{Float32},Vector{Float32},Vector{Float32}}}(task_init)
+    FunctionWrapper{Nothing,Tuple{AbstractArray,AbstractArray,AbstractArray}}(task_init)
 )
 
 my_task_ref[] = my_task
@@ -47,8 +48,10 @@ mutable struct TaskRequest
     n::Int64
     num_inputs::Csize_t
     num_outputs::Csize_t
+    ndim::Cint
+    dims::NTuple{3,Int64}
 
-    TaskRequest() = new(0, C_NULL, C_NULL, 0, 0, 0)
+    TaskRequest() = new(0, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
 end
 
 # Thread-safe task registry
@@ -115,19 +118,34 @@ function execute_julia_task(req::TaskRequest)
     @info "Step 3: Wrapping pointers (zero-copy)" n req.task_id
 
     # Dynamic argument collection
-    args = Vector{Any}()
+    args = Vector{AbstractArray}()
 
+    # Construct shape tuple
+    dims = if req.ndim == 1
+        (req.dims[1],)
+    elseif req.ndim == 2
+        (req.dims[1], req.dims[2])
+    elseif req.ndim == 3
+        (req.dims[1], req.dims[2], req.dims[3])
+    else
+        @error("Unknown number of dimensions: $(req.ndim)")
+    end
+
+    @info "Step 4: Constructing shape tuple" dims
+
+    # 1. Process inputs
     for i in 1:req.num_inputs
         ptr = Ptr{Float32}(unsafe_load(req.inputs_ptr, i))
-        push!(args, unsafe_wrap(Vector{Float32}, ptr, n))
+        push!(args, unsafe_wrap(Array, ptr, dims))
     end
 
+    # 2. Process outputs
     for i in 1:req.num_outputs
         ptr = Ptr{Float32}(unsafe_load(req.outputs_ptr, i))
-        push!(args, unsafe_wrap(Vector{Float32}, ptr, n))
+        push!(args, unsafe_wrap(Array, ptr, dims))
     end
 
-    @info "Step 4: Executing task with $(length(args)) arguments"
+    @info "Step 4: Executing task with $(length(args)) arguments of shape $dims"
 
     # Execute task with splatted arguments
     task_fun(args...)
@@ -203,9 +221,9 @@ function test_driver()
     @async begin
         task = Legate.create_task(rt, lib, Legate.JULIA_CUSTOM_TASK)
 
-        a = Legate.create_array([100], Float32)
-        b = Legate.create_array([100], Float32)
-        c = Legate.create_array([100], Float32)
+        a = Legate.create_array([10, 10], Float32)
+        b = Legate.create_array([10, 10], Float32)
+        c = Legate.create_array([10, 10], Float32)
 
         init_output_vars = Vector{Legate.Variable}()
 
