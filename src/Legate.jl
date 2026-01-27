@@ -152,5 +152,6 @@ function __init__()
     _is_precompiling() && return nothing
 
     ensure_runtime!()
+    Legate.init_ufi()
 end
 end

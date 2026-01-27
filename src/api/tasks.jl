@@ -30,6 +30,13 @@ Returns a new constraint representing the alignment of `a` and `b`.
 align
 
 """
+    default_alignment(task::AutoTask, inputs::Vector{Variable}, outputs::Vector{Variable})
+
+Add default alignment constraints to the task. All inputs and outputs are aligned to the first input.
+"""
+default_alignment
+
+"""
     add_constraint(AutoTask, c::Constraint)
 
 Add a constraint to the task.

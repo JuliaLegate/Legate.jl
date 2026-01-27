@@ -41,6 +41,16 @@ Check whether the Legate runtime has finished.
 has_finished
 
 """
+    create_library(name::String) -> Library
+
+Create a library in the runtime.
+"""
+function create_library(name::String)
+    rt = get_runtime()
+    return create_library(rt, name) # cxxwrap call
+end
+
+"""
     time_microseconds() -> UInt64
 
 Measure time in microseconds.
