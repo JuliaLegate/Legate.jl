@@ -96,6 +96,7 @@ $(function(){initNavTree('namespaceufi.html','',''); });
 Classes</h2></td></tr>
 <tr class="memitem:JuliaCustomTask" id="r_JuliaCustomTask"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classufi_1_1JuliaCustomTask.html">JuliaCustomTask</a></td></tr>
 <tr class="memitem:TaskEntry" id="r_TaskEntry"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structufi_1_1TaskEntry.html">TaskEntry</a></td></tr>
+<tr class="memitem:TaskRequestData" id="r_TaskRequestData"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structufi_1_1TaskRequestData.html">TaskRequestData</a></td></tr>
 <tr class="memitem:ufiFunctor" id="r_ufiFunctor"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structufi_1_1ufiFunctor.html">ufiFunctor</a></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-typedef-members" class="groupheader"><a id="typedef-members" name="typedef-members"></a>
@@ -115,8 +116,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a4eb4be57857a4cb7f12bf437e4637b2e" id="r_a4eb4be57857a4cb7f12bf437e4637b2e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4eb4be57857a4cb7f12bf437e4637b2e">UFI</a> (read, read_accessor)</td></tr>
 <tr class="memitem:a9b569732c7672d0a8c8832bc4582e848" id="r_a9b569732c7672d0a8c8832bc4582e848"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9b569732c7672d0a8c8832bc4582e848">UFI</a> (write, write_accessor)</td></tr>
 <tr class="memitem:a623400690ae09dc25d79bafc57f4455c" id="r_a623400690ae09dc25d79bafc57f4455c"><td class="memItemLeft" align="right" valign="top">legate::Library&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a623400690ae09dc25d79bafc57f4455c">create_library</a> (legate::Runtime *rt, std::string library_name)</td></tr>
+<tr class="memitem:ab507ee1e8b29730831214c5cd9ba0c6b" id="r_ab507ee1e8b29730831214c5cd9ba0c6b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab507ee1e8b29730831214c5cd9ba0c6b">completion_callback_from_julia</a> ()</td></tr>
+<tr class="memitem:a13407d5812ab4c0906d7960a379233e5" id="r_a13407d5812ab4c0906d7960a379233e5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a13407d5812ab4c0906d7960a379233e5">initialize_async_system</a> (void *async_handle_ptr, void *request_ptr)</td></tr>
 <tr class="memitem:a930ee23679b5f6d91908474dfb5b2490" id="r_a930ee23679b5f6d91908474dfb5b2490"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a930ee23679b5f6d91908474dfb5b2490">register_julia_task</a> (uint32_t task_id, void *fn)</td></tr>
-<tr class="memitem:ac9e2c672d7843d26fe41d34c9856547c" id="r_ac9e2c672d7843d26fe41d34c9856547c"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac9e2c672d7843d26fe41d34c9856547c">thread</a> (void *ptr)</td></tr>
 <tr class="memitem:a41e4fe7838dbc7f32e74479b9b40a077" id="r_a41e4fe7838dbc7f32e74479b9b40a077"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a41e4fe7838dbc7f32e74479b9b40a077">ufi_interface_register</a> (legate::Library &amp;library)</td></tr>
 </table>
 <a name="doc-typedef-members" id="doc-typedef-members"></a><h2 id="header-doc-typedef-members" class="groupheader">Typedef Documentation</h2>
@@ -181,6 +183,23 @@ Functions</h2></td></tr>
 </div>
 </div>
 <a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
+<a id="ab507ee1e8b29730831214c5cd9ba0c6b" name="ab507ee1e8b29730831214c5cd9ba0c6b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab507ee1e8b29730831214c5cd9ba0c6b">&#9670;&#160;</a></span>completion_callback_from_julia()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void ufi::completion_callback_from_julia </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a623400690ae09dc25d79bafc57f4455c" name="a623400690ae09dc25d79bafc57f4455c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a623400690ae09dc25d79bafc57f4455c">&#9670;&#160;</a></span>create_library()</h2>
 
@@ -210,6 +229,27 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a13407d5812ab4c0906d7960a379233e5" name="a13407d5812ab4c0906d7960a379233e5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a13407d5812ab4c0906d7960a379233e5">&#9670;&#160;</a></span>initialize_async_system()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void ufi::initialize_async_system </td>
+          <td>(</td>
+          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>async_handle_ptr</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>request_ptr</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a930ee23679b5f6d91908474dfb5b2490" name="a930ee23679b5f6d91908474dfb5b2490"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a930ee23679b5f6d91908474dfb5b2490">&#9670;&#160;</a></span>register_julia_task()</h2>
 
@@ -225,23 +265,6 @@ Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>fn</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ac9e2c672d7843d26fe41d34c9856547c" name="ac9e2c672d7843d26fe41d34c9856547c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac9e2c672d7843d26fe41d34c9856547c">&#9670;&#160;</a></span>thread()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void * ufi::thread </td>
-          <td>(</td>
-          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>ptr</em></span></td><td>)</td>
-          <td></td>
         </tr>
       </table>
 </div><div class="memdoc">

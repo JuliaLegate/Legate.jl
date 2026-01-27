@@ -1,10 +1,15 @@
 var searchData=
 [
-  ['wrap_5fprivilege_5fmodes_0',['wrap_privilege_modes',['../types_8cpp.html#aeb815285b03bc1dfc7f8e35112b32908',1,'wrap_privilege_modes(jlcxx::Module &amp;mod):&#160;types.cpp'],['../types_8h.html#a81fbab98044a5ce51d62e941808e50f6',1,'wrap_privilege_modes(jlcxx::Module &amp;):&#160;types.cpp']]],
-  ['wrap_5ftype_5fenums_1',['wrap_type_enums',['../types_8cpp.html#a91ca648a6f3d170443a32261afa2e876',1,'wrap_type_enums(jlcxx::Module &amp;mod):&#160;types.cpp'],['../types_8h.html#a5aeb8891866373efca6d4ce671400062',1,'wrap_type_enums(jlcxx::Module &amp;):&#160;types.cpp']]],
-  ['wrap_5ftype_5fgetters_2',['wrap_type_getters',['../types_8cpp.html#af5e69c63c7c6abed49b8f3b08836efd6',1,'wrap_type_getters(jlcxx::Module &amp;mod):&#160;types.cpp'],['../types_8h.html#aef9abd8fa32b5f0004740cad7ab913a9',1,'wrap_type_getters(jlcxx::Module &amp;):&#160;types.cpp']]],
-  ['wrap_5fufi_3',['wrap_ufi',['../task_8cpp.html#a0933f70f5a790bb63f8f675718469f41',1,'wrap_ufi(jlcxx::Module &amp;mod):&#160;task.cpp'],['../task_8h.html#a0933f70f5a790bb63f8f675718469f41',1,'wrap_ufi(jlcxx::Module &amp;mod):&#160;task.cpp']]],
-  ['wrapdefault_4',['WrapDefault',['../structWrapDefault.html',1,'']]],
-  ['wrapper_2einl_5',['wrapper.inl',['../wrapper_8inl.html',1,'']]],
-  ['write_6',['WRITE',['../namespaceufi.html#a1b12f5afea88fad4974b04700aa9122bad4b9e47f65b6e79b010582f15785867e',1,'ufi']]]
+  ['task_2ecpp_0',['task.cpp',['../task_8cpp.html',1,'']]],
+  ['task_2eh_1',['task.h',['../task_8h.html',1,'']]],
+  ['task_5fconfig_2',['TASK_CONFIG',['../classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5',1,'ufi::JuliaCustomTask']]],
+  ['task_5fid_3',['task_id',['../structufi_1_1TaskRequestData.html#a002ea68340416017165c2e19cb146fe5',1,'ufi::TaskRequestData']]],
+  ['taskentry_4',['TaskEntry',['../structufi_1_1TaskEntry.html',1,'ufi']]],
+  ['taskids_5',['TaskIDs',['../namespaceufi.html#af0c197ab50855fdfe28625454ef5131d',1,'ufi']]],
+  ['taskrequestdata_6',['TaskRequestData',['../structufi_1_1TaskRequestData.html',1,'ufi']]],
+  ['time_5fmicroseconds_7',['time_microseconds',['../namespacelegate__wrapper_1_1time.html#a61077f345c4928adc30d8d7fc7e05671',1,'legate_wrapper::time']]],
+  ['time_5fnanoseconds_8',['time_nanoseconds',['../namespacelegate__wrapper_1_1time.html#a0197ad196c058b9eeaedd10d6becb985',1,'legate_wrapper::time']]],
+  ['type_5ffrom_5fcode_9',['type_from_code',['../module_8cpp.html#aaa4926a4f86204db451a891391810279',1,'module.cpp']]],
+  ['types_2ecpp_10',['types.cpp',['../types_8cpp.html',1,'']]],
+  ['types_2eh_11',['types.h',['../types_8h.html',1,'']]]
 ];

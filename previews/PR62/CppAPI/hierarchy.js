@@ -6,6 +6,7 @@ var hierarchy =
       [ "ufi::JuliaCustomTask", "classufi_1_1JuliaCustomTask.html", null ]
     ] ],
     [ "ufi::TaskEntry", "structufi_1_1TaskEntry.html", null ],
+    [ "ufi::TaskRequestData", "structufi_1_1TaskRequestData.html", null ],
     [ "ufi::ufiFunctor", "structufi_1_1ufiFunctor.html", null ],
     [ "WrapDefault", "structWrapDefault.html", null ]
 ];

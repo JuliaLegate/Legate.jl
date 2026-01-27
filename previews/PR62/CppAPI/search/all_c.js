@@ -1,14 +1,5 @@
 var searchData=
 [
-  ['task_2ecpp_0',['task.cpp',['../task_8cpp.html',1,'']]],
-  ['task_2eh_1',['task.h',['../task_8h.html',1,'']]],
-  ['task_5fconfig_2',['TASK_CONFIG',['../classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5',1,'ufi::JuliaCustomTask']]],
-  ['taskentry_3',['TaskEntry',['../structufi_1_1TaskEntry.html',1,'ufi']]],
-  ['taskids_4',['TaskIDs',['../namespaceufi.html#af0c197ab50855fdfe28625454ef5131d',1,'ufi']]],
-  ['thread_5',['thread',['../namespaceufi.html#ac9e2c672d7843d26fe41d34c9856547c',1,'ufi']]],
-  ['time_5fmicroseconds_6',['time_microseconds',['../namespacelegate__wrapper_1_1time.html#a61077f345c4928adc30d8d7fc7e05671',1,'legate_wrapper::time']]],
-  ['time_5fnanoseconds_7',['time_nanoseconds',['../namespacelegate__wrapper_1_1time.html#a0197ad196c058b9eeaedd10d6becb985',1,'legate_wrapper::time']]],
-  ['type_5ffrom_5fcode_8',['type_from_code',['../module_8cpp.html#aaa4926a4f86204db451a891391810279',1,'module.cpp']]],
-  ['types_2ecpp_9',['types.cpp',['../types_8cpp.html',1,'']]],
-  ['types_2eh_10',['types.h',['../types_8h.html',1,'']]]
+  ['read_0',['READ',['../namespaceufi.html#a1b12f5afea88fad4974b04700aa9122ba3466fab4975481651940ed328aa990e4',1,'ufi']]],
+  ['register_5fjulia_5ftask_1',['register_julia_task',['../namespaceufi.html#a930ee23679b5f6d91908474dfb5b2490',1,'ufi']]]
 ];

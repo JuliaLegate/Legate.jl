@@ -1,10 +1,6 @@
 var searchData=
 [
-  ['legate_5ffinish_0',['legate_finish',['../namespacelegate__wrapper_1_1runtime.html#a12d0a6b01c36260b1a24558ac7170ece',1,'legate_wrapper::runtime']]],
-  ['legate_5futil_1',['legate_util',['../namespacelegate__util.html',1,'']]],
-  ['legate_5fwrapper_2',['legate_wrapper',['../namespacelegate__wrapper.html',1,'']]],
-  ['legate_5fwrapper_3a_3adata_3',['data',['../namespacelegate__wrapper_1_1data.html',1,'legate_wrapper']]],
-  ['legate_5fwrapper_3a_3aruntime_4',['runtime',['../namespacelegate__wrapper_1_1runtime.html',1,'legate_wrapper']]],
-  ['legate_5fwrapper_3a_3atasking_5',['tasking',['../namespacelegate__wrapper_1_1tasking.html',1,'legate_wrapper']]],
-  ['legate_5fwrapper_3a_3atime_6',['time',['../namespacelegate__wrapper_1_1time.html',1,'legate_wrapper']]]
+  ['julia_5fcustom_5ftask_0',['JULIA_CUSTOM_TASK',['../namespaceufi.html#af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e',1,'ufi']]],
+  ['julia_5ftask_5ffn_5ft_1',['julia_task_fn_t',['../namespaceufi.html#a409ed9c78e969dc6a77d1abecb96acbc',1,'ufi']]],
+  ['juliacustomtask_2',['JuliaCustomTask',['../classufi_1_1JuliaCustomTask.html',1,'ufi']]]
 ];

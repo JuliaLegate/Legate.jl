@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['ufi_0',['UFI',['../namespaceufi.html#a4eb4be57857a4cb7f12bf437e4637b2e',1,'ufi::UFI(read, read_accessor)'],['../namespaceufi.html#a9b569732c7672d0a8c8832bc4582e848',1,'ufi::UFI(write, write_accessor)']]],
-  ['ufi_5finterface_5fregister_1',['ufi_interface_register',['../namespaceufi.html#a41e4fe7838dbc7f32e74479b9b40a077',1,'ufi']]]
+  ['time_5fmicroseconds_0',['time_microseconds',['../namespacelegate__wrapper_1_1time.html#a61077f345c4928adc30d8d7fc7e05671',1,'legate_wrapper::time']]],
+  ['time_5fnanoseconds_1',['time_nanoseconds',['../namespacelegate__wrapper_1_1time.html#a0197ad196c058b9eeaedd10d6becb985',1,'legate_wrapper::time']]],
+  ['type_5ffrom_5fcode_2',['type_from_code',['../module_8cpp.html#aaa4926a4f86204db451a891391810279',1,'module.cpp']]]
 ];
