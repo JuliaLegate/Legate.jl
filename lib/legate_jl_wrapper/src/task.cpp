@@ -1,6 +1,5 @@
 #include "task.h"
 
-#include <dlfcn.h>
 #include <julia.h>
 #include <uv.h>  // For uv_async_send
 
@@ -10,7 +9,6 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "legate.h"
@@ -71,26 +69,16 @@ inline legate::Library create_library(legate::Runtime* rt,
   return rt->create_library(library_name, legate::ResourceConfig{});
 }
 
-// using julia_task_fn_t = void (*)(void** inputs, void** outputs, int64_t n);
-using julia_task_fn_t = void (*)(void* task_ptr, void** inputs, void** outputs,
-                                 int64_t n);
-
-struct TaskEntry {
-  julia_task_fn_t cpu_fn;
-};
-
-static std::unordered_map<uint32_t, TaskEntry> task_table;
-
 // TaskRequest struct  - matches Julia's TaskRequest mutable struct
 struct TaskRequestData {
   uint32_t task_id;
   void** inputs_ptr;
   void** outputs_ptr;
-  void** scalars_ptr;  // NEW
-  int* scalar_types;   // NEW
+  void** scalars_ptr;
+  int* scalar_types;
   size_t num_inputs;
   size_t num_outputs;
-  size_t num_scalars;  // NEW
+  size_t num_scalars;
   int ndim;
   int64_t dims[3];  // Up to 3 dimensions
 };
@@ -115,12 +103,6 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
   g_request_ptr = static_cast<TaskRequestData*>(request_ptr);
   std::fprintf(stderr, "Async system initialized: handle=%p, request=%p\n",
                g_async_handle, g_request_ptr);
-}
-
-void register_julia_task(uint32_t task_id, void* fn) {
-  auto cast = reinterpret_cast<julia_task_fn_t>(fn);  // just to verify the type
-  auto [it, inserted] = task_table.emplace(task_id, TaskEntry{cast});
-  assert(inserted && "task_id already registered");
 }
 
 /*static*/ void JuliaCustomTask::cpu_variant(legate::TaskContext context) {
@@ -284,7 +266,6 @@ void ufi_interface_register(legate::Library& library) {
 
 void wrap_ufi(jlcxx::Module& mod) {
   mod.method("ufi_interface_register", &ufi::ufi_interface_register);
-  mod.method("register_julia_task", &ufi::register_julia_task);
   mod.method("create_library", &ufi::create_library);
   mod.method("initialize_async_system", &ufi::initialize_async_system);
   mod.set_const("JULIA_CUSTOM_TASK",
