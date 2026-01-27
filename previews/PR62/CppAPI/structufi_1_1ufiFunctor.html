@@ -94,12 +94,74 @@ $(function(){initNavTree('structufi_1_1ufiFunctor.html','','structufi_1_1ufiFunc
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-methods" class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a1adcf1347420b241e5f9f451eb321052" id="r_a1adcf1347420b241e5f9f451eb321052"><td class="memTemplParams" colspan="2">template&lt;legate::Type::Code CODE, int DIM&gt; </td></tr>
-<tr class="memitem:a1adcf1347420b241e5f9f451eb321052 template"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1adcf1347420b241e5f9f451eb321052">operator()</a> (<a class="el" href="namespaceufi.html#a1b12f5afea88fad4974b04700aa9122b">AccessMode</a> mode, std::uintptr_t &amp;p, const legate::PhysicalArray &amp;arr)</td></tr>
+<tr class="memitem:a6a8d6b45657ac65f91c522b706e04d77" id="r_a6a8d6b45657ac65f91c522b706e04d77"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6a8d6b45657ac65f91c522b706e04d77">ufiFunctor</a> ()=default</td></tr>
+<tr class="memitem:ae47a337d9ecfdf8de63e2fb28c2f616e" id="r_ae47a337d9ecfdf8de63e2fb28c2f616e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae47a337d9ecfdf8de63e2fb28c2f616e">ufiFunctor</a> (int *n, int64_t *d)</td></tr>
+<tr class="memitem:ad245520c5bec6253502f012203b87341" id="r_ad245520c5bec6253502f012203b87341"><td class="memTemplParams" colspan="2">template&lt;legate::Type::Code CODE, int DIM&gt; </td></tr>
+<tr class="memitem:ad245520c5bec6253502f012203b87341 template"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad245520c5bec6253502f012203b87341">operator()</a> (<a class="el" href="namespaceufi.html#a1b12f5afea88fad4974b04700aa9122b">ufi::AccessMode</a> mode, std::uintptr_t &amp;p, const legate::PhysicalArray &amp;rf)</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
+Public Attributes</h2></td></tr>
+<tr class="memitem:adf82b6865b4c5c1f77e37c19ce4049f1" id="r_adf82b6865b4c5c1f77e37c19ce4049f1"><td class="memItemLeft" align="right" valign="top">int *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adf82b6865b4c5c1f77e37c19ce4049f1">ndim_ptr</a> = nullptr</td></tr>
+<tr class="memitem:a52ca752315ed068bf06429f136eaca05" id="r_a52ca752315ed068bf06429f136eaca05"><td class="memItemLeft" align="right" valign="top">int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a52ca752315ed068bf06429f136eaca05">dims_ptr</a> = nullptr</td></tr>
 </table>
+<a name="doc-constructors" id="doc-constructors"></a><h2 id="header-doc-constructors" class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="a6a8d6b45657ac65f91c522b706e04d77" name="a6a8d6b45657ac65f91c522b706e04d77"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6a8d6b45657ac65f91c522b706e04d77">&#9670;&#160;</a></span>ufiFunctor() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">ufi::ufiFunctor::ufiFunctor </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel default">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae47a337d9ecfdf8de63e2fb28c2f616e" name="ae47a337d9ecfdf8de63e2fb28c2f616e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae47a337d9ecfdf8de63e2fb28c2f616e">&#9670;&#160;</a></span>ufiFunctor() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">ufi::ufiFunctor::ufiFunctor </td>
+          <td>(</td>
+          <td class="paramtype">int *</td>          <td class="paramname"><span class="paramname"><em>n</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t *</td>          <td class="paramname"><span class="paramname"><em>d</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
-<a id="a1adcf1347420b241e5f9f451eb321052" name="a1adcf1347420b241e5f9f451eb321052"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1adcf1347420b241e5f9f451eb321052">&#9670;&#160;</a></span>operator()()</h2>
+<a id="ad245520c5bec6253502f012203b87341" name="ad245520c5bec6253502f012203b87341"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad245520c5bec6253502f012203b87341">&#9670;&#160;</a></span>operator()()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -112,7 +174,7 @@ template&lt;legate::Type::Code CODE, int DIM&gt; </div>
         <tr>
           <td class="memname">void ufi::ufiFunctor::operator() </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="namespaceufi.html#a1b12f5afea88fad4974b04700aa9122b">AccessMode</a></td>          <td class="paramname"><span class="paramname"><em>mode</em></span>, </td>
+          <td class="paramtype"><a class="el" href="namespaceufi.html#a1b12f5afea88fad4974b04700aa9122b">ufi::AccessMode</a></td>          <td class="paramname"><span class="paramname"><em>mode</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -122,7 +184,7 @@ template&lt;legate::Type::Code CODE, int DIM&gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const legate::PhysicalArray &amp;</td>          <td class="paramname"><span class="paramname"><em>arr</em></span>&#160;)</td>
+          <td class="paramtype">const legate::PhysicalArray &amp;</td>          <td class="paramname"><span class="paramname"><em>rf</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -130,6 +192,35 @@ template&lt;legate::Type::Code CODE, int DIM&gt; </div>
 <span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
   </tr>
 </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
+<a id="a52ca752315ed068bf06429f136eaca05" name="a52ca752315ed068bf06429f136eaca05"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a52ca752315ed068bf06429f136eaca05">&#9670;&#160;</a></span>dims_ptr</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t* ufi::ufiFunctor::dims_ptr = nullptr</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="adf82b6865b4c5c1f77e37c19ce4049f1" name="adf82b6865b4c5c1f77e37c19ce4049f1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adf82b6865b4c5c1f77e37c19ce4049f1">&#9670;&#160;</a></span>ndim_ptr</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int* ufi::ufiFunctor::ndim_ptr = nullptr</td>
+        </tr>
+      </table>
 </div><div class="memdoc">
 
 </div>
