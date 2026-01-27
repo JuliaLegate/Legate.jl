@@ -86,8 +86,11 @@ struct TaskRequestData {
   uint32_t task_id;
   void** inputs_ptr;
   void** outputs_ptr;
+  void** scalars_ptr;  // NEW
+  int* scalar_types;   // NEW
   size_t num_inputs;
   size_t num_outputs;
+  size_t num_scalars;  // NEW
   int ndim;
   int64_t dims[3];  // Up to 3 dimensions
 };
@@ -142,6 +145,13 @@ void register_julia_task(uint32_t task_id, void* fn) {
   std::vector<void*> inputs;
   std::vector<void*> outputs;
 
+  // Scalars 0 and 1 are reserved (ID and Ptr). User scalars start at 2.
+  const std::size_t total_scalars = context.num_scalars();
+  const std::size_t num_scalars = (total_scalars > 2) ? total_scalars - 2 : 0;
+
+  std::vector<void*> scalar_values;
+  std::vector<int> scalar_types;
+
   int ndim = 0;
   int64_t dims[3] = {1, 1, 1};
   ufiFunctor functor{&ndim, dims};
@@ -150,11 +160,9 @@ void register_julia_task(uint32_t task_id, void* fn) {
     auto ps = context.input(i);
     auto code = ps.type().code();
     auto dim = ps.dim();
-    // store the raw pointer
     std::uintptr_t p;
     legate::double_dispatch(dim, code, functor, ufi::AccessMode::READ, p, ps);
     assert(p != 0);
-    // std::fprintf(stderr, "p = 0x%lx\n", (unsigned long)p);
     inputs.push_back(reinterpret_cast<void*>(p));
   }
 
@@ -162,12 +170,29 @@ void register_julia_task(uint32_t task_id, void* fn) {
     auto ps = context.output(i);
     auto code = ps.type().code();
     auto dim = ps.dim();
-    // store the raw pointer
     std::uintptr_t p;
     legate::double_dispatch(dim, code, functor, ufi::AccessMode::WRITE, p, ps);
     assert(p != 0);
-    // std::fprintf(stderr, "p = 0x%lx\n", (unsigned long)p);
     outputs.push_back(reinterpret_cast<void*>(p));
+  }
+
+  // Process User Scalars
+  for (std::size_t i = 0; i < num_scalars; ++i) {
+    // Offset by 2 because 0,1 are reserved (task_id and result_ptr)
+    auto scal = context.scalar(i + 2);
+    auto code = scal.type().code();
+    auto size = scal.size();
+    const void* p = scal.ptr();
+
+    void* val_ptr = malloc(size);
+    if (p != nullptr) {
+      std::memcpy(val_ptr, p, size);
+    } else {
+      std::memset(val_ptr, 0, size);
+    }
+
+    scalar_values.push_back(val_ptr);
+    scalar_types.push_back((int)code);
   }
 
   // Heap allocate arguments to ensure they are accessible to Julia
@@ -175,11 +200,24 @@ void register_julia_task(uint32_t task_id, void* fn) {
   void** inputs_ptr = (void**)malloc(sizeof(void*) * num_inputs);
   void** outputs_ptr = (void**)malloc(sizeof(void*) * num_outputs);
 
+  // Allocate scalar arrays
+  void** scalars_ptr = nullptr;
+  int* scalar_types_ptr = nullptr;
+  if (num_scalars > 0) {
+    scalars_ptr = (void**)malloc(sizeof(void*) * num_scalars);
+    scalar_types_ptr = (int*)malloc(sizeof(int) * num_scalars);
+  }
+
   if (!inputs.empty()) {
     std::memcpy(inputs_ptr, inputs.data(), sizeof(void*) * num_inputs);
   }
   if (!outputs.empty()) {
     std::memcpy(outputs_ptr, outputs.data(), sizeof(void*) * num_outputs);
+  }
+  if (num_scalars > 0) {
+    std::memcpy(scalars_ptr, scalar_values.data(), sizeof(void*) * num_scalars);
+    std::memcpy(scalar_types_ptr, scalar_types.data(),
+                sizeof(int) * num_scalars);
   }
 
   // Instead of calling Julia directly, we:
@@ -191,11 +229,14 @@ void register_julia_task(uint32_t task_id, void* fn) {
   fflush(stderr);
 
   // Fill the shared request structure (Julia will read this)
-  g_request_ptr->task_id = task_id;  // Pass task ID instead of pointer
+  g_request_ptr->task_id = task_id;
   g_request_ptr->inputs_ptr = inputs_ptr;
   g_request_ptr->outputs_ptr = outputs_ptr;
+  g_request_ptr->scalars_ptr = scalars_ptr;
+  g_request_ptr->scalar_types = scalar_types_ptr;
   g_request_ptr->num_inputs = num_inputs;
   g_request_ptr->num_outputs = num_outputs;
+  g_request_ptr->num_scalars = num_scalars;
   g_request_ptr->ndim = ndim;
   for (int i = 0; i < 3; ++i) g_request_ptr->dims[i] = dims[i];
 
@@ -225,6 +266,14 @@ void register_julia_task(uint32_t task_id, void* fn) {
 
   free(inputs_ptr);
   free(outputs_ptr);
+
+  if (scalars_ptr) {
+    for (size_t i = 0; i < num_scalars; ++i) {
+      free(scalars_ptr[i]);
+    }
+    free(scalars_ptr);
+    free(scalar_types_ptr);
+  }
 }
 
 void ufi_interface_register(legate::Library& library) {

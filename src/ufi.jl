@@ -41,7 +41,10 @@ function default_alignment(
     end
 end
 
-const TaskFunType = FunctionWrapper{Nothing,Tuple{Vector{AbstractArray}}}
+# Legate scalar types + AbstractArray for tasks
+const TaskArgument = Union{AbstractArray,SUPPORTED_TYPES}
+
+const TaskFunType = FunctionWrapper{Nothing,Tuple{Vector{TaskArgument}}}
 
 struct JuliaTask
     fun::TaskFunType
@@ -51,16 +54,20 @@ end
 # Signals via uv_async_send, Julia executes
 
 # Shared data structure for passing task information from C++ to Julia
-mutable struct TaskRequest
+struct TaskRequest
     task_id::UInt32  # Task ID instead of pointer
     inputs_ptr::Ptr{Ptr{Cvoid}}
     outputs_ptr::Ptr{Ptr{Cvoid}}
+    scalars_ptr::Ptr{Ptr{Cvoid}}
+    scalar_types::Ptr{Cint}
     num_inputs::Csize_t
     num_outputs::Csize_t
+    num_scalars::Csize_t
     ndim::Cint
     dims::NTuple{3,Int64}
 
-    TaskRequest() = new(0, C_NULL, C_NULL, 0, 0, 0, (0, 0, 0))
+    # Default constructor for initialization
+    TaskRequest() = new(0, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
 end
 
 # Thread-safe task registry
@@ -79,6 +86,8 @@ end
 
 # Global state
 const ASYNC_COND = Ref{Base.AsyncCondition}()
+# We use a Ref{TaskRequest} to provide stable memory for C++
+# Ref{T} for bits types (immutable structs) holds the data inline.
 const CURRENT_REQUEST = Ref{TaskRequest}()
 
 # Worker task that waits for async signals from C++
@@ -111,18 +120,14 @@ end
 
 # Execute the actual Julia task logic
 function execute_julia_task(req::TaskRequest)
-    @info "Step 1: Looking up task by ID" req.task_id
-
     # Look up task function by ID (thread-safe)
     local task_fun
     lock(REGISTRY_LOCK) do
         task_fun = TASK_REGISTRY[req.task_id]
     end
 
-    @info "Step 2: Got task function" req.task_id
-
     # Dynamic argument collection
-    args = Vector{AbstractArray}()
+    args = TaskArgument[]
 
     # Construct shape tuple
     dims = if req.ndim == 1
@@ -132,10 +137,9 @@ function execute_julia_task(req::TaskRequest)
     elseif req.ndim == 3
         (req.dims[1], req.dims[2], req.dims[3])
     else
-        @error("Unknown number of dimensions: $(req.ndim)")
+        # fallback to 1D if dims exist
+        (req.dims[1],)
     end
-
-    @info "Step 3: Constructing shape tuple" dims
 
     # 1. Process inputs
     for i in 1:req.num_inputs
@@ -149,12 +153,25 @@ function execute_julia_task(req::TaskRequest)
         push!(args, unsafe_wrap(Array, ptr, dims))
     end
 
-    @info "Step 3: Executing task with $(length(args)) arguments of shape $dims"
+    # 3. Process Scalars
+    for i in 1:req.num_scalars
+        val_ptr = unsafe_load(req.scalars_ptr, i)
+        type_code = Int(unsafe_load(req.scalar_types, i))
+
+        val = if haskey(code_type_map, type_code)
+            T = code_type_map[type_code]
+            unsafe_load(Ptr{T}(val_ptr))
+        else
+            @warn "Unknown scalar type code" type_code
+            nothing
+        end
+        push!(args, val)
+    end
 
     # Execute task with vector argument (no splatting)
     task_fun(args)
 
-    @info "Julia task completed successfully!" req.task_id
+    @debug "Julia task completed successfully!" req.task_id
 
     # Decrement pending task counter and notify if empty
     val = Threads.atomic_sub!(PENDING_TASKS, 1)
@@ -186,7 +203,7 @@ end
 # Initialize AsyncCondition and start worker - called from __init__
 function init_ufi()
     ASYNC_COND[] = Base.AsyncCondition()
-    CURRENT_REQUEST[] = TaskRequest() # Runtime allocation
+    CURRENT_REQUEST[] = TaskRequest()
     start_worker()
 end
 

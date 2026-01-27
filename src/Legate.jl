@@ -31,7 +31,14 @@ include("preference.jl")
 const SUPPORTED_INT_TYPES = Union{Int32,Int64}
 const SUPPORTED_FLOAT_TYPES = Union{Float32,Float64}
 const SUPPORTED_NUMERIC_TYPES = Union{SUPPORTED_INT_TYPES,SUPPORTED_FLOAT_TYPES}
-const SUPPORTED_TYPES = Union{SUPPORTED_INT_TYPES,SUPPORTED_FLOAT_TYPES,Bool}
+const SUPPORTED_TYPES = Union{
+    Bool,
+    Int8,Int16,Int32,Int64,
+    UInt8,UInt16,UInt32,UInt64,
+    Float16,Float32,Float64,
+    ComplexF32,ComplexF64,
+    String,
+}
 
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
 # This will also include the relevant JLLs if necessary.
