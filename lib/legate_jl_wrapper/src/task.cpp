@@ -73,6 +73,8 @@ struct TaskRequestData {
   void** inputs_ptr;
   void** outputs_ptr;
   int64_t n;
+  size_t num_inputs;
+  size_t num_outputs;
 };
 
 // Global state
@@ -178,6 +180,8 @@ void register_julia_task(uint32_t task_id, void* fn) {
   g_request_ptr->inputs_ptr = inputs_ptr;
   g_request_ptr->outputs_ptr = outputs_ptr;
   g_request_ptr->n = n;
+  g_request_ptr->num_inputs = num_inputs;
+  g_request_ptr->num_outputs = num_outputs;
 
   // Reset completion flag
   g_task_done.store(false);

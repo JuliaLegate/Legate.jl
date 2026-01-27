@@ -45,8 +45,10 @@ mutable struct TaskRequest
     inputs_ptr::Ptr{Ptr{Cvoid}}
     outputs_ptr::Ptr{Ptr{Cvoid}}
     n::Int64
+    num_inputs::Csize_t
+    num_outputs::Csize_t
 
-    TaskRequest() = new(0, C_NULL, C_NULL, 0)
+    TaskRequest() = new(0, C_NULL, C_NULL, 0, 0, 0)
 end
 
 # Thread-safe task registry
@@ -78,21 +80,14 @@ function async_worker()
             @info "Waiting on AsyncCondition..."
             wait(ASYNC_COND)
 
-            @info "✓ Received UV async signal! Executing Julia task..."
+            @info "Received UV async signal! Executing Julia task..."
 
             try
                 # Get task data (set by C++ before uv_async_send)
-                @info "Getting request data"
                 req = CURRENT_REQUEST[]
-                @info "Request data retrieved" req
 
-                # Execute the Julia task on this Julia thread (SAFE!)
                 execute_julia_task(req)
-
-                # Signal completion to C++
-                @info "Signaling completion to C++"
                 ccall(:completion_callback_from_julia, Cvoid, ())
-                @info "Completion signaled"
             catch e
                 @error "CRASH in worker" exception=(e, catch_backtrace())
                 rethrow()
@@ -119,34 +114,23 @@ function execute_julia_task(req::TaskRequest)
     n = req.n
     @info "Step 3: Wrapping pointers (zero-copy)" n req.task_id
 
-    # Task 50001 is init - it only writes outputs, no inputs
-    # Task 50002 is compute - it reads inputs and writes output
-    if req.task_id == 0xc351  # 50001 in hex
-        @info "Init task - wrapping output pointers"
-        ptr_a = Ptr{Float32}(unsafe_load(req.outputs_ptr, 1))
-        ptr_b = Ptr{Float32}(unsafe_load(req.outputs_ptr, 2))
-        ptr_c = Ptr{Float32}(unsafe_load(req.outputs_ptr, 3))
+    # Dynamic argument collection
+    args = Vector{Any}()
 
-        a = unsafe_wrap(Vector{Float32}, ptr_a, n)
-        b = unsafe_wrap(Vector{Float32}, ptr_b, n)
-        c = unsafe_wrap(Vector{Float32}, ptr_c, n)
-
-        @info "Step 4: Executing init task"
-        task_fun(a, b, c)
-
-    else  # 50002 - compute task
-        @info "Compute task - wrapping pointers"
-        ptr_a = Ptr{Float32}(unsafe_load(req.inputs_ptr, 1))
-        ptr_b = Ptr{Float32}(unsafe_load(req.inputs_ptr, 2))
-        ptr_c = Ptr{Float32}(unsafe_load(req.outputs_ptr, 1))
-
-        a = unsafe_wrap(Vector{Float32}, ptr_a, n)
-        b = unsafe_wrap(Vector{Float32}, ptr_b, n)
-        c = unsafe_wrap(Vector{Float32}, ptr_c, n)
-
-        @info "Step 5: Executing compute task"
-        task_fun(a, b, c)
+    for i in 1:req.num_inputs
+        ptr = Ptr{Float32}(unsafe_load(req.inputs_ptr, i))
+        push!(args, unsafe_wrap(Vector{Float32}, ptr, n))
     end
+
+    for i in 1:req.num_outputs
+        ptr = Ptr{Float32}(unsafe_load(req.outputs_ptr, i))
+        push!(args, unsafe_wrap(Vector{Float32}, ptr, n))
+    end
+
+    @info "Step 4: Executing task with $(length(args)) arguments"
+
+    # Execute task with splatted arguments
+    task_fun(args...)
 
     @info "Julia task completed successfully!"
 
@@ -258,7 +242,6 @@ end
 function precompile_tasks()
     println("Pre-compiling tasks...")
 
-    # 1. Standard arrays
     a = zeros(Float32, 1)
     b = zeros(Float32, 1)
     c = zeros(Float32, 1)
@@ -276,21 +259,13 @@ if abspath(PROGRAM_FILE) == @__FILE__
     register_task_function(UInt32(50002), my_task_ref[].fun)
     @info "Registered task functions: 50001, 50002"
 
-    # Start worker on interactive thread
-    # It will wait on Condition variable for signals
     start_worker()
-
-    # Run test driver (submits tasks to Legate)
     test_driver()
 
-    # Keep main thread alive to process events
-    # The async worker needs the event loop running to receive signals
     println("Main thread waiting for tasks to complete...")
 
     lock(ALL_TASKS_DONE) do
         while PENDING_TASKS[] > 0
-            # This wait yields to the scheduler, allowing the event loop to run
-            # because the scheduler processes UV events when idle/waiting.
             wait(ALL_TASKS_DONE)
         end
     end
