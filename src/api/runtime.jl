@@ -43,11 +43,18 @@ has_finished
 """
     create_library(name::String) -> Library
 
-Create a library in the runtime.
+Creates a library in the runtime and registers the UFI interface
+with the C++ runtime.
 """
 function create_library(name::String)
     rt = get_runtime()
-    return create_library(rt, name) # cxxwrap call
+    lib = _create_library(rt, name) # cxxwrap call
+    _ufi_interface_register(lib) # cxxwrap call
+    async_handle = _get_async_handle()
+    request_ptr = _get_request_ptr()
+    _initialize_async_system(async_handle, request_ptr) # cxxwrap call
+    @debug "Registered library with C++ runtime"
+    return lib
 end
 
 """

@@ -20,27 +20,6 @@
 using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
 
-# allignment contrainsts are transitive.
-# we can allign all the inputs and then alligns all the outputs
-# then allign one input with one output
-# This reduces the need for a cartesian product.
-function default_alignment(
-    task::Legate.AutoTask, inputs::Vector{Legate.Variable}, outputs::Vector{Legate.Variable}
-)
-    # Align all inputs to the first input
-    for i in 2:length(inputs)
-        Legate.add_constraint(task, Legate.align(inputs[i], inputs[1]))
-    end
-    # Align all outputs to the first output
-    for i in 2:length(outputs)
-        Legate.add_constraint(task, Legate.align(outputs[i], outputs[1]))
-    end
-    # Align first output with first input
-    if !isempty(inputs) && !isempty(outputs)
-        Legate.add_constraint(task, Legate.align(outputs[1], inputs[1]))
-    end
-end
-
 # Legate scalar types + AbstractArray for tasks
 const TaskArgument = Union{AbstractArray,SUPPORTED_TYPES}
 
@@ -55,7 +34,7 @@ end
 
 # Shared data structure for passing task information from C++ to Julia
 struct TaskRequest
-    task_id::UInt32  # Task ID instead of pointer
+    task_id::UInt32
     inputs_ptr::Ptr{Ptr{Cvoid}}
     outputs_ptr::Ptr{Ptr{Cvoid}}
     scalars_ptr::Ptr{Ptr{Cvoid}}
@@ -141,19 +120,16 @@ function execute_julia_task(req::TaskRequest)
         (req.dims[1],)
     end
 
-    # 1. Process inputs
     for i in 1:req.num_inputs
         ptr = Ptr{Float32}(unsafe_load(req.inputs_ptr, i))
         push!(args, unsafe_wrap(Array, ptr, dims))
     end
 
-    # 2. Process outputs
     for i in 1:req.num_outputs
         ptr = Ptr{Float32}(unsafe_load(req.outputs_ptr, i))
         push!(args, unsafe_wrap(Array, ptr, dims))
     end
 
-    # 3. Process Scalars
     for i in 1:req.num_scalars
         val_ptr = unsafe_load(req.scalars_ptr, i)
         type_code = Int(unsafe_load(req.scalar_types, i))
@@ -168,12 +144,10 @@ function execute_julia_task(req::TaskRequest)
         push!(args, val)
     end
 
-    # Execute task with vector argument (no splatting)
     task_fun(args)
 
     @debug "Julia task completed successfully!" req.task_id
 
-    # Decrement pending task counter and notify if empty
     val = Threads.atomic_sub!(PENDING_TASKS, 1)
     if val == 1 # atomic_sub returns OLD value, so if old was 1, new is 0
         lock(ALL_TASKS_DONE) do
@@ -186,7 +160,7 @@ end
 const WORKER_TASK = Ref{Task}()
 const WORKER_STARTED = Ref{Bool}(false)
 
-function start_worker()
+function _start_worker()
     # Spawn worker on interactive thread pool
     WORKER_TASK[] = Threads.@spawn :interactive async_worker()
 
@@ -200,19 +174,19 @@ function start_worker()
     @info "Worker confirmed started and waiting"
 end
 
-# Initialize AsyncCondition and start worker - called from __init__
+# Initialize AsyncCondition and start worker - called from Legate.__init__
 function init_ufi()
     ASYNC_COND[] = Base.AsyncCondition()
     CURRENT_REQUEST[] = TaskRequest()
-    start_worker()
+    _start_worker()
 end
 
 # Get the async handle for C++ to call uv_async_send
-function get_async_handle()
+function _get_async_handle()
     return ASYNC_COND[].handle
 end
 
 # Get pointer to TaskRequest for C++ to write to
-function get_request_ptr()
+function _get_request_ptr()
     return Base.unsafe_convert(Ptr{Cvoid}, CURRENT_REQUEST)
 end

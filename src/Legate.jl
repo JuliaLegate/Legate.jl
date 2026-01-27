@@ -123,6 +123,7 @@ function _start_runtime()
     @debug "Started Legate"
 
     LegatePreferences.maybe_warn_prerelease()
+    Legate.init_ufi()
 
     Base.atexit(Legate.legate_finish)
     return RUNTIME_ACTIVE
@@ -159,6 +160,5 @@ function __init__()
     _is_precompiling() && return nothing
 
     ensure_runtime!()
-    Legate.init_ufi()
 end
 end

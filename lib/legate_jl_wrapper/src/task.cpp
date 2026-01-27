@@ -265,9 +265,9 @@ void ufi_interface_register(legate::Library& library) {
 }  // namespace ufi
 
 void wrap_ufi(jlcxx::Module& mod) {
-  mod.method("ufi_interface_register", &ufi::ufi_interface_register);
-  mod.method("create_library", &ufi::create_library);
-  mod.method("initialize_async_system", &ufi::initialize_async_system);
+  mod.method("_ufi_interface_register", &ufi::ufi_interface_register);
+  mod.method("_create_library", &ufi::create_library);
+  mod.method("_initialize_async_system", &ufi::initialize_async_system);
   mod.set_const("JULIA_CUSTOM_TASK",
                 legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
 }

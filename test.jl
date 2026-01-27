@@ -61,17 +61,6 @@ my_scalar_task_ref[] = my_scalar_task
 function test_driver()
     rt = Legate.get_runtime()
     lib = Legate.create_library("test")
-    Legate.ufi_interface_register(lib)
-    println("Registered library with C++ runtime")
-
-    # Initialize the async callback system
-    # Use Legate accessors
-    async_handle = Legate.get_async_handle()
-    request_ptr = Legate.get_request_ptr()
-
-    @info "Initializing async system" async_handle request_ptr
-    Legate.initialize_async_system(async_handle, request_ptr)
-    println("Async system initialized")
 
     # Wrap Legate operations in @async blocks
     # This keeps the main thread's event loop active!

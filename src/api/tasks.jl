@@ -34,7 +34,22 @@ align
 
 Add default alignment constraints to the task. All inputs and outputs are aligned to the first input.
 """
-default_alignment
+function default_alignment(
+    task::Legate.AutoTask, inputs::Vector{Legate.Variable}, outputs::Vector{Legate.Variable}
+)
+    # Align all inputs to the first input
+    for i in 2:length(inputs)
+        Legate.add_constraint(task, Legate.align(inputs[i], inputs[1]))
+    end
+    # Align all outputs to the first output
+    for i in 2:length(outputs)
+        Legate.add_constraint(task, Legate.align(outputs[i], outputs[1]))
+    end
+    # Align first output with first input
+    if !isempty(inputs) && !isempty(outputs)
+        Legate.add_constraint(task, Legate.align(outputs[1], inputs[1]))
+    end
+end
 
 """
     add_constraint(AutoTask, c::Constraint)
