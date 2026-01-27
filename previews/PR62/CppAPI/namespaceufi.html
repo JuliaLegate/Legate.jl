@@ -100,7 +100,7 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-typedef-members" class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:a0bf3ecd25f301ffa34533c28a9e4c59b" id="r_a0bf3ecd25f301ffa34533c28a9e4c59b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0bf3ecd25f301ffa34533c28a9e4c59b">julia_task_fn_t</a> = void (*)(void** inputs, void** outputs, int64_t n)</td></tr>
+<tr class="memitem:a409ed9c78e969dc6a77d1abecb96acbc" id="r_a409ed9c78e969dc6a77d1abecb96acbc"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a409ed9c78e969dc6a77d1abecb96acbc">julia_task_fn_t</a></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-enum-members" class="groupheader"><a id="enum-members" name="enum-members"></a>
 Enumerations</h2></td></tr>
@@ -112,25 +112,28 @@ Enumerations</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:afc2d47f46f2d73480b1f0b1ff8411ea6" id="r_afc2d47f46f2d73480b1f0b1ff8411ea6"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afc2d47f46f2d73480b1f0b1ff8411ea6">BOB</a> (read, read_accessor)</td></tr>
-<tr class="memitem:a220be176b33939114817271e6e7ad56d" id="r_a220be176b33939114817271e6e7ad56d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a220be176b33939114817271e6e7ad56d">BOB</a> (write, write_accessor)</td></tr>
+<tr class="memitem:a4eb4be57857a4cb7f12bf437e4637b2e" id="r_a4eb4be57857a4cb7f12bf437e4637b2e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4eb4be57857a4cb7f12bf437e4637b2e">UFI</a> (read, read_accessor)</td></tr>
+<tr class="memitem:a9b569732c7672d0a8c8832bc4582e848" id="r_a9b569732c7672d0a8c8832bc4582e848"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9b569732c7672d0a8c8832bc4582e848">UFI</a> (write, write_accessor)</td></tr>
 <tr class="memitem:a623400690ae09dc25d79bafc57f4455c" id="r_a623400690ae09dc25d79bafc57f4455c"><td class="memItemLeft" align="right" valign="top">legate::Library&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a623400690ae09dc25d79bafc57f4455c">create_library</a> (legate::Runtime *rt, std::string library_name)</td></tr>
 <tr class="memitem:a930ee23679b5f6d91908474dfb5b2490" id="r_a930ee23679b5f6d91908474dfb5b2490"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a930ee23679b5f6d91908474dfb5b2490">register_julia_task</a> (uint32_t task_id, void *fn)</td></tr>
+<tr class="memitem:ac9e2c672d7843d26fe41d34c9856547c" id="r_ac9e2c672d7843d26fe41d34c9856547c"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac9e2c672d7843d26fe41d34c9856547c">thread</a> (void *ptr)</td></tr>
 <tr class="memitem:a41e4fe7838dbc7f32e74479b9b40a077" id="r_a41e4fe7838dbc7f32e74479b9b40a077"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a41e4fe7838dbc7f32e74479b9b40a077">ufi_interface_register</a> (legate::Library &amp;library)</td></tr>
 </table>
 <a name="doc-typedef-members" id="doc-typedef-members"></a><h2 id="header-doc-typedef-members" class="groupheader">Typedef Documentation</h2>
-<a id="a0bf3ecd25f301ffa34533c28a9e4c59b" name="a0bf3ecd25f301ffa34533c28a9e4c59b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0bf3ecd25f301ffa34533c28a9e4c59b">&#9670;&#160;</a></span>julia_task_fn_t</h2>
+<a id="a409ed9c78e969dc6a77d1abecb96acbc" name="a409ed9c78e969dc6a77d1abecb96acbc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a409ed9c78e969dc6a77d1abecb96acbc">&#9670;&#160;</a></span>julia_task_fn_t</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="#a0bf3ecd25f301ffa34533c28a9e4c59b">ufi::julia_task_fn_t</a> = void (*)(void** inputs, void** outputs, int64_t n)</td>
+          <td class="memname">using <a class="el" href="#a409ed9c78e969dc6a77d1abecb96acbc">ufi::julia_task_fn_t</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
-
+<b>Initial value:</b><div class="fragment"><div class="line"> void (*)(<span class="keywordtype">void</span>* task_ptr, <span class="keywordtype">void</span>** inputs, <span class="keywordtype">void</span>** outputs,</div>
+<div class="line">                                 int64_t n)</div>
+</div><!-- fragment -->
 </div>
 </div>
 <a name="doc-enum-members" id="doc-enum-members"></a><h2 id="header-doc-enum-members" class="groupheader">Enumeration Type Documentation</h2>
@@ -178,48 +181,6 @@ Functions</h2></td></tr>
 </div>
 </div>
 <a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
-<a id="afc2d47f46f2d73480b1f0b1ff8411ea6" name="afc2d47f46f2d73480b1f0b1ff8411ea6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afc2d47f46f2d73480b1f0b1ff8411ea6">&#9670;&#160;</a></span>BOB() <span class="overload">[1/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ufi::BOB </td>
-          <td>(</td>
-          <td class="paramtype">read</td>          <td class="paramname"><span class="paramname"><em></em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">read_accessor</td>          <td class="paramname"><span class="paramname"><em></em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a220be176b33939114817271e6e7ad56d" name="a220be176b33939114817271e6e7ad56d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a220be176b33939114817271e6e7ad56d">&#9670;&#160;</a></span>BOB() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ufi::BOB </td>
-          <td>(</td>
-          <td class="paramtype">write</td>          <td class="paramname"><span class="paramname"><em></em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">write_accessor</td>          <td class="paramname"><span class="paramname"><em></em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a623400690ae09dc25d79bafc57f4455c" name="a623400690ae09dc25d79bafc57f4455c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a623400690ae09dc25d79bafc57f4455c">&#9670;&#160;</a></span>create_library()</h2>
 
@@ -264,6 +225,65 @@ Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>fn</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac9e2c672d7843d26fe41d34c9856547c" name="ac9e2c672d7843d26fe41d34c9856547c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac9e2c672d7843d26fe41d34c9856547c">&#9670;&#160;</a></span>thread()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void * ufi::thread </td>
+          <td>(</td>
+          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>ptr</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4eb4be57857a4cb7f12bf437e4637b2e" name="a4eb4be57857a4cb7f12bf437e4637b2e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4eb4be57857a4cb7f12bf437e4637b2e">&#9670;&#160;</a></span>UFI() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ufi::UFI </td>
+          <td>(</td>
+          <td class="paramtype">read</td>          <td class="paramname"><span class="paramname"><em></em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">read_accessor</td>          <td class="paramname"><span class="paramname"><em></em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9b569732c7672d0a8c8832bc4582e848" name="a9b569732c7672d0a8c8832bc4582e848"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b569732c7672d0a8c8832bc4582e848">&#9670;&#160;</a></span>UFI() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ufi::UFI </td>
+          <td>(</td>
+          <td class="paramtype">write</td>          <td class="paramname"><span class="paramname"><em></em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">write_accessor</td>          <td class="paramname"><span class="paramname"><em></em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">

@@ -93,6 +93,8 @@ $(function(){initNavTree('task_8cpp.html','',''); });
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="task_8h_source.html">task.h</a>&quot;</code><br />
 <code>#include &lt;dlfcn.h&gt;</code><br />
+<code>#include &lt;julia.h&gt;</code><br />
+<code>#include &lt;pthread.h&gt;</code><br />
 <code>#include &lt;cassert&gt;</code><br />
 <code>#include &lt;cstdint&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
@@ -112,11 +114,11 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-define-members" class="groupheader"><a id="define-members" name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:a900a5da1b8fc684465baa899aac1d526" id="r_a900a5da1b8fc684465baa899aac1d526"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a900a5da1b8fc684465baa899aac1d526">BOB</a>(MODE,  ACCESSOR_CALL)</td></tr>
+<tr class="memitem:ac3fd89812a26deb3556cd5d4833cb169" id="r_ac3fd89812a26deb3556cd5d4833cb169"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac3fd89812a26deb3556cd5d4833cb169">UFI</a>(MODE,  ACCESSOR_CALL)</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-typedef-members" class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:a0bf3ecd25f301ffa34533c28a9e4c59b" id="r_a0bf3ecd25f301ffa34533c28a9e4c59b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#a0bf3ecd25f301ffa34533c28a9e4c59b">ufi::julia_task_fn_t</a> = void (*)(void** inputs, void** outputs, int64_t n)</td></tr>
+<tr class="memitem:a409ed9c78e969dc6a77d1abecb96acbc" id="r_a409ed9c78e969dc6a77d1abecb96acbc"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#a409ed9c78e969dc6a77d1abecb96acbc">ufi::julia_task_fn_t</a></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-enum-members" class="groupheader"><a id="enum-members" name="enum-members"></a>
 Enumerations</h2></td></tr>
@@ -126,22 +128,23 @@ Enumerations</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:afc2d47f46f2d73480b1f0b1ff8411ea6" id="r_afc2d47f46f2d73480b1f0b1ff8411ea6"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#afc2d47f46f2d73480b1f0b1ff8411ea6">ufi::BOB</a> (read, read_accessor)</td></tr>
-<tr class="memitem:a220be176b33939114817271e6e7ad56d" id="r_a220be176b33939114817271e6e7ad56d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#a220be176b33939114817271e6e7ad56d">ufi::BOB</a> (write, write_accessor)</td></tr>
+<tr class="memitem:a4eb4be57857a4cb7f12bf437e4637b2e" id="r_a4eb4be57857a4cb7f12bf437e4637b2e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#a4eb4be57857a4cb7f12bf437e4637b2e">ufi::UFI</a> (read, read_accessor)</td></tr>
+<tr class="memitem:a9b569732c7672d0a8c8832bc4582e848" id="r_a9b569732c7672d0a8c8832bc4582e848"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#a9b569732c7672d0a8c8832bc4582e848">ufi::UFI</a> (write, write_accessor)</td></tr>
 <tr class="memitem:a623400690ae09dc25d79bafc57f4455c" id="r_a623400690ae09dc25d79bafc57f4455c"><td class="memItemLeft" align="right" valign="top">legate::Library&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#a623400690ae09dc25d79bafc57f4455c">ufi::create_library</a> (legate::Runtime *rt, std::string library_name)</td></tr>
 <tr class="memitem:a930ee23679b5f6d91908474dfb5b2490" id="r_a930ee23679b5f6d91908474dfb5b2490"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#a930ee23679b5f6d91908474dfb5b2490">ufi::register_julia_task</a> (uint32_t task_id, void *fn)</td></tr>
+<tr class="memitem:ac9e2c672d7843d26fe41d34c9856547c" id="r_ac9e2c672d7843d26fe41d34c9856547c"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#ac9e2c672d7843d26fe41d34c9856547c">ufi::thread</a> (void *ptr)</td></tr>
 <tr class="memitem:a41e4fe7838dbc7f32e74479b9b40a077" id="r_a41e4fe7838dbc7f32e74479b9b40a077"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceufi.html#a41e4fe7838dbc7f32e74479b9b40a077">ufi::ufi_interface_register</a> (legate::Library &amp;library)</td></tr>
 <tr class="memitem:a0933f70f5a790bb63f8f675718469f41" id="r_a0933f70f5a790bb63f8f675718469f41"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0933f70f5a790bb63f8f675718469f41">wrap_ufi</a> (jlcxx::Module &amp;mod)</td></tr>
 </table>
 <a name="doc-define-members" id="doc-define-members"></a><h2 id="header-doc-define-members" class="groupheader">Macro Definition Documentation</h2>
-<a id="a900a5da1b8fc684465baa899aac1d526" name="a900a5da1b8fc684465baa899aac1d526"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a900a5da1b8fc684465baa899aac1d526">&#9670;&#160;</a></span>BOB</h2>
+<a id="ac3fd89812a26deb3556cd5d4833cb169" name="ac3fd89812a26deb3556cd5d4833cb169"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac3fd89812a26deb3556cd5d4833cb169">&#9670;&#160;</a></span>UFI</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define BOB</td>
+          <td class="memname">#define UFI</td>
           <td>(</td>
           <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>MODE</em></span>, </td>
         </tr>
@@ -155,7 +158,7 @@ Functions</h2></td></tr>
 <b>Value:</b><div class="fragment"><div class="line">  <span class="keyword">template</span> &lt;                                                                  \</div>
 <div class="line">      <span class="keyword">typename</span> T, <span class="keywordtype">int</span> D,                                                      \</div>
 <div class="line">      <span class="keyword">typename</span> std::enable_if&lt;(D &gt;= 1 &amp;&amp; D &lt;= REALM_MAX_DIM), int&gt;::type = 0&gt; \</div>
-<div class="line">  <span class="keywordtype">void</span> bob_##MODE(std::uintptr_t&amp; p, <span class="keyword">const</span> legate::PhysicalArray&amp; rf) {       \</div>
+<div class="line">  <span class="keywordtype">void</span> ufi_##MODE(std::uintptr_t&amp; p, <span class="keyword">const</span> legate::PhysicalArray&amp; rf) {       \</div>
 <div class="line">    <span class="keyword">auto</span> shp = rf.shape&lt;D&gt;();                                                 \</div>
 <div class="line">    <span class="keyword">auto</span> acc = rf.data().ACCESSOR_CALL&lt;T, D&gt;();                               \</div>
 <div class="line">    p = <span class="keyword">reinterpret_cast&lt;</span>std::uintptr_t<span class="keyword">&gt;</span>(<span class="comment">/*.lo to ensure multiple GPU         \</span></div>

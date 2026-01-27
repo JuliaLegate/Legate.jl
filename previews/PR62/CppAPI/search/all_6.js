@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['has_5ffinished_0',['has_finished',['../namespacelegate__wrapper_1_1runtime.html#a437ea6ff893ade42f8930d335217c105',1,'legate_wrapper::runtime']]],
-  ['has_5fstarted_1',['has_started',['../namespacelegate__wrapper_1_1runtime.html#a1a57d668a29205b6359bf0daa2a669b9',1,'legate_wrapper::runtime']]]
+  ['julia_5fcustom_5ftask_0',['JULIA_CUSTOM_TASK',['../namespaceufi.html#af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e',1,'ufi']]],
+  ['julia_5ftask_5ffn_5ft_1',['julia_task_fn_t',['../namespaceufi.html#a409ed9c78e969dc6a77d1abecb96acbc',1,'ufi']]],
+  ['juliacustomtask_2',['JuliaCustomTask',['../classufi_1_1JuliaCustomTask.html',1,'ufi']]]
 ];

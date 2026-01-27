@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['define_5fjulia_5fmodule_0',['define_julia_module',['../module_8cpp.html#a3fd385f8fe7b981e30b95ff471f542a3',1,'module.cpp']]]
+  ['get_5fruntime_0',['get_runtime',['../namespacelegate__wrapper_1_1runtime.html#a5b93eebd06dc138ffd1282dfeb5e95b6',1,'legate_wrapper::runtime']]]
 ];
