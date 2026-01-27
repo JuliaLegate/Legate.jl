@@ -183,32 +183,7 @@ function test_driver()
     end
 end
 
-# Pre-compile the task functions to ensure JIT happens on the main thread
-function precompile_tasks()
-    println("Pre-compiling tasks...")
-
-    # Use actual AbstractArray (Matrix for execution compatibility)
-    a = zeros(Float32, 10, 10)
-    b = zeros(Float32, 10, 10)
-    c = zeros(Float32, 10, 10)
-    d = zeros(Float32, 10, 10)
-
-    # Cast to Vector{Any} for the call
-    v3 = Vector{Any}([a, b, c])
-    v4 = Vector{Any}([a, c, b, d])
-    v_scalar = Vector{Any}([a, b, 2.5f0])
-
-    my_init_task_ref[].fun(v3)
-    my_task_ref[].fun(v3)
-    my_4arg_task_ref[].fun(v4)
-    my_scalar_task_ref[].fun(v_scalar)
-
-    println("Tasks pre-compiled")
-end
-
 if abspath(PROGRAM_FILE) == @__FILE__
-    precompile_tasks()
-
     # Register task functions for thread-safe lookup
     Legate.register_task_function(UInt32(50001), my_init_task_ref[].fun)
     Legate.register_task_function(UInt32(50002), my_task_ref[].fun)
