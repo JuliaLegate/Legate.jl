@@ -58,29 +58,6 @@ my_init_task_ref[] = my_init_task
 my_4arg_task_ref[] = my_4arg_task
 my_scalar_task_ref[] = my_scalar_task
 
-# Pre-compile the task functions to ensure JIT happens on the main thread
-function precompile_tasks()
-    println("Pre-compiling tasks...")
-
-    # Use actual AbstractArray (Matrix for execution compatibility)
-    a = zeros(Float32, 10, 10)
-    b = zeros(Float32, 10, 10)
-    c = zeros(Float32, 10, 10)
-    d = zeros(Float32, 10, 10)
-
-    # Cast to TaskArgument for the call
-    v3 = Legate.TaskArgument[a, b, c]
-    v4 = Legate.TaskArgument[a, c, b, d]
-    v_scalar = Legate.TaskArgument[a, b, 2.5f0]
-
-    my_init_task_ref[].fun(v3)
-    my_task_ref[].fun(v3)
-    my_4arg_task_ref[].fun(v4)
-    my_scalar_task_ref[].fun(v_scalar)
-
-    println("Tasks pre-compiled")
-end
-
 function test_driver()
     rt = Legate.get_runtime()
     lib = Legate.create_library("test")
