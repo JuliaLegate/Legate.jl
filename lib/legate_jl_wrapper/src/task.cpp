@@ -1,6 +1,8 @@
 #include "task.h"
 
 #include <dlfcn.h>
+#include <julia.h>
+#include <pthread.h>
 
 #include <cassert>
 #include <cstdint>
@@ -18,11 +20,11 @@ enum class AccessMode {
   WRITE,
 };
 
-#define BOB(MODE, ACCESSOR_CALL)                                              \
+#define UFI(MODE, ACCESSOR_CALL)                                              \
   template <                                                                  \
       typename T, int D,                                                      \
       typename std::enable_if<(D >= 1 && D <= REALM_MAX_DIM), int>::type = 0> \
-  void bob_##MODE(std::uintptr_t& p, const legate::PhysicalArray& rf) {       \
+  void ufi_##MODE(std::uintptr_t& p, const legate::PhysicalArray& rf) {       \
     auto shp = rf.shape<D>();                                                 \
     auto acc = rf.data().ACCESSOR_CALL<T, D>();                               \
     p = reinterpret_cast<std::uintptr_t>(/*.lo to ensure multiple GPU         \
@@ -31,8 +33,8 @@ enum class AccessMode {
                                              Realm::Point<D>(shp.lo))));      \
   }
 
-BOB(read, read_accessor);    // cuda_device_array_arg_read
-BOB(write, write_accessor);  // cuda_device_array_arg_write
+UFI(read, read_accessor);    // cuda_device_array_arg_read
+UFI(write, write_accessor);  // cuda_device_array_arg_write
 
 struct ufiFunctor {
   template <legate::Type::Code CODE, int DIM>
@@ -40,9 +42,9 @@ struct ufiFunctor {
                   const legate::PhysicalArray& arr) {
     using CppT = typename legate_util::code_to_cxx<CODE>::type;
     if (mode == AccessMode::READ)
-      bob_read<CppT, DIM>(p, arr);
+      ufi_read<CppT, DIM>(p, arr);
     else
-      bob_write<CppT, DIM>(p, arr);
+      ufi_write<CppT, DIM>(p, arr);
   }
 };
 
@@ -54,7 +56,9 @@ inline legate::Library create_library(legate::Runtime* rt,
   return rt->create_library(library_name, legate::ResourceConfig{});
 }
 
-using julia_task_fn_t = void (*)(void** inputs, void** outputs, int64_t n);
+// using julia_task_fn_t = void (*)(void** inputs, void** outputs, int64_t n);
+using julia_task_fn_t = void (*)(void* task_ptr, void** inputs, void** outputs,
+                                 int64_t n);
 
 struct TaskEntry {
   julia_task_fn_t cpu_fn;
@@ -68,8 +72,17 @@ void register_julia_task(uint32_t task_id, void* fn) {
   assert(inserted && "task_id already registered");
 }
 
+void* thread(void* ptr) {
+  jl_adopt_thread();
+  jl_wakeup_thread(0);
+  return NULL;
+}
+
 /*static*/ void JuliaCustomTask::cpu_variant(legate::TaskContext context) {
+  jl_task_t* ct = jl_get_current_task();
+
   std::int32_t task_id = context.scalar(0).value<std::int32_t>();
+  std::uintptr_t task_ptr = context.scalar(1).value<std::uintptr_t>();
   auto it = task_table.find(task_id);
   assert(it != task_table.end());
   julia_task_fn_t fn = reinterpret_cast<julia_task_fn_t>(it->second.cpu_fn);
@@ -88,7 +101,9 @@ void register_julia_task(uint32_t task_id, void* fn) {
     std::uintptr_t p;
     legate::double_dispatch(dim, code, ufiFunctor{}, ufi::AccessMode::READ, p,
                             ps);
-    inputs[i] = reinterpret_cast<void*>(p);
+    assert(p != 0);
+    std::fprintf(stderr, "p = 0x%lx\n", (unsigned long)p);
+    inputs.push_back(reinterpret_cast<void*>(p));
   }
 
   for (std::size_t i = 0; i < num_outputs; ++i) {
@@ -99,15 +114,26 @@ void register_julia_task(uint32_t task_id, void* fn) {
     std::uintptr_t p;
     legate::double_dispatch(dim, code, ufiFunctor{}, ufi::AccessMode::WRITE, p,
                             ps);
-    outputs[i] = reinterpret_cast<void*>(p);
+    assert(p != 0);
+    std::fprintf(stderr, "p = 0x%lx\n", (unsigned long)p);
+    outputs.push_back(reinterpret_cast<void*>(p));
   }
 
   const int64_t n = 100;
 
-  fn(inputs.data(), outputs.data(), n);
+  pthread_t thr;
+  pthread_create(&thr, NULL, thread, NULL);
+
+  // Do your work in this thread
+  unsigned int j = 0;
+  for (unsigned int i = 0; i <= UINT32_MAX / 1000; ++i) j += i;
+
+  fn(reinterpret_cast<void*>(task_ptr), inputs.data(), outputs.data(), n);
+  pthread_join(thr, NULL);
 }
 
 void ufi_interface_register(legate::Library& library) {
+  jl_init();
   ufi::JuliaCustomTask::register_variants(library);
 }
 

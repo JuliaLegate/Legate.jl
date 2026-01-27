@@ -99,7 +99,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.add_type<Scalar>("Scalar")
       .constructor<float>()
       .constructor<double>()
-      .constructor<int>();  // julia lets me make with ints???
+      .constructor<int32_t>()
+      .constructor<void*>();
 
   mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(

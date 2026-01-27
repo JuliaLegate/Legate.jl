@@ -8,12 +8,8 @@ struct JuliaTask
     fun::TaskFunType
 end
 
-const JULIA_TASKS = Dict{UInt32,FunctionWrapper}()
-
-function register_task(task_id::UInt32, fw::FunctionWrapper)
-    JULIA_TASKS[task_id] = fw
-    println("Registered Julia task $task_id in Julia registry")
-end
+const my_task_ref = Ref{JuliaTask}()
+const my_init_task_ref = Ref{JuliaTask}()
 
 # Example of wrapping your original task_test
 function task_test(a::Vector{Float32}, b::Vector{Float32}, c::Vector{Float32})
@@ -38,13 +34,46 @@ const my_init_task = JuliaTask(
     FunctionWrapper{Nothing,Tuple{Vector{Float32},Vector{Float32},Vector{Float32}}}(task_init)
 )
 
-function register_task()
-    # Use Ref to get a pointer to Julia object
-    ptr = Base.unsafe_convert(Ptr{Nothing}, Ref(my_init_task))
-    Legate.register_julia_task(50001, ptr)  # for init task
+my_task_ref[] = my_task
+my_init_task_ref[] = my_init_task
 
-    ptr = Base.unsafe_convert(Ptr{Nothing}, Ref(my_task))
-    Legate.register_julia_task(50002, ptr)
+Base.@ccallable function julia_task_fn(
+    task_ptr::Ptr{Nothing},
+    inputs::Ptr{Ptr{Cvoid}},
+    outputs::Ptr{Ptr{Cvoid}},
+    n::Int64,
+)::Cvoid
+    println("Starting Julia task function")
+
+    task_ref = unsafe_pointer_to_objref(task_ptr)::Ref{JuliaTask}  # <- note Ref
+    task = task_ref[]  # unwrap
+
+    a = unsafe_wrap(Vector{Float32}, Ptr{Float32}(unsafe_load(inputs, 1)), n; own=false)
+    b = unsafe_wrap(Vector{Float32}, Ptr{Float32}(unsafe_load(inputs, 2)), n; own=false)
+    c = unsafe_wrap(Vector{Float32}, Ptr{Float32}(unsafe_load(outputs, 1)), n; own=false)
+
+    task.fun(a, b, c)
+
+    @info "Completed Julia task function"
+    return nothing
+end
+
+function register_task()
+    fn_ptr = @cfunction(
+        julia_task_fn,
+        Cvoid,
+        (Ptr{Nothing}, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, Int64)
+    )
+
+    Legate.register_julia_task(
+        50001,
+        fn_ptr,
+    )
+
+    Legate.register_julia_task(
+        50002,
+        fn_ptr,
+    )
 
     println("Registered Julia tasks with C++ dispatcher")
 end
@@ -67,6 +96,8 @@ function test_driver()
     push!(init_output_vars, Legate.add_output(task, b))
     push!(init_output_vars, Legate.add_output(task, c))
     Legate.add_scalar(task, Legate.Scalar(UInt32(50001))) # init task id
+    task_ptr = Base.unsafe_convert(Ptr{Nothing}, my_init_task_ref)
+    Legate.add_scalar(task, Legate.Scalar(task_ptr))
     Legate.default_alignment(task, Vector{Legate.Variable}(), init_output_vars)
     Legate.submit_task(rt, task)
 
@@ -78,6 +109,8 @@ function test_driver()
     push!(output_vars, Legate.add_output(task, c))
 
     Legate.add_scalar(task, Legate.Scalar(UInt32(50002))) # main task id
+    task_ptr = Base.unsafe_convert(Ptr{Nothing}, my_task_ref)
+    Legate.add_scalar(task, Legate.Scalar(task_ptr))
     Legate.default_alignment(task, input_vars, output_vars)
     Legate.submit_task(rt, task)
 
