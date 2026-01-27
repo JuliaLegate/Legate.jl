@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['scalar_5ftypes_0',['scalar_types',['../structufi_1_1TaskRequestData.html#a6ecb8828ead8376ed4ff12786834c64d',1,'ufi::TaskRequestData']]],
-  ['scalars_5fptr_1',['scalars_ptr',['../structufi_1_1TaskRequestData.html#a3e5194f3da82d04b9426d71a27f5b88f',1,'ufi::TaskRequestData']]]
+  ['task_5fconfig_0',['TASK_CONFIG',['../classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5',1,'ufi::JuliaCustomTask']]],
+  ['task_5fid_1',['task_id',['../structufi_1_1TaskRequestData.html#a002ea68340416017165c2e19cb146fe5',1,'ufi::TaskRequestData']]]
 ];

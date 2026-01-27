@@ -6,7 +6,6 @@ var annotated_dup =
     ] ],
     [ "ufi", "namespaceufi.html", [
       [ "JuliaCustomTask", "classufi_1_1JuliaCustomTask.html", null ],
-      [ "TaskEntry", "structufi_1_1TaskEntry.html", "structufi_1_1TaskEntry" ],
       [ "TaskRequestData", "structufi_1_1TaskRequestData.html", "structufi_1_1TaskRequestData" ],
       [ "ufiFunctor", "structufi_1_1ufiFunctor.html", "structufi_1_1ufiFunctor" ]
     ] ],
