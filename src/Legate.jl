@@ -31,7 +31,14 @@ include("preference.jl")
 const SUPPORTED_INT_TYPES = Union{Int32,Int64}
 const SUPPORTED_FLOAT_TYPES = Union{Float32,Float64}
 const SUPPORTED_NUMERIC_TYPES = Union{SUPPORTED_INT_TYPES,SUPPORTED_FLOAT_TYPES}
-const SUPPORTED_TYPES = Union{SUPPORTED_INT_TYPES,SUPPORTED_FLOAT_TYPES,Bool}
+const SUPPORTED_TYPES = Union{
+    Bool,
+    Int8,Int16,Int32,Int64,
+    UInt8,UInt16,UInt32,UInt64,
+    Float16,Float32,Float64,
+    ComplexF32,ComplexF64,
+    String,
+}
 
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
 # This will also include the relevant JLLs if necessary.
@@ -89,6 +96,7 @@ end
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
 include("type_map.jl")
+include("ufi.jl")
 
 # api functions and documentation
 include("api/types.jl")
@@ -107,6 +115,11 @@ const _start_lock = ReentrantLock()
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
+function _finish_runtime()
+    Legate.wait_ufi()
+    Legate.legate_finish()
+end
+
 function _start_runtime()
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
@@ -115,8 +128,9 @@ function _start_runtime()
     @debug "Started Legate"
 
     LegatePreferences.maybe_warn_prerelease()
+    Legate.init_ufi()
 
-    Base.atexit(Legate.legate_finish)
+    Base.atexit(Legate._finish_runtime)
     return RUNTIME_ACTIVE
 end
 

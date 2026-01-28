@@ -35,12 +35,21 @@ message(STATUS "Found JlCxx at ${JlCxx_location}")
 set(SOURCES
     src/types.cpp
     src/module.cpp
+    src/task.cpp
 )
 
 add_library(${LIBRARY_NAME} SHARED ${SOURCES})
 set_target_properties(${LIBRARY_NAME} PROPERTIES VERSION ${LegateWrapperVersion})
 
-target_link_libraries(${LIBRARY_NAME} PRIVATE legate::legate JlCxx::cxxwrap_julia JlCxx::cxxwrap_julia_stl)
+
+
+execute_process(
+  COMMAND julia -e "println(joinpath(dirname(Sys.BINDIR), \"lib\", \"libjulia.\" * Base.libext()))"
+  OUTPUT_VARIABLE JULIA_LIB_PATH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+target_link_libraries(${LIBRARY_NAME} PRIVATE legate::legate JlCxx::cxxwrap_julia JlCxx::cxxwrap_julia_stl pthread "${JULIA_LIB_PATH}")
 target_include_directories(${LIBRARY_NAME} PRIVATE include)
 
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
