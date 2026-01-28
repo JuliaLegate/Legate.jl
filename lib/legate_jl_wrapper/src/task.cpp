@@ -119,7 +119,6 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
   jl_task_t* ct = jl_get_current_task();
 
   std::int32_t task_id = context.scalar(0).value<std::int32_t>();
-  std::uintptr_t task_ptr = context.scalar(1).value<std::uintptr_t>();
 
   const std::size_t num_inputs = context.num_inputs();
   const std::size_t num_outputs = context.num_outputs();
@@ -127,9 +126,9 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
   std::vector<void*> inputs;
   std::vector<void*> outputs;
 
-  // Scalars 0 and 1 are reserved (ID and Ptr). User scalars start at 2.
+  // Scalar 0 is reserved for task ID. User scalars start at 1.
   const std::size_t total_scalars = context.num_scalars();
-  const std::size_t num_scalars = (total_scalars > 2) ? total_scalars - 2 : 0;
+  const std::size_t num_scalars = (total_scalars > 1) ? total_scalars - 1 : 0;
 
   std::vector<void*> scalar_values;
   std::vector<int> scalar_types;
@@ -160,8 +159,8 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
 
   // Process User Scalars
   for (std::size_t i = 0; i < num_scalars; ++i) {
-    // Offset by 2 because 0,1 are reserved (task_id and result_ptr)
-    auto scal = context.scalar(i + 2);
+    // Offset by 1 because scalar 0 is reserved for task_id
+    auto scal = context.scalar(i + 1);
     auto code = scal.type().code();
     auto size = scal.size();
     const void* p = scal.ptr();

@@ -53,6 +53,9 @@ end
 const TASK_REGISTRY = Dict{UInt32,TaskFunType}()
 const REGISTRY_LOCK = ReentrantLock()
 
+# Atomic counter for auto-generating task IDs
+const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
+
 # Task Synchronization
 const PENDING_TASKS = Threads.Atomic{Int}(0)
 const ALL_TASKS_DONE = Threads.Condition()
@@ -61,6 +64,31 @@ function register_task_function(id::UInt32, fun::TaskFunType)
     lock(REGISTRY_LOCK) do
         TASK_REGISTRY[id] = fun
     end
+end
+
+"""
+    create_julia_task(rt, lib, task_fun::TaskFunType) -> AutoTask
+
+Create a Julia UFI task with auto-generated task ID.
+Automatically registers the task function and adds the task ID as a scalar.
+"""
+function create_julia_task(rt, lib, task_fun::TaskFunType)
+    # Generate unique task ID
+    task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
+
+    # Create the task
+    task = create_task(rt, lib, JULIA_CUSTOM_TASK)
+
+    # Add task ID as first scalar
+    add_scalar(task, Scalar(task_id))
+
+    # Register the function
+    register_task_function(task_id, task_fun)
+
+    # Increment pending tasks
+    Threads.atomic_add!(Legate.PENDING_TASKS, 1)
+
+    return task
 end
 
 # Global state
