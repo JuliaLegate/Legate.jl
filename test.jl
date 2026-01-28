@@ -34,14 +34,16 @@ function task_scalar(args::Vector{Legate.TaskArgument})
     end
 end
 
-my_task = Legate.wrap_task(task_test)
-my_init_task = Legate.wrap_task(task_init)
-my_4arg_task = Legate.wrap_task(task_4arg)
-my_scalar_task = Legate.wrap_task(task_scalar)
-
 function test_driver()
     rt = Legate.get_runtime()
     lib = Legate.create_library("test")
+
+    my_task = Legate.wrap_task(task_test)
+    my_init_task = Legate.wrap_task(task_init)
+    my_4arg_task = Legate.wrap_task(task_4arg)
+    my_scalar_task = Legate.wrap_task(task_scalar)
+
+    @info "Tasks wrapped"
 
     # 1. Init Task (3 args)
     a = Legate.create_array([10, 10], Float32)
