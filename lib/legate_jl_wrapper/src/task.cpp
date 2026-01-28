@@ -14,6 +14,18 @@
 #include "legate.h"
 #include "types.h"
 
+#ifdef DEBUG
+#define DEBUG_PRINT(...)                  \
+  fprintf(stderr, "DEBUG: " __VA_ARGS__); \
+  fflush(stderr);
+#else
+#define DEBUG_PRINT(...) ;
+#endif
+
+#define ERROR_PRINT(...)                  \
+  fprintf(stderr, "ERROR: " __VA_ARGS__); \
+  fflush(stderr);
+
 namespace ufi {
 
 enum class AccessMode {
@@ -101,15 +113,17 @@ extern "C" void completion_callback_from_julia() {
 void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
   g_async_handle = static_cast<uv_async_t*>(async_handle_ptr);
   g_request_ptr = static_cast<TaskRequestData*>(request_ptr);
-  std::fprintf(stderr, "Async system initialized: handle=%p, request=%p\n",
-               g_async_handle, g_request_ptr);
+  DEBUG_PRINT("Async system initialized: handle=%p, request=%p\n",
+              g_async_handle, g_request_ptr);
 }
 
 /*static*/ void JuliaCustomTask::cpu_variant(legate::TaskContext context) {
-  // Adopt the current thread into Julia
-  // We need to do this because Legate worker threads are not created by Julia
-  // and thus are unknown to the Julia runtime by default. Without adoption,
-  // interactions with the Julia runtime (like allocations or GC) will segfault.
+  /* Adopt the current thread into Julia
+     We need to do this because Legate worker threads are not created by Julia
+     and thus are unknown to the Julia runtime by default. Without adoption,
+     interactions with the Julia runtime (like allocations, GC, etc.) will
+     segfault or hang.
+  */
   thread_local static bool is_adopted = false;
   if (!is_adopted) {
     jl_adopt_thread();
@@ -165,7 +179,7 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
     auto size = scal.size();
     const void* p = scal.ptr();
 
-    void* val_ptr = malloc(size);
+    auto* val_ptr = new char[size];
     if (p != nullptr) {
       std::memcpy(val_ptr, p, size);
     } else {
@@ -176,45 +190,21 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
     scalar_types.push_back((int)code);
   }
 
-  // Heap allocate arguments to ensure they are accessible to Julia
-  // accessing C++ stack memory from the adopted thread can be problematic
-  void** inputs_ptr = (void**)malloc(sizeof(void*) * num_inputs);
-  void** outputs_ptr = (void**)malloc(sizeof(void*) * num_outputs);
-
-  // Allocate scalar arrays
-  void** scalars_ptr = nullptr;
-  int* scalar_types_ptr = nullptr;
-  if (num_scalars > 0) {
-    scalars_ptr = (void**)malloc(sizeof(void*) * num_scalars);
-    scalar_types_ptr = (int*)malloc(sizeof(int) * num_scalars);
-  }
-
-  if (!inputs.empty()) {
-    std::memcpy(inputs_ptr, inputs.data(), sizeof(void*) * num_inputs);
-  }
-  if (!outputs.empty()) {
-    std::memcpy(outputs_ptr, outputs.data(), sizeof(void*) * num_outputs);
-  }
-  if (num_scalars > 0) {
-    std::memcpy(scalars_ptr, scalar_values.data(), sizeof(void*) * num_scalars);
-    std::memcpy(scalar_types_ptr, scalar_types.data(),
-                sizeof(int) * num_scalars);
-  }
-
   // Instead of calling Julia directly, we:
   //   1. Fill the shared TaskRequest structure
   //   2. Call uv_async_send to wake up Julia's async worker
   //   3. Wait for Julia to signal completion
 
-  std::fprintf(stderr, "Preparing async request...\n");
-  fflush(stderr);
+  DEBUG_PRINT("Preparing async request for task %d...\n", task_id);
 
   // Fill the shared request structure (Julia will read this)
   g_request_ptr->task_id = task_id;
-  g_request_ptr->inputs_ptr = inputs_ptr;
-  g_request_ptr->outputs_ptr = outputs_ptr;
-  g_request_ptr->scalars_ptr = scalars_ptr;
-  g_request_ptr->scalar_types = scalar_types_ptr;
+  // we don't have to worry about the lifetime of data as this function will
+  // block until Julia is done with the task.
+  g_request_ptr->inputs_ptr = inputs.data();
+  g_request_ptr->outputs_ptr = outputs.data();
+  g_request_ptr->scalars_ptr = scalar_values.data();
+  g_request_ptr->scalar_types = scalar_types.data();
   g_request_ptr->num_inputs = num_inputs;
   g_request_ptr->num_outputs = num_outputs;
   g_request_ptr->num_scalars = num_scalars;
@@ -224,17 +214,14 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
   // Reset completion flag
   g_task_done.store(false);
 
-  std::fprintf(stderr, "Signaling Julia via uv_async_send...\n");
-  fflush(stderr);
+  DEBUG_PRINT("Signaling Julia via uv_async_send for task %d...\n", task_id);
 
   // Signal Julia's event loop - thread-safe
   int result = uv_async_send(g_async_handle);
   if (result != 0) {
-    std::fprintf(stderr, "ERROR: uv_async_send failed with code %d\n", result);
+    ERROR_PRINT("uv_async_send failed with code %d\n", result);
   }
-
-  std::fprintf(stderr, "Waiting for Julia to complete task...\n");
-  fflush(stderr);
+  DEBUG_PRINT("Waiting for Julia to complete task %d...\n", task_id);
 
   // Wait for Julia to signal completion
   {
@@ -242,18 +229,11 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
     g_completion_cv.wait(lock, [] { return g_task_done.load(); });
   }
 
-  std::fprintf(stderr, "Julia task completed!\n");
-  fflush(stderr);
+  DEBUG_PRINT("Julia task %d completed!\n", task_id);
 
-  free(inputs_ptr);
-  free(outputs_ptr);
-
-  if (scalars_ptr) {
-    for (size_t i = 0; i < num_scalars; ++i) {
-      free(scalars_ptr[i]);
-    }
-    free(scalars_ptr);
-    free(scalar_types_ptr);
+  // Free the memory we allocated for the scalar values
+  for (void* ptr : scalar_values) {
+    delete[] static_cast<char*>(ptr);
   }
 }
 

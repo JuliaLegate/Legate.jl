@@ -1,10 +1,5 @@
 using Legate
 
-const my_task_ref = Ref{Legate.JuliaTask}()
-const my_init_task_ref = Ref{Legate.JuliaTask}()
-const my_4arg_task_ref = Ref{Legate.JuliaTask}()
-const my_scalar_task_ref = Ref{Legate.JuliaTask}()
-
 function task_test(args::Vector{Legate.TaskArgument})
     a, b, c = args
     @inbounds @simd for i in eachindex(a)
@@ -32,17 +27,17 @@ end
 
 # Task with Scalar argument
 function task_scalar(args::Vector{Legate.TaskArgument})
-    a, b, scale = args
-    # scale is a scalar (Float32)
+    a, b, scalar = args
+    # scalar is a scalar (Float32)
     @inbounds @simd for i in eachindex(a)
-        b[i] = a[i] * scale
+        b[i] = a[i] * scalar
     end
 end
 
-my_task_ref[] = Legate.wrap_task(task_test)
-my_init_task_ref[] = Legate.wrap_task(task_init)
-my_4arg_task_ref[] = Legate.wrap_task(task_4arg)
-my_scalar_task_ref[] = Legate.wrap_task(task_scalar)
+my_task = Legate.wrap_task(task_test)
+my_init_task = Legate.wrap_task(task_init)
+my_4arg_task = Legate.wrap_task(task_4arg)
+my_scalar_task = Legate.wrap_task(task_scalar)
 
 function test_driver()
     rt = Legate.get_runtime()
@@ -57,7 +52,7 @@ function test_driver()
         c = Legate.create_array([10, 10], Float32)
         d = Legate.create_array([10, 10], Float32) # Extra array for 4-arg test
 
-        task = Legate.create_julia_task(rt, lib, my_init_task_ref[].fun)
+        task = Legate.create_julia_task(rt, lib, my_init_task)
         init_output_vars = Vector{Legate.Variable}()
         push!(init_output_vars, Legate.add_output(task, a))
         push!(init_output_vars, Legate.add_output(task, b))
@@ -67,7 +62,7 @@ function test_driver()
         Legate.submit_task(rt, task)
 
         # 2. Compute Task (3 args)
-        task2 = Legate.create_julia_task(rt, lib, my_task_ref[].fun)
+        task2 = Legate.create_julia_task(rt, lib, my_task)
         input_vars = Vector{Legate.Variable}()
         output_vars = Vector{Legate.Variable}()
         push!(input_vars, Legate.add_input(task2, a))
@@ -78,7 +73,7 @@ function test_driver()
         Legate.submit_task(rt, task2)
 
         # 3. Arbitrary Arg Task (4 args: 2 in, 2 out)
-        task3 = Legate.create_julia_task(rt, lib, my_4arg_task_ref[].fun)
+        task3 = Legate.create_julia_task(rt, lib, my_4arg_task)
         in_vars_4 = Vector{Legate.Variable}()
         out_vars_4 = Vector{Legate.Variable}()
         # Inputs: a, c
@@ -92,7 +87,7 @@ function test_driver()
         Legate.submit_task(rt, task3)
 
         # 4. Scalar Arg Task (2 args + scalar)
-        task4 = Legate.create_julia_task(rt, lib, my_scalar_task_ref[].fun)
+        task4 = Legate.create_julia_task(rt, lib, my_scalar_task)
         in_vars_s = Vector{Legate.Variable}()
         out_vars_s = Vector{Legate.Variable}()
         # Input: c (result of task2)
@@ -106,12 +101,12 @@ function test_driver()
 
         Legate.submit_task(rt, task4)
 
-        println("Tasks submitted successfully")
+        @info "Tasks submitted successfully"
     end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     async_task = test_driver()
     wait(async_task)
-    println("Done! All tasks completed.")
+    @info "All tasks completed."
 end

@@ -27,11 +27,15 @@ const TaskFunType = FunctionWrapper{Nothing,Tuple{Vector{TaskArgument}}}
 
 struct JuliaTask
     fun::TaskFunType
+    task_id::UInt32
 end
 
-wrap_task(f) = JuliaTask(
-    FunctionWrapper{Nothing,Tuple{Vector{TaskArgument}}}(f)
-)
+function wrap_task(f)
+    JuliaTask(
+        FunctionWrapper{Nothing,Tuple{Vector{TaskArgument}}}(f),
+        Threads.atomic_add!(NEXT_TASK_ID, UInt32(1)),
+    )
+end
 
 # Thread-safe execution from Legate worker threads
 # Signals via uv_async_send, Julia executes
@@ -49,7 +53,6 @@ struct TaskRequest
     ndim::Cint
     dims::NTuple{3,Int64}
 
-    # Default constructor for initialization
     TaskRequest() = new(0, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
 end
 
@@ -68,30 +71,24 @@ function register_task_function(id::UInt32, fun::TaskFunType)
     lock(REGISTRY_LOCK) do
         TASK_REGISTRY[id] = fun
     end
+    Threads.atomic_add!(Legate.PENDING_TASKS, 1)
 end
 
 """
-    create_julia_task(rt, lib, task_fun::TaskFunType) -> AutoTask
+    create_julia_task(rt, lib, task_obj::Ref{JuliaTask}) -> AutoTask
 
 Create a Julia UFI task with auto-generated task ID.
-Automatically registers the task function and adds the task ID as a scalar.
+Automatically registers the task with Legate.
 """
-function create_julia_task(rt, lib, task_fun::TaskFunType)
-    # Generate unique task ID
-    task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
-
+function create_julia_task(rt, lib, task_obj::JuliaTask)
     # Create the task
     task = create_task(rt, lib, JULIA_CUSTOM_TASK)
 
     # Add task ID as first scalar
-    add_scalar(task, Scalar(task_id))
+    add_scalar(task, Scalar(task_obj.task_id))
 
-    # Register the function
-    register_task_function(task_id, task_fun)
-
-    # Increment pending tasks
-    Threads.atomic_add!(Legate.PENDING_TASKS, 1)
-
+    # Register the function with TASK_REGISTRY
+    register_task_function(task_obj.task_id, task_obj.fun)
     return task
 end
 
@@ -103,16 +100,16 @@ const CURRENT_REQUEST = Ref{TaskRequest}()
 
 # Worker task that waits for async signals from C++
 function async_worker()
-    @info "AsyncCondition worker started, waiting for UV signals..."
+    @debug "AsyncCondition worker started, waiting for UV signals..."
     WORKER_STARTED[] = true
 
     while true
         try
             # Wait for C++ to call uv_async_send
-            @info "Waiting on AsyncCondition..."
+            @debug "Waiting on AsyncCondition..."
             wait(ASYNC_COND[])
 
-            @info "Received UV async signal! Executing Julia task..."
+            @debug "Received UV async signal! Executing Julia task..."
             try
                 # Get task data (set by C++ before uv_async_send)
                 req = CURRENT_REQUEST[]
@@ -196,14 +193,14 @@ function _start_worker()
     # Spawn worker on interactive thread pool
     WORKER_TASK[] = Threads.@spawn :interactive async_worker()
 
-    @info "Worker task spawned on interactive thread"
+    @debug "Worker task spawned on interactive thread"
 
     # Wait until worker is ready
     while !WORKER_STARTED[]
         sleep(0.01)
     end
 
-    @info "Worker confirmed started and waiting"
+    @debug "Worker confirmed started and waiting"
 end
 
 # Initialize AsyncCondition and start worker - called from Legate.__init__
