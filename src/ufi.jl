@@ -29,6 +29,10 @@ struct JuliaTask
     fun::TaskFunType
 end
 
+wrap_task(f) = JuliaTask(
+    FunctionWrapper{Nothing,Tuple{Vector{TaskArgument}}}(f)
+)
+
 # Thread-safe execution from Legate worker threads
 # Signals via uv_async_send, Julia executes
 

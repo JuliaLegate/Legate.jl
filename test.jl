@@ -39,24 +39,10 @@ function task_scalar(args::Vector{Legate.TaskArgument})
     end
 end
 
-# Store the wrapped function
-const my_task = Legate.JuliaTask(
-    Legate.FunctionWrapper{Nothing,Tuple{Vector{Legate.TaskArgument}}}(task_test)
-)
-const my_init_task = Legate.JuliaTask(
-    Legate.FunctionWrapper{Nothing,Tuple{Vector{Legate.TaskArgument}}}(task_init)
-)
-const my_4arg_task = Legate.JuliaTask(
-    Legate.FunctionWrapper{Nothing,Tuple{Vector{Legate.TaskArgument}}}(task_4arg)
-)
-const my_scalar_task = Legate.JuliaTask(
-    Legate.FunctionWrapper{Nothing,Tuple{Vector{Legate.TaskArgument}}}(task_scalar)
-)
-
-my_task_ref[] = my_task
-my_init_task_ref[] = my_init_task
-my_4arg_task_ref[] = my_4arg_task
-my_scalar_task_ref[] = my_scalar_task
+my_task_ref[] = Legate.wrap_task(task_test)
+my_init_task_ref[] = Legate.wrap_task(task_init)
+my_4arg_task_ref[] = Legate.wrap_task(task_4arg)
+my_scalar_task_ref[] = Legate.wrap_task(task_scalar)
 
 function test_driver()
     rt = Legate.get_runtime()
@@ -64,7 +50,7 @@ function test_driver()
 
     # Wrap Legate operations in @async blocks
     # This keeps the main thread's event loop active!
-    @async begin
+    return @async begin
         # 1. Init Task (3 args)
         a = Legate.create_array([10, 10], Float32)
         b = Legate.create_array([10, 10], Float32)
@@ -125,5 +111,7 @@ function test_driver()
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    test_driver()
+    async_task = test_driver()
+    wait(async_task)
+    println("Done! All tasks completed.")
 end
