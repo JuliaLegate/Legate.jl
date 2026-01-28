@@ -115,6 +115,11 @@ const _start_lock = ReentrantLock()
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
+function _finish_runtime()
+    Legate.wait_ufi()
+    Legate.legate_finish()
+end
+
 function _start_runtime()
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
@@ -125,7 +130,7 @@ function _start_runtime()
     LegatePreferences.maybe_warn_prerelease()
     Legate.init_ufi()
 
-    Base.atexit(Legate.legate_finish)
+    Base.atexit(Legate._finish_runtime)
     return RUNTIME_ACTIVE
 end
 

@@ -126,7 +126,4 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     test_driver()
-    println("Main thread waiting for tasks to complete...")
-    Legate.wait_ufi()
-    println("Done! All tasks completed.")
 end
