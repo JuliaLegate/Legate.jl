@@ -209,6 +209,15 @@ function init_ufi()
     _start_worker()
 end
 
+# Wait for all tasks to complete
+function wait_ufi()
+    lock(Legate.ALL_TASKS_DONE) do
+        while Legate.PENDING_TASKS[] > 0
+            wait(Legate.ALL_TASKS_DONE)
+        end
+    end
+end
+
 # Get the async handle for C++ to call uv_async_send
 function _get_async_handle()
     return ASYNC_COND[].handle
