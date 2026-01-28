@@ -1,5 +1,8 @@
 var searchData=
 [
-  ['operator_28_29_0',['operator()',['../structWrapDefault.html#a3b2207adaa6fe5e74fe3312723828409',1,'WrapDefault::operator()()'],['../structufi_1_1ufiFunctor.html#ad245520c5bec6253502f012203b87341',1,'ufi::ufiFunctor::operator()()']]],
-  ['outputs_5fptr_1',['outputs_ptr',['../structufi_1_1TaskRequestData.html#a4a949082de7ab749ae73d6697e67a94a',1,'ufi::TaskRequestData']]]
+  ['ndim_0',['ndim',['../structufi_1_1TaskRequestData.html#ad7b107a766030c38110d6a7c77214b64',1,'ufi::TaskRequestData']]],
+  ['ndim_5fptr_1',['ndim_ptr',['../structufi_1_1ufiFunctor.html#adf82b6865b4c5c1f77e37c19ce4049f1',1,'ufi::ufiFunctor']]],
+  ['num_5finputs_2',['num_inputs',['../structufi_1_1TaskRequestData.html#ab8398aec78c255575481e45d2cc74051',1,'ufi::TaskRequestData']]],
+  ['num_5foutputs_3',['num_outputs',['../structufi_1_1TaskRequestData.html#a238282d5c882e5ecf9847cb85abed0cd',1,'ufi::TaskRequestData']]],
+  ['num_5fscalars_4',['num_scalars',['../structufi_1_1TaskRequestData.html#afd4c13c9a4a48e91ce33f3b27778c4eb',1,'ufi::TaskRequestData']]]
 ];

@@ -2,6 +2,8 @@ var task_8cpp =
 [
     [ "ufi::ufiFunctor", "structufi_1_1ufiFunctor.html", "structufi_1_1ufiFunctor" ],
     [ "ufi::TaskRequestData", "structufi_1_1TaskRequestData.html", "structufi_1_1TaskRequestData" ],
+    [ "DEBUG_PRINT", "task_8cpp.html#a88edd2aa4feabff4af21a997d5d8aa23", null ],
+    [ "ERROR_PRINT", "task_8cpp.html#ae1cb3e9a56747aa0a7e58b387628c8db", null ],
     [ "UFI", "task_8cpp.html#ac3fd89812a26deb3556cd5d4833cb169", null ],
     [ "ufi::AccessMode", "namespaceufi.html#a1b12f5afea88fad4974b04700aa9122b", [
       [ "ufi::AccessMode::READ", "namespaceufi.html#a1b12f5afea88fad4974b04700aa9122ba3466fab4975481651940ed328aa990e4", null ],

@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['read_0',['READ',['../namespaceufi.html#a1b12f5afea88fad4974b04700aa9122ba3466fab4975481651940ed328aa990e4',1,'ufi']]]
+  ['operator_28_29_0',['operator()',['../structWrapDefault.html#a3b2207adaa6fe5e74fe3312723828409',1,'WrapDefault::operator()()'],['../structufi_1_1ufiFunctor.html#ad245520c5bec6253502f012203b87341',1,'ufi::ufiFunctor::operator()()']]],
+  ['outputs_5fptr_1',['outputs_ptr',['../structufi_1_1TaskRequestData.html#a4a949082de7ab749ae73d6697e67a94a',1,'ufi::TaskRequestData']]]
 ];

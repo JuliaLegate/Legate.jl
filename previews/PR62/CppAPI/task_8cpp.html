@@ -115,6 +115,8 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-define-members" class="groupheader"><a id="define-members" name="define-members"></a>
 Macros</h2></td></tr>
+<tr class="memitem:a88edd2aa4feabff4af21a997d5d8aa23" id="r_a88edd2aa4feabff4af21a997d5d8aa23"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a88edd2aa4feabff4af21a997d5d8aa23">DEBUG_PRINT</a>(...)</td></tr>
+<tr class="memitem:ae1cb3e9a56747aa0a7e58b387628c8db" id="r_ae1cb3e9a56747aa0a7e58b387628c8db"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae1cb3e9a56747aa0a7e58b387628c8db">ERROR_PRINT</a>(...)</td></tr>
 <tr class="memitem:ac3fd89812a26deb3556cd5d4833cb169" id="r_ac3fd89812a26deb3556cd5d4833cb169"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac3fd89812a26deb3556cd5d4833cb169">UFI</a>(MODE,  ACCESSOR_CALL)</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-enum-members" class="groupheader"><a id="enum-members" name="enum-members"></a>
@@ -134,6 +136,43 @@ Functions</h2></td></tr>
 <tr class="memitem:a0933f70f5a790bb63f8f675718469f41" id="r_a0933f70f5a790bb63f8f675718469f41"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0933f70f5a790bb63f8f675718469f41">wrap_ufi</a> (jlcxx::Module &amp;mod)</td></tr>
 </table>
 <a name="doc-define-members" id="doc-define-members"></a><h2 id="header-doc-define-members" class="groupheader">Macro Definition Documentation</h2>
+<a id="a88edd2aa4feabff4af21a997d5d8aa23" name="a88edd2aa4feabff4af21a997d5d8aa23"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a88edd2aa4feabff4af21a997d5d8aa23">&#9670;&#160;</a></span>DEBUG_PRINT</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define DEBUG_PRINT</td>
+          <td>(</td>
+          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em></em></span>...</td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Value:</b><div class="fragment"><div class="line">;</div>
+</div><!-- fragment -->
+</div>
+</div>
+<a id="ae1cb3e9a56747aa0a7e58b387628c8db" name="ae1cb3e9a56747aa0a7e58b387628c8db"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae1cb3e9a56747aa0a7e58b387628c8db">&#9670;&#160;</a></span>ERROR_PRINT</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define ERROR_PRINT</td>
+          <td>(</td>
+          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em></em></span>...</td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Value:</b><div class="fragment"><div class="line">  fprintf(stderr, <span class="stringliteral">&quot;ERROR: &quot;</span> __VA_ARGS__); \</div>
+<div class="line">  fflush(stderr);</div>
+</div><!-- fragment -->
+</div>
+</div>
 <a id="ac3fd89812a26deb3556cd5d4833cb169" name="ac3fd89812a26deb3556cd5d4833cb169"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac3fd89812a26deb3556cd5d4833cb169">&#9670;&#160;</a></span>UFI</h2>
 
