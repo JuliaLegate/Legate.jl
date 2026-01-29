@@ -24,7 +24,9 @@
 
 namespace ufi {
 enum TaskIDs {
-  JULIA_CUSTOM_TASK = 5556,
+  // max local task ID for custom library
+  // for some reason cupynumeric can have larger IDs? Not sure why.
+  JULIA_CUSTOM_TASK = 1023,
 };
 
 class JuliaCustomTask : public legate::LegateTask<JuliaCustomTask> {
