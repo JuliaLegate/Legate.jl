@@ -24,7 +24,7 @@
 
 namespace ufi {
 enum TaskIDs {
-  JULIA_CUSTOM_TASK = 55,
+  JULIA_CUSTOM_TASK = 5556,
 };
 
 class JuliaCustomTask : public legate::LegateTask<JuliaCustomTask> {
