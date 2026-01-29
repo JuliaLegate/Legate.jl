@@ -112,11 +112,20 @@ const RUNTIME_INACTIVE = -1
 const RUNTIME_ACTIVE = 0
 const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
 const _start_lock = ReentrantLock()
+const _shutdown_done = Ref{Bool}(false)
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
 function _finish_runtime()
-    Legate.wait_ufi()
+    # Prevent double shutdown
+    _shutdown_done[] && return nothing
+    _shutdown_done[] = true
+
+    if !Legate.UFI_SHUTDOWN_DONE[]
+        Legate.wait_ufi() # make sure UFI is done
+        Legate.shutdown_ufi() # shutdown UFI
+    end
+    # finish legate runtime
     Legate.legate_finish()
 end
 

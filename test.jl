@@ -1,11 +1,5 @@
 using Legate
 
-# TODO BUG: @info and @warn doesn't work when using the tasking interface
-# Not sure the exact reason; however, it could be related to invokelatest
-# in the logging infrastructure.
-
-# Please use println, print, @printf, @debug. I have confirmed these work.
-
 function task_test(args::Vector{Legate.TaskArgument})
     a, b, c = args
     @inbounds @simd for i in eachindex(a)
@@ -107,8 +101,4 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     test_driver()
-    # our destructor will call wait_ufi,
-    # but you can manually add a wait here if you want to
-    # Legate.wait_ufi()
-    println("All tasks completed.")
 end

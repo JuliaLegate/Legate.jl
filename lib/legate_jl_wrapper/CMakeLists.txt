@@ -41,15 +41,7 @@ set(SOURCES
 add_library(${LIBRARY_NAME} SHARED ${SOURCES})
 set_target_properties(${LIBRARY_NAME} PROPERTIES VERSION ${LegateWrapperVersion})
 
-
-
-execute_process(
-  COMMAND julia -e "println(joinpath(dirname(Sys.BINDIR), \"lib\", \"libjulia.\" * Base.libext()))"
-  OUTPUT_VARIABLE JULIA_LIB_PATH
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-target_link_libraries(${LIBRARY_NAME} PRIVATE legate::legate JlCxx::cxxwrap_julia JlCxx::cxxwrap_julia_stl pthread "${JULIA_LIB_PATH}")
+target_link_libraries(${LIBRARY_NAME} PRIVATE legate::legate JlCxx::cxxwrap_julia JlCxx::cxxwrap_julia_stl)
 target_include_directories(${LIBRARY_NAME} PRIVATE include)
 
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)

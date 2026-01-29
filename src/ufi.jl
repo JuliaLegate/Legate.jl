@@ -15,7 +15,7 @@
  *
  * Author(s): David Krasowska <krasow@u.northwestern.edu>
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
-=#
+ =#
 
 using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
@@ -67,6 +67,9 @@ const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
 const PENDING_TASKS = Threads.Atomic{Int}(0)
 const ALL_TASKS_DONE = Threads.Condition()
 
+# Track if UFI has been shut down
+const UFI_SHUTDOWN_DONE = Threads.Atomic{Bool}(false)
+
 function register_task_function(id::UInt32, fun::TaskFunType)
     lock(REGISTRY_LOCK) do
         TASK_REGISTRY[id] = fun
@@ -100,29 +103,16 @@ const CURRENT_REQUEST = Ref{TaskRequest}()
 
 # Worker task that waits for async signals from C++
 function async_worker()
-    @debug "AsyncCondition worker started, waiting for UV signals..."
     WORKER_STARTED[] = true
-
-    while true
-        try
-            # Wait for C++ to call uv_async_send
-            @debug "Waiting on AsyncCondition..."
+    try
+        while true
             wait(ASYNC_COND[])
-
-            @debug "Received UV async signal! Executing Julia task..."
-            try
-                # Get task data (set by C++ before uv_async_send)
-                req = CURRENT_REQUEST[]
-
-                execute_julia_task(req)
-                ccall(:completion_callback_from_julia, Cvoid, ())
-            catch e
-                @error "CRASH in worker" exception=(e, catch_backtrace())
-                rethrow()
-            end
-        catch e
-            @error "Error in worker" exception=(e, catch_backtrace())
+            req = CURRENT_REQUEST[]
+            execute_julia_task(req)
+            ccall(:completion_callback_from_julia, Cvoid, ())
         end
+    catch e
+        isa(e, EOFError) || rethrow()
     end
 end
 
@@ -193,14 +183,14 @@ function _start_worker()
     # Spawn worker on interactive thread pool
     WORKER_TASK[] = Threads.@spawn :interactive async_worker()
 
-    @debug "Worker task spawned on interactive thread"
+    # @debug "Worker task spawned on interactive thread"
 
     # Wait until worker is ready
     while !WORKER_STARTED[]
         sleep(0.01)
     end
 
-    @debug "Worker confirmed started and waiting"
+    # @debug "Worker confirmed started and waiting"
 end
 
 # Initialize AsyncCondition and start worker - called from Legate.__init__
@@ -228,4 +218,12 @@ end
 # Get pointer to TaskRequest for C++ to write to
 function _get_request_ptr()
     return Base.unsafe_convert(Ptr{Cvoid}, CURRENT_REQUEST)
+end
+
+function shutdown_ufi()
+    # Prevent double shutdown
+    UFI_SHUTDOWN_DONE[] && return nothing
+    UFI_SHUTDOWN_DONE[] = true
+    close(ASYNC_COND[])
+    wait(WORKER_TASK[])
 end

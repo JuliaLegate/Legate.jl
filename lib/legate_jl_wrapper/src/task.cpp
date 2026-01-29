@@ -1,6 +1,5 @@
 #include "task.h"
 
-#include <julia.h>
 #include <uv.h>  // For uv_async_send
 
 #include <atomic>
@@ -119,20 +118,6 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
 }
 
 /*static*/ void JuliaCustomTask::cpu_variant(legate::TaskContext context) {
-  /* Adopt the current thread into Julia
-     We need to do this because Legate worker threads are not created by Julia
-     and thus are unknown to the Julia runtime by default. Without adoption,
-     interactions with the Julia runtime (like allocations, GC, etc.) will
-     segfault or hang.
-  */
-  thread_local static bool is_adopted = false;
-  if (!is_adopted) {
-    jl_adopt_thread();
-    is_adopted = true;
-  }
-
-  jl_task_t* ct = jl_get_current_task();
-
   std::int32_t task_id = context.scalar(0).value<std::int32_t>();
 
   const std::size_t num_inputs = context.num_inputs();
