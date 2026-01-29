@@ -208,6 +208,7 @@ function init_ufi()
     ASYNC_COND[] = Base.AsyncCondition()
     CURRENT_REQUEST[] = TaskRequest()
     _start_worker()
+    sleep(0.1)
 end
 
 # Wait for all tasks to complete
