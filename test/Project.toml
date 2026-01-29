@@ -1,0 +1,7 @@
+[deps]
+Legate = "1238f2cf-6593-4d60-9aca-2f5364e49909"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[extras]
+LegatePreferences = "8028f36a-2b64-49e9-aa04-2d0933fd2ed9"
