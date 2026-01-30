@@ -64,11 +64,14 @@ lib = Legate.create_library("gpu_lib")
 # 1. Register GPU Task
 task_id = Legate.wrap_task(gpu_add_kernel; task_type=:gpu)
 
-# 2. Setup Data
-N = 100
-a = Legate.create_array([N], Float32)
-b = Legate.create_array([N], Float32)
-c = Legate.create_array([N], Float32)
+# 2. Setup Data.
+N = [128, 128] 
+
+# Similar to CPU tasking, you will need to initialize (a, b) since they are inputs
+# For more information about initializing arrays, look at /examples/tasking.jl
+a = Legate.create_array(N, Float32)
+b = Legate.create_array(N, Float32)
+c = Legate.create_array(N, Float32)
 
 # 3. Create Task
 task = Legate.create_julia_task(rt, lib, task_id)
