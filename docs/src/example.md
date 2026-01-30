@@ -24,7 +24,7 @@ shape = [10, 10]
 
 # You will need to initialize (a, b) since they are inputs
 # Legate will throw an error if they are not initialized
-# For more details, look at /examples/tasking.jl to initialized arrays
+# For more information about initializing arrays, look at /examples/tasking.jl
 a = Legate.create_array(shape, Float32)
 b = Legate.create_array(shape, Float32)
 c = Legate.create_array(shape, Float32)
