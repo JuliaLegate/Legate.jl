@@ -28,7 +28,6 @@ end
 # Task with Scalar argument
 function task_scalar(args::Vector{Legate.TaskArgument})
     a, b, scalar = args
-    # scalar is a scalar (Float32)
     @inbounds @simd for i in eachindex(a)
         b[i] = a[i] * scalar
     end

@@ -105,7 +105,7 @@ function _find_paths(
         legate_path = legate_jll.artifact_dir
     end
 
-    pkg_root = abspath(joinpath(@__DIR__, "../"))
+    pkg_root = abspath(joinpath(@__DIR__, "../../"))
     legate_wrapper_lib = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build", "lib")
 
     return joinpath(legate_path, "lib"), legate_wrapper_lib

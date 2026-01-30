@@ -26,7 +26,7 @@ using Libdl
 using CxxWrap
 
 include(joinpath(@__DIR__, "../deps/version.jl"))
-include("preference.jl")
+include("utilities/preference.jl")
 
 const SUPPORTED_INT_TYPES = Union{Int32,Int64}
 const SUPPORTED_FLOAT_TYPES = Union{Float32,Float64}
@@ -95,7 +95,7 @@ end
 #! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
-include("type_map.jl")
+include("utilities/type_map.jl")
 include("ufi.jl")
 
 # api functions and documentation

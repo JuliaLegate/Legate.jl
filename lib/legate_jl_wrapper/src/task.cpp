@@ -83,10 +83,13 @@ inline legate::Library create_library(legate::Runtime* rt,
 
 // TaskRequest struct  - matches Julia's TaskRequest mutable struct
 struct TaskRequestData {
+  bool is_gpu;
   uint32_t task_id;
   void** inputs_ptr;
   void** outputs_ptr;
   void** scalars_ptr;
+  int* inputs_types;
+  int* outputs_types;
   int* scalar_types;
   size_t num_inputs;
   size_t num_outputs;
@@ -117,7 +120,7 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
               g_async_handle, g_request_ptr);
 }
 
-inline void JuliaTaskInterface(legate::TaskContext context) {
+inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   std::int32_t task_id = context.scalar(0).value<std::int32_t>();
 
   const std::size_t num_inputs = context.num_inputs();
@@ -125,6 +128,9 @@ inline void JuliaTaskInterface(legate::TaskContext context) {
 
   std::vector<void*> inputs;
   std::vector<void*> outputs;
+
+  std::vector<int> inputs_types;
+  std::vector<int> outputs_types;
 
   // Scalar 0 is reserved for task ID. User scalars start at 1.
   const std::size_t total_scalars = context.num_scalars();
@@ -145,6 +151,7 @@ inline void JuliaTaskInterface(legate::TaskContext context) {
     legate::double_dispatch(dim, code, functor, ufi::AccessMode::READ, p, ps);
     assert(p != 0);
     inputs.push_back(reinterpret_cast<void*>(p));
+    inputs_types.push_back((int)code);
   }
 
   for (std::size_t i = 0; i < num_outputs; ++i) {
@@ -155,6 +162,7 @@ inline void JuliaTaskInterface(legate::TaskContext context) {
     legate::double_dispatch(dim, code, functor, ufi::AccessMode::WRITE, p, ps);
     assert(p != 0);
     outputs.push_back(reinterpret_cast<void*>(p));
+    outputs_types.push_back((int)code);
   }
 
   // Process User Scalars
@@ -184,12 +192,15 @@ inline void JuliaTaskInterface(legate::TaskContext context) {
   DEBUG_PRINT("Preparing async request for task %d...\n", task_id);
 
   // Fill the shared request structure (Julia will read this)
+  g_request_ptr->is_gpu = is_gpu;
   g_request_ptr->task_id = task_id;
   // we don't have to worry about the lifetime of data as this function will
   // block until Julia is done with the task.
   g_request_ptr->inputs_ptr = inputs.data();
   g_request_ptr->outputs_ptr = outputs.data();
   g_request_ptr->scalars_ptr = scalar_values.data();
+  g_request_ptr->inputs_types = inputs_types.data();
+  g_request_ptr->outputs_types = outputs_types.data();
   g_request_ptr->scalar_types = scalar_types.data();
   g_request_ptr->num_inputs = num_inputs;
   g_request_ptr->num_outputs = num_outputs;
@@ -231,10 +242,10 @@ inline void JuliaTaskInterface(legate::TaskContext context) {
    need to pass the pointers to JuliaTaskInterface to send to Julia.
 */
 /*static*/ void JuliaCustomTask::cpu_variant(legate::TaskContext context) {
-  JuliaTaskInterface(context);
+  JuliaTaskInterface(context, false);
 }
 /*static*/ void JuliaCustomGPUTask::gpu_variant(legate::TaskContext context) {
-  JuliaTaskInterface(context);
+  JuliaTaskInterface(context, true);
 }
 
 void ufi_interface_register(legate::Library& library) {

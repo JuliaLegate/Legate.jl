@@ -1,3 +1,6 @@
+using Legate
+using Test
+
 function run_base_julia_test()
     a = zeros(Float32, 10, 10)
     b = zeros(Float32, 10, 10)

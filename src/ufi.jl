@@ -19,36 +19,33 @@
 
 using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
-
 using CUDA
 
 # Legate scalar types + AbstractArray for tasks
 const TaskArgument = Union{AbstractArray,SUPPORTED_TYPES}
+const TaskArgumentGPU = Union{CuArray,SUPPORTED_TYPES}
 
-const TaskFunType = FunctionWrapper{Nothing,Tuple{Vector{TaskArgument}}}
+const CPUWrapType = FunctionWrapper{Nothing,Tuple{Vector{TaskArgument}}}
 
-struct JuliaTask
-    fun::Any # Can be TaskFunType (CPU) or a Kernel Function (GPU)
+struct JuliaCPUTask
+    fun::CPUWrapType
     task_id::UInt32
-    input_types::Vector{DataType}
-    output_types::Vector{DataType}
-    task_type::Symbol
 end
 
-function wrap_task(f; input_types=DataType[], output_types=DataType[], task_type=:cpu)
-    fun = if task_type == :gpu
-        f # Store raw kernel function for GPU
-    else
-        FunctionWrapper{Nothing,Tuple{Vector{TaskArgument}}}(f)
-    end
+struct JuliaGPUTask
+    fun::Function
+    task_id::UInt32
+end
 
-    JuliaTask(
-        fun,
-        Threads.atomic_add!(NEXT_TASK_ID, UInt32(1)),
-        input_types,
-        output_types,
-        task_type,
-    )
+JuliaTask = Union{JuliaCPUTask,JuliaGPUTask}
+
+function wrap_task(f; task_type=:cpu)
+    task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
+    if task_type == :gpu
+        return JuliaGPUTask(f, task_id)
+    else
+        return JuliaCPUTask(CPUWrapType(f), task_id)
+    end
 end
 
 # Thread-safe execution from Legate worker threads
@@ -56,10 +53,13 @@ end
 
 # Shared data structure for passing task information from C++ to Julia
 struct TaskRequest
+    is_gpu::Bool
     task_id::UInt32
     inputs_ptr::Ptr{Ptr{Cvoid}}
     outputs_ptr::Ptr{Ptr{Cvoid}}
     scalars_ptr::Ptr{Ptr{Cvoid}}
+    inputs_types::Ptr{Cint}
+    outputs_types::Ptr{Cint}
     scalar_types::Ptr{Cint}
     num_inputs::Csize_t
     num_outputs::Csize_t
@@ -67,14 +67,15 @@ struct TaskRequest
     ndim::Cint
     dims::NTuple{3,Int64}
 
-    TaskRequest() = new(0, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
+    function TaskRequest()
+        new(false, 0, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
+    end
 end
 
 # Thread-safe task registry
-# We relax the type to Any to allow storing both CPU FunctionWrappers and GPU kernel functions
-const TASK_REGISTRY = Dict{UInt32,Any}()
+# Union{CPUWrapType,Function} to allow storing both CPU FunctionWrappers and GPU kernel functions
+const TASK_REGISTRY = Dict{UInt32,Union{CPUWrapType,Function}}()
 const REGISTRY_LOCK = ReentrantLock()
-const TASK_ARG_TYPES = Dict{UInt32,Tuple{Vector{DataType},Vector{DataType},Symbol}}()
 
 # Atomic counter for auto-generating task IDs
 const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
@@ -86,7 +87,7 @@ const ALL_TASKS_DONE = Threads.Condition()
 # Track if UFI has been shut down
 const UFI_SHUTDOWN_DONE = Threads.Atomic{Bool}(false)
 
-function register_task_function(id::UInt32, fun::TaskFunType)
+function register_task_function(id::UInt32, fun::CPUWrapType)
     lock(REGISTRY_LOCK) do
         TASK_REGISTRY[id] = fun
     end
@@ -94,35 +95,27 @@ function register_task_function(id::UInt32, fun::TaskFunType)
 end
 
 """
-    create_julia_task(rt, lib, task_obj::Ref{JuliaTask}) -> AutoTask
+    create_julia_task(rt, lib, task_obj::JuliaTask
+) -> AutoTask
 
 Create a Julia UFI task with auto-generated task ID.
 Automatically registers the task with Legate.
 """
 function create_julia_task(
-    rt, lib, task_obj::JuliaTask; input_types=DataType[], output_types=DataType[]
+    rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaGPUTask
 )
-    # Create the task
-    if task_obj.task_type == :gpu
-        task = create_task(rt, lib, JULIA_CUSTOM_GPU_TASK)
-    else
-        task = create_task(rt, lib, JULIA_CUSTOM_TASK)
-    end
-
-    # Add task ID as first scalar
+    task = create_task(rt, lib, JULIA_CUSTOM_GPU_TASK)
     add_scalar(task, Scalar(task_obj.task_id))
+    register_task_function(task_obj.task_id, task_obj.fun)
+    return task
+end
 
-    # Register the function with TASK_REGISTRY
-    lock(REGISTRY_LOCK) do
-        TASK_REGISTRY[task_obj.task_id] = task_obj.fun
-
-        # Prefer kwargs if provided (override), otherwise use task object's types
-        in_types = isempty(input_types) ? task_obj.input_types : input_types
-        out_types = isempty(output_types) ? task_obj.output_types : output_types
-
-        TASK_ARG_TYPES[task_obj.task_id] = (in_types, out_types, task_obj.task_type)
-    end
-    Threads.atomic_add!(Legate.PENDING_TASKS, 1)
+function create_julia_task(
+    rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaCPUTask
+)
+    task = create_task(rt, lib, JULIA_CUSTOM_TASK)
+    add_scalar(task, Scalar(task_obj.task_id))
+    register_task_function(task_obj.task_id, task_obj.fun)
     return task
 end
 
@@ -153,111 +146,93 @@ function launch_gpu_task(fun, args, threads, blocks)
     CUDA.synchronize()
 end
 
+function _execute_julia_task(::Val{:gpu}, req, task_fun)
+    args = Vector{TaskArgumentGPU}()
+    sizehint!(args, req.num_inputs + req.num_outputs + req.num_scalars)
+
+    dims = ntuple(i -> req.dims[i], Int(req.ndim))
+    N = prod(dims)
+    threads = 256
+    blocks = cld(N, threads)
+
+    # Process Inputs
+    for i in 1:req.num_inputs
+        type_code = unsafe_load(req.inputs_types, i) # get type code
+        T = get_code_type(type_code) # get type from code
+        ptr_val = unsafe_load(req.inputs_ptr, i) # get value storage
+        cu_ptr = reinterpret(CUDA.CuPtr{T}, ptr_val) # convert to CuPtr with proper type
+        push!(args, unsafe_wrap(CuArray, cu_ptr, dims))
+    end
+
+    # Process Outputs
+    for i in 1:req.num_outputs
+        type_code = unsafe_load(req.outputs_types, i)
+        T = get_code_type(type_code)
+        ptr_val = unsafe_load(req.outputs_ptr, i)
+        cu_ptr = reinterpret(CUDA.CuPtr{T}, ptr_val)
+        push!(args, unsafe_wrap(CuArray, cu_ptr, dims))
+    end
+
+    # Process Scalars
+    for i in 1:req.num_scalars
+        type_code = Int(unsafe_load(req.scalar_types, i))
+        T = get_code_type(type_code)
+        val_ptr = unsafe_load(req.scalars_ptr, i) # get value storage
+        scalar_val = unsafe_load(Ptr{T}(val_ptr)) # load value with proper type
+        push!(args, scalar_val)
+    end
+
+    # Launch Kernel via invokelatest to handle world age issues
+    Base.invokelatest(launch_gpu_task, task_fun, args, threads, blocks)
+
+    @debug "Legate UFI: GPU task completed successfully!" req.task_id
+end
+
+function _execute_julia_task(::Val{:cpu}, req, task_fun)
+    args = Vector{TaskArgument}()
+    sizehint!(args, req.num_inputs + req.num_outputs + req.num_scalars)
+
+    dims = ntuple(i -> req.dims[i], Int(req.ndim))
+    for i in 1:req.num_inputs
+        type_code = unsafe_load(req.inputs_types, i)
+        T = get_code_type(type_code)
+        ptr = Ptr{T}(unsafe_load(req.inputs_ptr, i))
+        push!(args, unsafe_wrap(Array, ptr, dims))
+    end
+
+    for i in 1:req.num_outputs
+        type_code = unsafe_load(req.outputs_types, i)
+        T = get_code_type(type_code)
+        ptr = Ptr{T}(unsafe_load(req.outputs_ptr, i))
+        push!(args, unsafe_wrap(Array, ptr, dims))
+    end
+
+    for i in 1:req.num_scalars
+        type_code = Int(unsafe_load(req.scalar_types, i))
+        T = get_code_type(type_code)
+        val_ptr = unsafe_load(req.scalars_ptr, i)
+        val = unsafe_load(Ptr{T}(val_ptr))
+        push!(args, val)
+    end
+
+    cpu_args = Vector{TaskArgument}(args)
+    task_fun(cpu_args)
+
+    @debug "Legate UFI: CPU task completed successfully!" req.task_id
+end
+
+bool_to_symbol(is_gpu::Bool) = is_gpu ? :gpu : :cpu
+
 function execute_julia_task(req::TaskRequest)
     # Look up task function by ID (thread-safe)
     local task_fun
-    local input_types::Vector{DataType}
-    local output_types::Vector{DataType}
-    local task_type::Symbol
 
     lock(REGISTRY_LOCK) do
         task_fun = TASK_REGISTRY[req.task_id]
-        (input_types, output_types, task_type) = get(
-            TASK_ARG_TYPES, req.task_id, (DataType[], DataType[], :cpu)
-        )
     end
 
     try
-        # Dynamic argument collection
-        args = Any[] # Use Any[] to support both TaskArgument (CPU) and CuArray (GPU)
-
-        # Construct shape tuple
-        dims = if req.ndim == 1
-            (req.dims[1],)
-        elseif req.ndim == 2
-            (req.dims[1], req.dims[2])
-        elseif req.ndim == 3
-            (req.dims[1], req.dims[2], req.dims[3])
-        else
-            # fallback to 1D if dims exist
-            (req.dims[1],)
-        end
-
-        if task_type == :gpu
-            # GPU Execution Path
-            N = prod(dims)
-            threads = 256
-            blocks = cld(N, threads)
-
-            # Process Inputs
-            for i in 1:req.num_inputs
-                T = length(input_types) >= i ? input_types[i] : Float32
-                ptr_val = unsafe_load(req.inputs_ptr, i)
-                # Convert raw pointer to CuPtr
-                cu_ptr = reinterpret(CUDA.CuPtr{T}, ptr_val)
-                # Wrap as CuArray
-                push!(args, unsafe_wrap(CuArray, cu_ptr, dims))
-            end
-
-            # Process Outputs
-            for i in 1:req.num_outputs
-                T = length(output_types) >= i ? output_types[i] : Float32
-                ptr_val = unsafe_load(req.outputs_ptr, i)
-                cu_ptr = reinterpret(CUDA.CuPtr{T}, ptr_val)
-                push!(args, unsafe_wrap(CuArray, cu_ptr, dims))
-            end
-
-            # Process Scalars
-            for i in 1:req.num_scalars
-                val_ptr = unsafe_load(req.scalars_ptr, i)
-                type_code = Int(unsafe_load(req.scalar_types, i))
-
-                val = if haskey(code_type_map, type_code)
-                    T = code_type_map[type_code]
-                    unsafe_load(Ptr{T}(val_ptr))
-                else
-                    @warn "Unknown scalar type code" type_code
-                    nothing
-                end
-                push!(args, val)
-            end
-
-            # Launch Kernel via invokelatest to handle world age issues
-            Base.invokelatest(launch_gpu_task, task_fun, args, threads, blocks)
-
-            @debug "Legate UFI: GPU task completed successfully!" req.task_id
-        else
-            for i in 1:req.num_inputs
-                T = length(input_types) >= i ? input_types[i] : Float32
-                ptr = Ptr{T}(unsafe_load(req.inputs_ptr, i))
-                push!(args, unsafe_wrap(Array, ptr, dims))
-            end
-
-            for i in 1:req.num_outputs
-                T = length(output_types) >= i ? output_types[i] : Float32
-                ptr = Ptr{T}(unsafe_load(req.outputs_ptr, i))
-                push!(args, unsafe_wrap(Array, ptr, dims))
-            end
-
-            for i in 1:req.num_scalars
-                val_ptr = unsafe_load(req.scalars_ptr, i)
-                type_code = Int(unsafe_load(req.scalar_types, i))
-
-                val = if haskey(code_type_map, type_code)
-                    T = code_type_map[type_code]
-                    unsafe_load(Ptr{T}(val_ptr))
-                else
-                    @warn "Unknown scalar type code" type_code
-                    nothing
-                end
-                push!(args, val)
-            end
-
-            cpu_args = Vector{TaskArgument}(args)
-            task_fun(cpu_args)
-
-            @debug "Legate UFI: CPU task completed successfully!" req.task_id
-        end
+        _execute_julia_task(Val(bool_to_symbol(req.is_gpu)), req, task_fun)
 
     catch e
         @error "Legate UFI: Julia task failed" exception=(e, catch_backtrace()) req.task_id
