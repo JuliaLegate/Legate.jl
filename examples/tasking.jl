@@ -1,14 +1,18 @@
 using Legate
 
-function task_test(args::Vector{Legate.TaskArgument})
-    a, b, c = args
+# args is a vector that can be expanded
+# it is in the order that the inputs and outputs are added
+# in1 in2 ... out1 out2 ... scalar1 scalar2 ...
+function task_test(args)
+    a, b, c = args # inputs are first, then outputs
     @inbounds @simd for i in eachindex(a)
         c[i] = a[i] + b[i]
     end
 end
 
-function task_init(args::Vector{Legate.TaskArgument})
-    a, b, c = args
+# you can also use do the arg expansion like this
+# the above still applies where inputs are first, then outputs, then scalars
+function task_init(a, b, c)
     @inbounds @simd for i in eachindex(a)
         a[i] = rand(Float32)
         b[i] = rand(Float32)
@@ -17,7 +21,7 @@ function task_init(args::Vector{Legate.TaskArgument})
 end
 
 # Task with 2 inputs, 2 outputs
-function task_4arg(args::Vector{Legate.TaskArgument})
+function task_4arg(args)
     in1, in2, out1, out2 = args
     @inbounds @simd for i in eachindex(in1)
         out1[i] = in1[i] * 2
@@ -26,7 +30,7 @@ function task_4arg(args::Vector{Legate.TaskArgument})
 end
 
 # Task with Scalar argument
-function task_scalar(args::Vector{Legate.TaskArgument})
+function task_scalar(args)
     a, b, scalar = args
     @inbounds @simd for i in eachindex(a)
         b[i] = a[i] * scalar

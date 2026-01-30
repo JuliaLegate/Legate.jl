@@ -1,4 +1,5 @@
-function gpu_add_kernel(a, b, c)
+function gpu_add_kernel(args)
+    a, b, c = args
     idx = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     if idx <= length(a)
         @inbounds c[idx] = a[idx] + b[idx]
@@ -6,13 +7,13 @@ function gpu_add_kernel(a, b, c)
     return nothing
 end
 
-function init_cpu_task(args::Vector{Legate.TaskArgument})
+function init_cpu_task(args)
     a, b = args
     fill!(a, 1.0f0)
     fill!(b, 2.0f0)
 end
 
-function read_cpu_task(args::Vector{Legate.TaskArgument})
+function read_cpu_task(args)
     src, dest = args
     copyto!(dest, src)
 end

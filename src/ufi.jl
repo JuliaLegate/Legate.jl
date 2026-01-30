@@ -98,6 +98,8 @@ end
 Create a Julia UFI task with auto-generated task ID.
 Automatically registers the task with Legate.
 """
+
+# in CUDAExt ufi.jl
 # function create_julia_task(
 #     rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaGPUTask
 # ) end
@@ -134,7 +136,6 @@ end
 
 # in CUDAExt ufi.jl
 # function _execute_julia_task(::Val{:gpu}, req, task_fun) end
-
 function _execute_julia_task(::Val{:cpu}, req, task_fun)
     args = Vector{TaskArgument}()
     sizehint!(args, req.num_inputs + req.num_outputs + req.num_scalars)

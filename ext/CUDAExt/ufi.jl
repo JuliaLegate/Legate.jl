@@ -1,4 +1,4 @@
-const TaskArgumentGPU = Union{CuArray,SUPPORTED_TYPES}
+const TaskArgumentGPU = Union{CUDA.CuArray,SUPPORTED_TYPES}
 
 function create_julia_task(
     rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaGPUTask
@@ -9,9 +9,9 @@ function create_julia_task(
     return task
 end
 
-# Helper to launch GPU kernel in latest world age
 function launch_gpu_task(fun, args, threads, blocks)
-    @cuda threads=threads blocks=blocks fun(args...)
+    # unfortunately, we have to convert to a tuple for @cuda
+    @cuda threads=threads blocks=blocks fun(Tuple(args))
     CUDA.synchronize()
 end
 
