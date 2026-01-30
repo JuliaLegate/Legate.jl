@@ -91,7 +91,7 @@ function register_task_function(id::UInt32, fun::Union{CPUWrapType,Function})
     Threads.atomic_add!(Legate.PENDING_TASKS, 1)
 end
 
-"""
+@doc"""
     create_julia_task(rt::Runtime, lib::Library, task_obj::JuliaTask) -> AutoTask
 
 Create a Julia task in the runtime.
@@ -101,12 +101,6 @@ Create a Julia task in the runtime.
 - `lib`: The library to associate with the task.
 - `task_obj`: The Julia task object to register.
 """
-
-# in CUDAExt ufi.jl
-# function create_julia_task(
-#     rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaGPUTask
-# ) end
-
 function create_julia_task(
     rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaCPUTask
 )
@@ -115,6 +109,11 @@ function create_julia_task(
     register_task_function(task_obj.task_id, task_obj.fun)
     return task
 end
+
+# in CUDAExt ufi.jl
+# function create_julia_task(
+#     rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaGPUTask
+# ) end
 
 # Global state
 const ASYNC_COND = Ref{Base.AsyncCondition}()
