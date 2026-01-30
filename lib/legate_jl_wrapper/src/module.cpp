@@ -93,6 +93,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
   mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
 
+  // TODO: add DomainPoint and Domain for manual tasking interface
   // mod.add_type<DomainPoint>("DomainPoint").constructor<Point>();
   // mod.add_type<Domain>("Domain").constructor<DomainPoint, DomainPoint>();
 

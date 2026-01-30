@@ -117,7 +117,7 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
               g_async_handle, g_request_ptr);
 }
 
-/*static*/ void JuliaCustomTask::cpu_variant(legate::TaskContext context) {
+inline void JuliaTaskInterface(legate::TaskContext context) {
   std::int32_t task_id = context.scalar(0).value<std::int32_t>();
 
   const std::size_t num_inputs = context.num_inputs();
@@ -223,8 +223,23 @@ void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
   }
 }
 
+/* Why not make it JuliaCustomTask::cpu_variant and JuliaCustomTask::gpu_variant
+   you may ask? In Legate, a gpu_variant will provide the GPU context, and a
+   cpu_variant will provide the CPU context. We need to ensure that Legate will
+   place things on the CPU for our CPU tasking and GPU for our GPU tasking. The
+   pointers returned by the cpu_variant and gpu_variant will be different. We
+   need to pass the pointers to JuliaTaskInterface to send to Julia.
+*/
+/*static*/ void JuliaCustomTask::cpu_variant(legate::TaskContext context) {
+  JuliaTaskInterface(context);
+}
+/*static*/ void JuliaCustomGPUTask::gpu_variant(legate::TaskContext context) {
+  JuliaTaskInterface(context);
+}
+
 void ufi_interface_register(legate::Library& library) {
   ufi::JuliaCustomTask::register_variants(library);
+  ufi::JuliaCustomGPUTask::register_variants(library);
 }
 
 }  // namespace ufi
@@ -235,4 +250,6 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("_initialize_async_system", &ufi::initialize_async_system);
   mod.set_const("JULIA_CUSTOM_TASK",
                 legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
+  mod.set_const("JULIA_CUSTOM_GPU_TASK",
+                legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_GPU_TASK});
 }

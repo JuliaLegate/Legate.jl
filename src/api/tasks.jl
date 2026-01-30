@@ -35,7 +35,7 @@ align
 Add default alignment constraints to the task. All inputs and outputs are aligned to the first input.
 """
 function default_alignment(
-    task::Legate.AutoTask, inputs::Vector{Legate.Variable}, outputs::Vector{Legate.Variable}
+    task::Legate.AutoTask, inputs::Vector{<:Legate.Variable}, outputs::Vector{<:Legate.Variable}
 )
     # Align all inputs to the first input
     for i in 2:length(inputs)
