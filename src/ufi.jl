@@ -92,11 +92,14 @@ function register_task_function(id::UInt32, fun::Union{CPUWrapType,Function})
 end
 
 """
-    create_julia_task(rt, lib, task_obj::JuliaTask
-) -> AutoTask
+    create_julia_task(rt::Runtime, lib::Library, task_obj::JuliaTask) -> AutoTask
 
-Create a Julia UFI task with auto-generated task ID.
-Automatically registers the task with Legate.
+Create a Julia task in the runtime.
+
+# Arguments
+- `rt`: The current runtime instance.
+- `lib`: The library to associate with the task.
+- `task_obj`: The Julia task object to register.
 """
 
 # in CUDAExt ufi.jl
