@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['juliataskinterface_0',['JuliaTaskInterface',['../namespaceufi.html#ac5dac7ed41ada6c2b73f0454a246951d',1,'ufi']]]
+  ['juliataskinterface_0',['JuliaTaskInterface',['../namespaceufi.html#a35489963fd6265978d56d4e9ac60d960',1,'ufi']]]
 ];

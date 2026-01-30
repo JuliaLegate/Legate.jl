@@ -2,11 +2,14 @@ var structufi_1_1TaskRequestData =
 [
     [ "dims", "structufi_1_1TaskRequestData.html#a48fe8065bdca1679b705461e5826efb5", null ],
     [ "inputs_ptr", "structufi_1_1TaskRequestData.html#a87f6f84930980a2995c3f8818c5aa3de", null ],
+    [ "inputs_types", "structufi_1_1TaskRequestData.html#a4489f9e2d318c740a86fe8e5464f03ed", null ],
+    [ "is_gpu", "structufi_1_1TaskRequestData.html#a4440595a9e3bbb27da6c711440b6a180", null ],
     [ "ndim", "structufi_1_1TaskRequestData.html#ad7b107a766030c38110d6a7c77214b64", null ],
     [ "num_inputs", "structufi_1_1TaskRequestData.html#ab8398aec78c255575481e45d2cc74051", null ],
     [ "num_outputs", "structufi_1_1TaskRequestData.html#a238282d5c882e5ecf9847cb85abed0cd", null ],
     [ "num_scalars", "structufi_1_1TaskRequestData.html#afd4c13c9a4a48e91ce33f3b27778c4eb", null ],
     [ "outputs_ptr", "structufi_1_1TaskRequestData.html#a4a949082de7ab749ae73d6697e67a94a", null ],
+    [ "outputs_types", "structufi_1_1TaskRequestData.html#a8deb55e718205403f938dba0372ac9ac", null ],
     [ "scalar_types", "structufi_1_1TaskRequestData.html#a6ecb8828ead8376ed4ff12786834c64d", null ],
     [ "scalars_ptr", "structufi_1_1TaskRequestData.html#a3e5194f3da82d04b9426d71a27f5b88f", null ],
     [ "task_id", "structufi_1_1TaskRequestData.html#a002ea68340416017165c2e19cb146fe5", null ]
