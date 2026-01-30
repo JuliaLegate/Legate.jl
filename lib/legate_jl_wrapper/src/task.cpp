@@ -244,13 +244,17 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 /*static*/ void JuliaCustomTask::cpu_variant(legate::TaskContext context) {
   JuliaTaskInterface(context, false);
 }
+#if LEGATE_DEFINED(LEGATE_USE_CUDA)
 /*static*/ void JuliaCustomGPUTask::gpu_variant(legate::TaskContext context) {
   JuliaTaskInterface(context, true);
 }
+#endif
 
 void ufi_interface_register(legate::Library& library) {
   ufi::JuliaCustomTask::register_variants(library);
+#if LEGATE_DEFINED(LEGATE_USE_CUDA)
   ufi::JuliaCustomGPUTask::register_variants(library);
+#endif
 }
 
 }  // namespace ufi

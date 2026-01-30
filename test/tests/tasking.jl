@@ -1,6 +1,3 @@
-using Legate
-using Test
-
 function run_base_julia_test()
     a = zeros(Float32, 10, 10)
     b = zeros(Float32, 10, 10)
@@ -102,7 +99,7 @@ expected_b = base_results.a_init .* 2
 expected_d = expected_c .+ 1
 expected_a = expected_c .* 2.5f0
 
-@testset "Legate Execution" begin
+@testset "Legate CPU Tasking" begin
     rt = Legate.get_runtime()
     lib = Legate.create_library("test_comparison")
 

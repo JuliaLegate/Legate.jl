@@ -1,7 +1,3 @@
-using Legate
-using Test
-using CUDA
-
 function gpu_add_kernel(a, b, c)
     idx = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     if idx <= length(a)
@@ -21,19 +17,14 @@ function read_cpu_task(args::Vector{Legate.TaskArgument})
     copyto!(dest, src)
 end
 
-function main()
-    println("=== Starting GPU Task Verification ===")
-
+@testset "GPU Tasking" begin
     rt = Legate.get_runtime()
     lib = Legate.create_library("gpu_test_lib")
 
-    gpu_task_wrapped = Legate.wrap_task(gpu_add_kernel;
-        input_types=[Float32, Float32],
-        output_types=[Float32],
-        task_type=:gpu)
+    gpu_task_wrapped = Legate.wrap_task(gpu_add_kernel; task_type=:gpu)
 
     init_wrapped = Legate.wrap_task(init_cpu_task)
-    read_wrapped = Legate.wrap_task(read_cpu_task)
+    # read_cpu_task unused in main, using closure below to capture result_host
 
     N = 100
     a = Legate.create_array([N], Float32)
@@ -47,7 +38,6 @@ function main()
     Legate.submit_task(rt, t1)
 
     # 2. Execute GPU Add (C = A + B)
-    println("Submitting GPU task...")
     t2 = Legate.create_julia_task(rt, lib, gpu_task_wrapped)
     ins2 = [Legate.add_input(t2, a), Legate.add_input(t2, b)]
     outs2 = [Legate.add_output(t2, c)]
@@ -65,7 +55,6 @@ function main()
     end
     read_wrapped_closure = Legate.wrap_task(read_task_closure)
 
-    println("Submitting Read task...")
     t3 = Legate.create_julia_task(rt, lib, read_wrapped_closure)
     ins3 = [Legate.add_input(t3, c)]
     Legate.default_alignment(t3, ins3, Vector{Legate.Variable}())
@@ -74,17 +63,4 @@ function main()
     Legate.wait_ufi()
 
     @test all(result_host .== 3.0f0)
-    println("Result[1:5]: ", result_host[1:5])
-
-    if all(result_host .== 3.0f0)
-        println("SUCCESS: GPU Task executed correctly.")
-        exit(0)
-    else
-        println("FAILURE: Incorrect results.")
-        exit(1)
-    end
-end
-
-if abspath(PROGRAM_FILE) == @__FILE__
-    main()
 end

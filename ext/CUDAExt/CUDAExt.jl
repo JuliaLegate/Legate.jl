@@ -1,19 +1,13 @@
 module CUDAExt
 
-using Random
 using CUDA
 using Legate
-import Legate: wrap_task, create_julia_task
+
+using CxxWrap: CxxWrap
+import Legate: wrap_task, create_julia_task, SUPPORTED_TYPES, JuliaGPUTask, CxxPtr, Runtime,
+    Library, create_task, JULIA_CUSTOM_GPU_TASK, add_scalar, Scalar, register_task_function,
+    _execute_julia_task, get_code_type
 
 include("ufi.jl")
-
-function __init__()
-    if CUDA.functional()
-        # in /wrapper/src/cuda.cpp
-        # Legate.register_tasks();
-    else
-        @warn "CUDA.jl is not functional; skipping CUDA Tasking registration."
-    end
-end
 
 end # module CUDAExt

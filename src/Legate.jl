@@ -25,6 +25,9 @@ import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
 
+using FunctionWrappers
+import FunctionWrappers: FunctionWrapper
+
 include(joinpath(@__DIR__, "../deps/version.jl"))
 include("utilities/preference.jl")
 
