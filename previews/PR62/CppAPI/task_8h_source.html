@@ -121,31 +121,48 @@ $(function(){initNavTree('task_8h_source.html','',''); });
 <div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span>  <span class="comment">// max local task ID for custom library</span></div>
 <div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span>  <span class="comment">// for some reason cupynumeric can have larger IDs? Not sure why.</span></div>
 <div class="line"><a id="l00029" name="l00029"></a><span class="lineno"><a class="line" href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e">   29</a></span>  <a class="code hl_enumvalue" href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e">JULIA_CUSTOM_TASK</a> = 1023,</div>
-<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span>};</div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno"><a class="line" href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da5f2699ed615b1c61cc2d802430dae0b9">   30</a></span>  <a class="code hl_enumvalue" href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da5f2699ed615b1c61cc2d802430dae0b9">JULIA_CUSTOM_GPU_TASK</a> = 1022,</div>
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span>};</div>
 </div>
-<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span> </div>
-<div class="foldopen" id="foldopen00032" data-start="{" data-end="};">
-<div class="line"><a id="l00032" name="l00032"></a><span class="lineno"><a class="line" href="classufi_1_1JuliaCustomTask.html">   32</a></span><span class="keyword">class </span><a class="code hl_class" href="classufi_1_1JuliaCustomTask.html">JuliaCustomTask</a> : <span class="keyword">public</span> legate::LegateTask&lt;JuliaCustomTask&gt; {</div>
-<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span> <span class="keyword">public</span>:</div>
-<div class="foldopen" id="foldopen00034" data-start="{" data-end="};">
-<div class="line"><a id="l00034" name="l00034"></a><span class="lineno"><a class="line" href="classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5">   34</a></span>  <span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">const</span> <span class="keyword">auto</span> <a class="code hl_variable" href="classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5">TASK_CONFIG</a> =</div>
-<div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span>      legate::TaskConfig{legate::LocalTaskID{<a class="code hl_enumvalue" href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e">ufi::JULIA_CUSTOM_TASK</a>}};</div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span> </div>
+<div class="foldopen" id="foldopen00033" data-start="{" data-end="};">
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="classufi_1_1JuliaCustomTask.html">   33</a></span><span class="keyword">class </span><a class="code hl_class" href="classufi_1_1JuliaCustomTask.html">JuliaCustomTask</a> : <span class="keyword">public</span> legate::LegateTask&lt;JuliaCustomTask&gt; {</div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span> <span class="keyword">public</span>:</div>
+<div class="foldopen" id="foldopen00035" data-start="{" data-end="};">
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno"><a class="line" href="classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5">   35</a></span>  <span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">const</span> <span class="keyword">auto</span> <a class="code hl_variable" href="classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5">TASK_CONFIG</a> =</div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span>      legate::TaskConfig{legate::LocalTaskID{<a class="code hl_enumvalue" href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e">ufi::JULIA_CUSTOM_TASK</a>}};</div>
 </div>
-<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span> </div>
-<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span>  <span class="keyword">static</span> <span class="keywordtype">void</span> <a class="code hl_function" href="classufi_1_1JuliaCustomTask.html#abea1ece9597eb9a213cef864b0f7db37">cpu_variant</a>(legate::TaskContext context);</div>
-<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span>};</div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span> </div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span>  <span class="keyword">static</span> <span class="keywordtype">void</span> <a class="code hl_function" href="classufi_1_1JuliaCustomTask.html#abea1ece9597eb9a213cef864b0f7db37">cpu_variant</a>(legate::TaskContext context);</div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span>};</div>
 </div>
-<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span> </div>
-<div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span>}  <span class="comment">// namespace ufi</span></div>
-<div class="line"><a id="l00041" name="l00041"></a><span class="lineno">   41</span> </div>
-<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span><span class="keywordtype">void</span> <a class="code hl_function" href="task_8h.html#a0933f70f5a790bb63f8f675718469f41">wrap_ufi</a>(jlcxx::Module&amp; mod);</div>
-<div class="ttc" id="aclassufi_1_1JuliaCustomTask_html"><div class="ttname"><a href="classufi_1_1JuliaCustomTask.html">ufi::JuliaCustomTask</a></div><div class="ttdef"><b>Definition</b> task.h:32</div></div>
-<div class="ttc" id="aclassufi_1_1JuliaCustomTask_html_a33694f989179fdc6341ae014865015e5"><div class="ttname"><a href="classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5">ufi::JuliaCustomTask::TASK_CONFIG</a></div><div class="ttdeci">static const auto TASK_CONFIG</div><div class="ttdef"><b>Definition</b> task.h:34</div></div>
-<div class="ttc" id="aclassufi_1_1JuliaCustomTask_html_abea1ece9597eb9a213cef864b0f7db37"><div class="ttname"><a href="classufi_1_1JuliaCustomTask.html#abea1ece9597eb9a213cef864b0f7db37">ufi::JuliaCustomTask::cpu_variant</a></div><div class="ttdeci">static void cpu_variant(legate::TaskContext context)</div><div class="ttdef"><b>Definition</b> task.cpp:120</div></div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span> </div>
+<div class="foldopen" id="foldopen00041" data-start="{" data-end="};">
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="classufi_1_1JuliaCustomGPUTask.html">   41</a></span><span class="keyword">class </span><a class="code hl_class" href="classufi_1_1JuliaCustomGPUTask.html">JuliaCustomGPUTask</a> : <span class="keyword">public</span> legate::LegateTask&lt;JuliaCustomGPUTask&gt; {</div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span> <span class="keyword">public</span>:</div>
+<div class="foldopen" id="foldopen00043" data-start="{" data-end="};">
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno"><a class="line" href="classufi_1_1JuliaCustomGPUTask.html#a24d002286b4997065784676348b78776">   43</a></span>  <span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">const</span> <span class="keyword">auto</span> <a class="code hl_variable" href="classufi_1_1JuliaCustomGPUTask.html#a24d002286b4997065784676348b78776">TASK_CONFIG</a> =</div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>      legate::TaskConfig{legate::LocalTaskID{<a class="code hl_enumvalue" href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da5f2699ed615b1c61cc2d802430dae0b9">ufi::JULIA_CUSTOM_GPU_TASK</a>}};</div>
+</div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span> </div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>  <span class="keyword">static</span> <span class="keywordtype">void</span> <a class="code hl_function" href="classufi_1_1JuliaCustomGPUTask.html#a2e91246cabf5535a462db365042f3abd">gpu_variant</a>(legate::TaskContext context);</div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>};</div>
+</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span> </div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>}  <span class="comment">// namespace ufi</span></div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span> </div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span><span class="keywordtype">void</span> <a class="code hl_function" href="task_8h.html#a0933f70f5a790bb63f8f675718469f41">wrap_ufi</a>(jlcxx::Module&amp; mod);</div>
+<div class="ttc" id="aclassufi_1_1JuliaCustomGPUTask_html"><div class="ttname"><a href="classufi_1_1JuliaCustomGPUTask.html">ufi::JuliaCustomGPUTask</a></div><div class="ttdef"><b>Definition</b> task.h:41</div></div>
+<div class="ttc" id="aclassufi_1_1JuliaCustomGPUTask_html_a24d002286b4997065784676348b78776"><div class="ttname"><a href="classufi_1_1JuliaCustomGPUTask.html#a24d002286b4997065784676348b78776">ufi::JuliaCustomGPUTask::TASK_CONFIG</a></div><div class="ttdeci">static const auto TASK_CONFIG</div><div class="ttdef"><b>Definition</b> task.h:43</div></div>
+<div class="ttc" id="aclassufi_1_1JuliaCustomGPUTask_html_a2e91246cabf5535a462db365042f3abd"><div class="ttname"><a href="classufi_1_1JuliaCustomGPUTask.html#a2e91246cabf5535a462db365042f3abd">ufi::JuliaCustomGPUTask::gpu_variant</a></div><div class="ttdeci">static void gpu_variant(legate::TaskContext context)</div><div class="ttdef"><b>Definition</b> task.cpp:236</div></div>
+<div class="ttc" id="aclassufi_1_1JuliaCustomTask_html"><div class="ttname"><a href="classufi_1_1JuliaCustomTask.html">ufi::JuliaCustomTask</a></div><div class="ttdef"><b>Definition</b> task.h:33</div></div>
+<div class="ttc" id="aclassufi_1_1JuliaCustomTask_html_a33694f989179fdc6341ae014865015e5"><div class="ttname"><a href="classufi_1_1JuliaCustomTask.html#a33694f989179fdc6341ae014865015e5">ufi::JuliaCustomTask::TASK_CONFIG</a></div><div class="ttdeci">static const auto TASK_CONFIG</div><div class="ttdef"><b>Definition</b> task.h:35</div></div>
+<div class="ttc" id="aclassufi_1_1JuliaCustomTask_html_abea1ece9597eb9a213cef864b0f7db37"><div class="ttname"><a href="classufi_1_1JuliaCustomTask.html#abea1ece9597eb9a213cef864b0f7db37">ufi::JuliaCustomTask::cpu_variant</a></div><div class="ttdeci">static void cpu_variant(legate::TaskContext context)</div><div class="ttdef"><b>Definition</b> task.cpp:233</div></div>
 <div class="ttc" id="anamespaceufi_html"><div class="ttname"><a href="namespaceufi.html">ufi</a></div><div class="ttdef"><b>Definition</b> task.cpp:29</div></div>
 <div class="ttc" id="anamespaceufi_html_af0c197ab50855fdfe28625454ef5131d"><div class="ttname"><a href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131d">ufi::TaskIDs</a></div><div class="ttdeci">TaskIDs</div><div class="ttdef"><b>Definition</b> task.h:26</div></div>
 <div class="ttc" id="anamespaceufi_html_af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e"><div class="ttname"><a href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e">ufi::JULIA_CUSTOM_TASK</a></div><div class="ttdeci">@ JULIA_CUSTOM_TASK</div><div class="ttdef"><b>Definition</b> task.h:29</div></div>
-<div class="ttc" id="atask_8h_html_a0933f70f5a790bb63f8f675718469f41"><div class="ttname"><a href="task_8h.html#a0933f70f5a790bb63f8f675718469f41">wrap_ufi</a></div><div class="ttdeci">void wrap_ufi(jlcxx::Module &amp;mod)</div><div class="ttdef"><b>Definition</b> task.cpp:232</div></div>
+<div class="ttc" id="anamespaceufi_html_af0c197ab50855fdfe28625454ef5131da5f2699ed615b1c61cc2d802430dae0b9"><div class="ttname"><a href="namespaceufi.html#af0c197ab50855fdfe28625454ef5131da5f2699ed615b1c61cc2d802430dae0b9">ufi::JULIA_CUSTOM_GPU_TASK</a></div><div class="ttdeci">@ JULIA_CUSTOM_GPU_TASK</div><div class="ttdef"><b>Definition</b> task.h:30</div></div>
+<div class="ttc" id="atask_8h_html_a0933f70f5a790bb63f8f675718469f41"><div class="ttname"><a href="task_8h.html#a0933f70f5a790bb63f8f675718469f41">wrap_ufi</a></div><div class="ttdeci">void wrap_ufi(jlcxx::Module &amp;mod)</div><div class="ttdef"><b>Definition</b> task.cpp:247</div></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 </div><!-- container -->

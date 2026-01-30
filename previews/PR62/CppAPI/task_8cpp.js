@@ -12,6 +12,7 @@ var task_8cpp =
     [ "ufi::completion_callback_from_julia", "namespaceufi.html#ab507ee1e8b29730831214c5cd9ba0c6b", null ],
     [ "ufi::create_library", "namespaceufi.html#a623400690ae09dc25d79bafc57f4455c", null ],
     [ "ufi::initialize_async_system", "namespaceufi.html#a13407d5812ab4c0906d7960a379233e5", null ],
+    [ "ufi::JuliaTaskInterface", "namespaceufi.html#ac5dac7ed41ada6c2b73f0454a246951d", null ],
     [ "ufi::UFI", "namespaceufi.html#a4eb4be57857a4cb7f12bf437e4637b2e", null ],
     [ "ufi::UFI", "namespaceufi.html#a9b569732c7672d0a8c8832bc4582e848", null ],
     [ "ufi::ufi_interface_register", "namespaceufi.html#a41e4fe7838dbc7f32e74479b9b40a077", null ],

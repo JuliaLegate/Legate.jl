@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['operator_28_29_0',['operator()',['../structWrapDefault.html#a3b2207adaa6fe5e74fe3312723828409',1,'WrapDefault::operator()()'],['../structufi_1_1ufiFunctor.html#ad245520c5bec6253502f012203b87341',1,'ufi::ufiFunctor::operator()()']]]
+  ['legate_5ffinish_0',['legate_finish',['../namespacelegate__wrapper_1_1runtime.html#a12d0a6b01c36260b1a24558ac7170ece',1,'legate_wrapper::runtime']]]
 ];

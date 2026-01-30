@@ -5,6 +5,7 @@ var annotated_dup =
       [ "code_to_cxx", "structlegate__util_1_1code__to__cxx.html", null ]
     ] ],
     [ "ufi", "namespaceufi.html", [
+      [ "JuliaCustomGPUTask", "classufi_1_1JuliaCustomGPUTask.html", null ],
       [ "JuliaCustomTask", "classufi_1_1JuliaCustomTask.html", null ],
       [ "TaskRequestData", "structufi_1_1TaskRequestData.html", "structufi_1_1TaskRequestData" ],
       [ "ufiFunctor", "structufi_1_1ufiFunctor.html", "structufi_1_1ufiFunctor" ]

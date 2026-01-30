@@ -94,6 +94,7 @@ $(function(){initNavTree('namespaceufi.html','',''); });
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-nested-classes" class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:JuliaCustomGPUTask" id="r_JuliaCustomGPUTask"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classufi_1_1JuliaCustomGPUTask.html">JuliaCustomGPUTask</a></td></tr>
 <tr class="memitem:JuliaCustomTask" id="r_JuliaCustomTask"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classufi_1_1JuliaCustomTask.html">JuliaCustomTask</a></td></tr>
 <tr class="memitem:TaskRequestData" id="r_TaskRequestData"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structufi_1_1TaskRequestData.html">TaskRequestData</a></td></tr>
 <tr class="memitem:ufiFunctor" id="r_ufiFunctor"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structufi_1_1ufiFunctor.html">ufiFunctor</a></td></tr>
@@ -104,6 +105,7 @@ Enumerations</h2></td></tr>
 , <a class="el" href="#a1b12f5afea88fad4974b04700aa9122bad4b9e47f65b6e79b010582f15785867e">WRITE</a>
  }</td></tr>
 <tr class="memitem:af0c197ab50855fdfe28625454ef5131d" id="r_af0c197ab50855fdfe28625454ef5131d"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af0c197ab50855fdfe28625454ef5131d">TaskIDs</a> { <a class="el" href="#af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e">JULIA_CUSTOM_TASK</a> = 1023
+, <a class="el" href="#af0c197ab50855fdfe28625454ef5131da5f2699ed615b1c61cc2d802430dae0b9">JULIA_CUSTOM_GPU_TASK</a> = 1022
  }</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
@@ -113,6 +115,7 @@ Functions</h2></td></tr>
 <tr class="memitem:a623400690ae09dc25d79bafc57f4455c" id="r_a623400690ae09dc25d79bafc57f4455c"><td class="memItemLeft" align="right" valign="top">legate::Library&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a623400690ae09dc25d79bafc57f4455c">create_library</a> (legate::Runtime *rt, std::string library_name)</td></tr>
 <tr class="memitem:ab507ee1e8b29730831214c5cd9ba0c6b" id="r_ab507ee1e8b29730831214c5cd9ba0c6b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab507ee1e8b29730831214c5cd9ba0c6b">completion_callback_from_julia</a> ()</td></tr>
 <tr class="memitem:a13407d5812ab4c0906d7960a379233e5" id="r_a13407d5812ab4c0906d7960a379233e5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a13407d5812ab4c0906d7960a379233e5">initialize_async_system</a> (void *async_handle_ptr, void *request_ptr)</td></tr>
+<tr class="memitem:ac5dac7ed41ada6c2b73f0454a246951d" id="r_ac5dac7ed41ada6c2b73f0454a246951d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac5dac7ed41ada6c2b73f0454a246951d">JuliaTaskInterface</a> (legate::TaskContext context)</td></tr>
 <tr class="memitem:a41e4fe7838dbc7f32e74479b9b40a077" id="r_a41e4fe7838dbc7f32e74479b9b40a077"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a41e4fe7838dbc7f32e74479b9b40a077">ufi_interface_register</a> (legate::Library &amp;library)</td></tr>
 </table>
 <a name="doc-enum-members" id="doc-enum-members"></a><h2 id="header-doc-enum-members" class="groupheader">Enumeration Type Documentation</h2>
@@ -155,6 +158,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e" name="af0c197ab50855fdfe28625454ef5131da0f0d4c12016520013665edaf671b4c1e"></a>JULIA_CUSTOM_TASK&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="af0c197ab50855fdfe28625454ef5131da5f2699ed615b1c61cc2d802430dae0b9" name="af0c197ab50855fdfe28625454ef5131da5f2699ed615b1c61cc2d802430dae0b9"></a>JULIA_CUSTOM_GPU_TASK&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -223,6 +227,31 @@ Functions</h2></td></tr>
           <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>request_ptr</em></span>&#160;)</td>
         </tr>
       </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac5dac7ed41ada6c2b73f0454a246951d" name="ac5dac7ed41ada6c2b73f0454a246951d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac5dac7ed41ada6c2b73f0454a246951d">&#9670;&#160;</a></span>JuliaTaskInterface()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void ufi::JuliaTaskInterface </td>
+          <td>(</td>
+          <td class="paramtype">legate::TaskContext</td>          <td class="paramname"><span class="paramname"><em>context</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>
