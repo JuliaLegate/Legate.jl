@@ -1,4 +1,19 @@
-# Legate Usage Examples
+# Legate Tasking Interface
+
+## Task Infrastructure & Threading
+
+Legate uses a deferred execution model. When a task is submitted in Julia, it is not executed immediately. Instead, the Legate runtime (C++) records the task, analyzes data dependencies, and schedules execution.
+
+**Interaction Model:**
+1. **Submission**: The main Julia thread submits tasks to the runtime. This is non-blocking.
+2. **Scheduling**: The Legate runtime manages resources and dependencies.
+3. **Execution**: Once ready, Legate signals Julia to execute the task. This execution happens on a dedicated Julia worker task (thread) that handles incoming requests from the runtime. This separation allows Legate to hide latency and overlap execution.
+
+## Arguments
+
+Task arguments are passed as a single collection containing all inputs, outputs, and scalars. The order is determined by the sequence in which they are added to the task configuration:
+
+`args = [input1, input2, ..., output1, output2, ..., scalar1, scalar2, ...]`
 
 ## CPU Tasking
 
