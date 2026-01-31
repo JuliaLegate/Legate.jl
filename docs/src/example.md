@@ -7,7 +7,7 @@ Legate uses a deferred execution model. When a task is submitted in Julia, it is
 **Interaction Model:**
 1. **Submission**: The main Julia thread submits tasks to the runtime. This is non-blocking.
 2. **Scheduling**: The Legate runtime manages resources and dependencies.
-3. **Execution**: Once ready, Legate signals Julia to execute the task. This execution happens on a dedicated Julia worker task (thread) that handles incoming requests from the runtime. This separation allows Legate to hide latency and overlap execution.
+3. **Execution**: Once ready, Legate signals Julia to execute the task. This happens on a dedicated Julia worker task (thread) that handles incoming requests from the runtime. See more information about Julia thread-safety [here](https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/#Thread-safety).
 
 ## Arguments
 
