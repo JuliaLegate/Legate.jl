@@ -27,7 +27,7 @@ enum TaskIDs {
   // max local task ID for custom library
   // for some reason cupynumeric can have larger IDs? Not sure why.
   JULIA_CUSTOM_TASK = 1023,
-#ifdef LEGATE_DEFINED(LEGATE_USE_CUDA)
+#if LEGATE_DEFINED(LEGATE_USE_CUDA)
   JULIA_CUSTOM_GPU_TASK = 1022,
 #endif
 };
@@ -40,7 +40,7 @@ class JuliaCustomTask : public legate::LegateTask<JuliaCustomTask> {
   static void cpu_variant(legate::TaskContext context);
 };
 
-#ifdef LEGATE_DEFINED(LEGATE_USE_CUDA)
+#if LEGATE_DEFINED(LEGATE_USE_CUDA)
 class JuliaCustomGPUTask : public legate::LegateTask<JuliaCustomGPUTask> {
  public:
   static inline const auto TASK_CONFIG =
