@@ -27,6 +27,7 @@ makedocs(;
         "Home" => "index.md",
         "Install Guide" => "install.md",
         "Useful info" => "usage.md",
+        "Tasking Examples" => "example.md",
         "Public API" => "api.md",
     ],
 )

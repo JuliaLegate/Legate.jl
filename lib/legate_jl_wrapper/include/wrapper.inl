@@ -91,6 +91,21 @@ inline AutoTask create_auto_task(Runtime* rt, Library lib, LocalTaskID id) {
 
 /**
  * @ingroup legate_wrapper
+ * @brief Create an manual task in the runtime.
+ *
+ * @param rt Pointer to the Runtime instance.
+ * @param lib The Library to use for the task.
+ * @param id LocalTaskID for the new task.
+ * @param domain The Domain for the manual task.
+ * @return A ManualTask instance.
+ */
+inline ManualTask create_manual_task(Runtime* rt, Library lib, LocalTaskID id,
+                                     const Domain& domain) {
+  return rt->create_task(lib, id, domain);
+}
+
+/**
+ * @ingroup legate_wrapper
  * @brief Submit an auto task to the runtime.
  *
  * @param rt Pointer to the Runtime instance.

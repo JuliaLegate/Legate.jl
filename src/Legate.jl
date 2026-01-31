@@ -25,13 +25,23 @@ import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
 
+using FunctionWrappers
+import FunctionWrappers: FunctionWrapper
+
 include(joinpath(@__DIR__, "../deps/version.jl"))
-include("preference.jl")
+include("utilities/preference.jl")
 
 const SUPPORTED_INT_TYPES = Union{Int32,Int64}
 const SUPPORTED_FLOAT_TYPES = Union{Float32,Float64}
 const SUPPORTED_NUMERIC_TYPES = Union{SUPPORTED_INT_TYPES,SUPPORTED_FLOAT_TYPES}
-const SUPPORTED_TYPES = Union{SUPPORTED_INT_TYPES,SUPPORTED_FLOAT_TYPES,Bool}
+const SUPPORTED_TYPES = Union{
+    Bool,
+    Int8,Int16,Int32,Int64,
+    UInt8,UInt16,UInt32,UInt64,
+    Float16,Float32,Float64,
+    ComplexF32,ComplexF64,
+    String,
+}
 
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
 # This will also include the relevant JLLs if necessary.
@@ -88,7 +98,8 @@ end
 #! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
-include("type_map.jl")
+include("utilities/type_map.jl")
+include("ufi.jl")
 
 # api functions and documentation
 include("api/types.jl")
@@ -104,8 +115,22 @@ const RUNTIME_INACTIVE = -1
 const RUNTIME_ACTIVE = 0
 const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
 const _start_lock = ReentrantLock()
+const _shutdown_done = Ref{Bool}(false)
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
+
+function _finish_runtime()
+    # Prevent double shutdown
+    _shutdown_done[] && return nothing
+    _shutdown_done[] = true
+
+    if !Legate.UFI_SHUTDOWN_DONE[]
+        Legate.wait_ufi() # make sure UFI is done
+        Legate.shutdown_ufi() # shutdown UFI
+    end
+    # finish legate runtime
+    Legate.legate_finish()
+end
 
 function _start_runtime()
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
@@ -115,8 +140,9 @@ function _start_runtime()
     @debug "Started Legate"
 
     LegatePreferences.maybe_warn_prerelease()
+    Legate.init_ufi()
 
-    Base.atexit(Legate.legate_finish)
+    Base.atexit(Legate._finish_runtime)
     return RUNTIME_ACTIVE
 end
 

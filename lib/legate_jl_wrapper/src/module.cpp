@@ -22,6 +22,7 @@
 
 #include "jlcxx/jlcxx.hpp"
 #include "jlcxx/stl.hpp"
+#include "task.h"
 #include "types.h"
 #include "wrapper.inl"
 
@@ -92,10 +93,15 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
   mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
 
+  // TODO: add DomainPoint and Domain for manual tasking interface
+  // mod.add_type<DomainPoint>("DomainPoint").constructor<Point>();
+  // mod.add_type<Domain>("Domain").constructor<DomainPoint, DomainPoint>();
+
   mod.add_type<Scalar>("Scalar")
       .constructor<float>()
       .constructor<double>()
-      .constructor<int>();  // julia lets me make with ints???
+      .constructor<int32_t>()
+      .constructor<void*>();
 
   mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(
@@ -182,4 +188,6 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   /* timing */
   mod.method("time_microseconds", &legate_wrapper::time::time_microseconds);
   mod.method("time_nanoseconds", &legate_wrapper::time::time_nanoseconds);
+
+  wrap_ufi(mod);
 }

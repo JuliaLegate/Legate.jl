@@ -8,7 +8,8 @@ Create an auto task in the runtime.
 - `lib`: The library to associate with the task.
 - `id`: The local task identifier.
 """
-create_task(rt::Runtime, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
+create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
+# create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain) = create_manual_task(rt, lib, id, domain)
 
 """
     submit_task(rt::Runtime, AutoTask)
@@ -16,8 +17,8 @@ create_task(rt::Runtime, lib::Library, id::LocalTaskID) = create_auto_task(rt, l
 
 Submit an manual/auto task to the runtime.
 """
-submit_task(rt::Runtime, task::AutoTask) = submit_auto_task(rt, task)
-submit_task(rt::Runtime, task::ManualTask) = submit_manual_task(rt, task)
+submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
+submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
 
 """
     align(a::Variable, b::Variable) -> Constraint
@@ -27,6 +28,28 @@ Align two variables.
 Returns a new constraint representing the alignment of `a` and `b`.
 """
 align
+
+"""
+    default_alignment(task::AutoTask, inputs::Vector{Variable}, outputs::Vector{Variable})
+
+Add default alignment constraints to the task. All inputs and outputs are aligned to the first input.
+"""
+function default_alignment(
+    task::Legate.AutoTask, inputs::Vector{<:Legate.Variable}, outputs::Vector{<:Legate.Variable}
+)
+    # Align all inputs to the first input
+    for i in 2:length(inputs)
+        Legate.add_constraint(task, Legate.align(inputs[i], inputs[1]))
+    end
+    # Align all outputs to the first output
+    for i in 2:length(outputs)
+        Legate.add_constraint(task, Legate.align(outputs[i], outputs[1]))
+    end
+    # Align first output with first input
+    if !isempty(inputs) && !isempty(outputs)
+        Legate.add_constraint(task, Legate.align(outputs[1], inputs[1]))
+    end
+end
 
 """
     add_constraint(AutoTask, c::Constraint)
