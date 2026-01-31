@@ -265,6 +265,8 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("_initialize_async_system", &ufi::initialize_async_system);
   mod.set_const("JULIA_CUSTOM_TASK",
                 legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
+#if LEGATE_DEFINED(LEGATE_USE_CUDA)
   mod.set_const("JULIA_CUSTOM_GPU_TASK",
                 legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_GPU_TASK});
+#endif
 }
