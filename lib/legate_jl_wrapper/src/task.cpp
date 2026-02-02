@@ -100,24 +100,26 @@ struct TaskRequestData {
 };
 
 // Global state
-static uv_async_t* g_async_handle = nullptr;
 static TaskRequestData* g_request_ptr = nullptr;
-static std::mutex g_completion_mutex;
+static std::mutex g_issue_mutex;       // Serializes access to request buffer
+static std::mutex g_completion_mutex;  // Protects completion CV
 static std::condition_variable g_completion_cv;
 static std::atomic<bool> g_task_done{false};
+static std::atomic<bool> g_work_available{false};  // For polling
+
+extern "C" int legate_poll_work() { return g_work_available.load() ? 1 : 0; }
 
 extern "C" void completion_callback_from_julia() {
   std::unique_lock<std::mutex> lock(g_completion_mutex);
   g_task_done.store(true);
+  g_work_available.store(false);  // Task completed
   g_completion_cv.notify_one();
 }
 
 // Initialize async infrastructure - called from Julia
-void initialize_async_system(void* async_handle_ptr, void* request_ptr) {
-  g_async_handle = static_cast<uv_async_t*>(async_handle_ptr);
+void initialize_async_system(void* request_ptr) {
   g_request_ptr = static_cast<TaskRequestData*>(request_ptr);
-  DEBUG_PRINT("Async system initialized: handle=%p, request=%p\n",
-              g_async_handle, g_request_ptr);
+  DEBUG_PRINT("Async system initialized: request=%p\n", g_request_ptr);
 }
 
 inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
@@ -191,6 +193,10 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
   DEBUG_PRINT("Preparing async request for task %d...\n", task_id);
   {
+    // Hold issue lock for the ENTIRE duration of the transaction
+    // to prevent other threads from overwriting the shared request buffer.
+    std::lock_guard<std::mutex> issue_lock(g_issue_mutex);
+
     std::unique_lock<std::mutex> lock(g_completion_mutex);
 
     if (!g_request_ptr) {
@@ -217,18 +223,9 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
     // Reset completion flag
     g_task_done.store(false);
+    g_work_available.store(true);  // Signal Julia to wake up
 
-    DEBUG_PRINT("Signaling Julia via uv_async_send for task %d...\n", task_id);
-
-    // Signal Julia's event loop - thread-safe
-    if (g_async_handle) {
-      int result = uv_async_send(g_async_handle);
-      if (result != 0) {
-        ERROR_PRINT("uv_async_send failed with code %d\n", result);
-      }
-    } else {
-      DEBUG_PRINT("g_async_handle is null, purely relying on polling\n");
-    }
+    DEBUG_PRINT("Signaling Julia for task %d...\n", task_id);
     DEBUG_PRINT("Waiting for Julia to complete task %d...\n", task_id);
 
     // Wait for Julia to signal completion

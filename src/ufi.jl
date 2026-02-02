@@ -116,7 +116,6 @@ end
 # ) end
 
 # Global state
-const ASYNC_COND = Ref{Base.AsyncCondition}()
 # We use a Ref{TaskRequest} to provide stable memory for C++
 # Ref{T} for bits types (immutable structs) holds the data inline.
 const CURRENT_REQUEST = Ref{TaskRequest}()
@@ -124,17 +123,21 @@ const CURRENT_REQUEST = Ref{TaskRequest}()
 # Worker task that waits for async signals from C++
 function async_worker()
     WORKER_STARTED[] = true
+    @debug "Legate UFI: Worker started on thread $(Threads.threadid())"
     try
         while !UFI_SHUTDOWN_DONE[]
-            wait(ASYNC_COND[])
-            UFI_SHUTDOWN_DONE[] && break
-            req = CURRENT_REQUEST[]
-            try
-                execute_julia_task(req)
-            catch e
-                @error "Ufi Worker: task failed" exception=(e, catch_backtrace())
-            finally
-                ccall(:completion_callback_from_julia, Cvoid, ())
+            ready = ccall(:legate_poll_work, Cint, ()) != 0
+            if ready
+                req = CURRENT_REQUEST[]
+                try
+                    execute_julia_task(req)
+                catch e
+                    @error "Ufi Worker: task failed" exception=(e, catch_backtrace())
+                finally
+                    ccall(:completion_callback_from_julia, Cvoid, ())
+                end
+            else
+                yield()
             end
         end
     catch e
@@ -207,10 +210,10 @@ const WORKER_TASK = Ref{Task}()
 const WORKER_STARTED = Ref{Bool}(false)
 
 function _start_worker()
-    # Spawn worker on interactive thread pool
-    WORKER_TASK[] = Threads.@spawn async_worker()
+    # Spawn worker - will run on any available thread, or interleave on main thread
+    WORKER_TASK[] = errormonitor(Threads.@spawn async_worker())
 
-    @debug "Legate UFI: Worker task spawned on interactive thread"
+    @debug "Legate UFI: Worker task spawned"
 
     # Wait until worker is ready
     while !WORKER_STARTED[]
@@ -220,12 +223,13 @@ function _start_worker()
     @debug "Legate UFI: Worker confirmed started and waiting"
 end
 
-# Initialize AsyncCondition and start worker - called from Legate.__init__
+# Initialize and start worker on INTERACTIVE thread loop
 function init_ufi()
-    ASYNC_COND[] = Base.AsyncCondition()
-    CURRENT_REQUEST[] = TaskRequest()
-    _start_worker()
-    sleep(0.1)
+    init_task = Threads.@spawn :interactive begin
+        CURRENT_REQUEST[] = TaskRequest()
+        _start_worker()
+    end
+    wait(init_task)
 end
 
 function wait_ufi()
@@ -234,11 +238,6 @@ function wait_ufi()
             wait(Legate.ALL_TASKS_DONE) # thread yield waiting on async condition
         end
     end
-end
-
-# Get the async handle for C++ to call uv_async_send
-function _get_async_handle()
-    return ASYNC_COND[].handle
 end
 
 # Get pointer to TaskRequest for C++ to write to
@@ -250,6 +249,5 @@ function shutdown_ufi()
     # Prevent double shutdown
     UFI_SHUTDOWN_DONE[] && return nothing
     UFI_SHUTDOWN_DONE[] = true
-    close(ASYNC_COND[])
     wait(WORKER_TASK[])
 end

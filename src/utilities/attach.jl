@@ -25,31 +25,45 @@ function attach_external(arr::Array{T,N}) where {T,N}
     return LogicalStore{T,N}(impl, size(arr))
 end
 
-function _get_ptr_offloaded(store, target)
-    return get_ptr(store, target)
+# Helper to get the PhysicalStore wrapper from either LogicalStore or LogicalArray
+function _get_physical_store(x::LogicalStore, target)
+    return Legate.get_physical_store(x, target)
+end
+
+function _get_physical_store(x::LogicalArray, target)
+    # LogicalArray -> PhysicalArray -> PhysicalStore
+    phys_arr = Legate.get_physical_array(x, target)
+    return Legate.data(phys_arr)
 end
 
 function Base.copyto!(
     dest::Union{LogicalStore{T,N},LogicalArray{T,N}},
     src::Union{LogicalStore{T,N},LogicalArray{T,N}},
 ) where {T,N}
-    if Threads.nthreads() > 1
-        dest_ptr = Ptr{T}(fetch(Threads.@spawn _get_ptr_offloaded(dest, Legate.SYSMEM)))
-        src_ptr = Ptr{T}(fetch(Threads.@spawn _get_ptr_offloaded(src, Legate.SYSMEM)))
-    else
-        dest_ptr = Ptr{T}(get_ptr(dest, Legate.SYSMEM))
-        src_ptr = Ptr{T}(get_ptr(src, Legate.SYSMEM))
+    # https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
+    # Use @threadcall via our helper to avoid blocking the main thread
+    phys_dest = _get_physical_store(dest, Legate.SYSMEM)
+    phys_src = _get_physical_store(src, Legate.SYSMEM)
+
+    # retrieve the raw C++ pointer (void*) to the PhysicalStore object
+    raw_dest = Legate.get_obj_ptr(phys_dest)
+    raw_src = Legate.get_obj_ptr(phys_src)
+
+    local dest_void, src_void
+    GC.@preserve phys_dest phys_src begin
+        dest_void = Base.@threadcall(:get_ptr, Ptr{Cvoid}, (Ptr{Cvoid},), raw_dest)
+        src_void = Base.@threadcall(:get_ptr, Ptr{Cvoid}, (Ptr{Cvoid},), raw_src)
     end
+
+    dest_ptr = Ptr{T}(dest_void)
+    src_ptr = Ptr{T}(src_void)
+
     Base.unsafe_copyto!(dest_ptr, src_ptr, prod(size(dest)))
     return dest
 end
 
 # conversion from LogicalArray to Base Julia array
-# get_ptr is a blocking call that grabs the physical store
-# we have not tested across multiple processes or devices yet
 function (::Type{<:Array{A}})(arr::LogicalArray{B}) where {A,B}
-    # REMOVED wait_ufi() - it can cause deadlocks if a task is queued but not yet running
-    # get_ptr naturally blocks until the store is ready.
     dims = Base.size(arr)
     out = Array{A}(undef, dims)
     attached = Legate.attach_external(out)
@@ -66,7 +80,7 @@ function (::Type{<:LogicalArray{A}})(arr::Array{B}) where {A,B}
     dims = Base.size(arr)
     out = Legate.create_array(A, dims)
     attached = Legate.attach_external(arr)
-    copyto!(out, attached) # copy elems of attached to resulting out
+    copyto!(out, attached)
     return out
 end
 

@@ -26,6 +26,28 @@
 #include "types.h"
 #include "wrapper.inl"
 
+extern "C" {
+// Exposed for @threadcall
+// https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
+// Takes a raw C++ pointer to PhysicalStore (casted to void*)
+void* get_ptr(void* store_ptr) {
+  legate::PhysicalStore* store = static_cast<legate::PhysicalStore*>(store_ptr);
+  return legate_wrapper::data::get_ptr(store);
+}
+
+void submit_auto_task(void* rt_ptr, void* task_ptr) {
+  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
+  legate::AutoTask* task = static_cast<legate::AutoTask*>(task_ptr);
+  rt->submit(std::move(*task));
+}
+
+void submit_manual_task(void* rt_ptr, void* task_ptr) {
+  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
+  legate::ManualTask* task = static_cast<legate::ManualTask*>(task_ptr);
+  rt->submit(std::move(*task));
+}
+}
+
 legate::Type type_from_code(legate::Type::Code type_id) {
   switch (type_id) {
     case legate::Type::Code::BOOL:
@@ -124,7 +146,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("is_readable", &PhysicalStore::is_readable)
       .method("is_writable", &PhysicalStore::is_writable)
       .method("is_reducible", &PhysicalStore::is_reducible)
-      .method("valid", &PhysicalStore::valid);
+      .method("valid", &PhysicalStore::valid)
+      .method("get_obj_ptr",
+              [](PhysicalStore& s) { return static_cast<void*>(&s); });
 
   mod.add_type<LogicalStore>("LogicalStoreImpl")
       .method("dim", &LogicalStore::dim)
@@ -159,7 +183,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
                                 &AutoTask::add_scalar_arg))
       .method("add_constraint",
               static_cast<void (AutoTask::*)(const Constraint&)>(
-                  &AutoTask::add_constraint));
+                  &AutoTask::add_constraint))
+      .method("get_obj_ptr",
+              [](AutoTask& t) { return static_cast<void*>(&t); });
 
   mod.add_type<ManualTask>("ManualTask")
       .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(
@@ -167,10 +193,14 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(
                                 &ManualTask::add_output))
       .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(
-                                &ManualTask::add_scalar_arg));
+                                &ManualTask::add_scalar_arg))
+      .method("get_obj_ptr",
+              [](ManualTask& t) { return static_cast<void*>(&t); });
 
   /* runtime */
-  mod.add_type<Runtime>("Runtime");
+  mod.add_type<Runtime>("Runtime").method(
+      "get_obj_ptr", [](Runtime& r) { return static_cast<void*>(&r); });
+
   mod.method("start_legate", &legate_wrapper::runtime::start_legate);
   mod.method("legate_finish", &legate_wrapper::runtime::legate_finish);
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);

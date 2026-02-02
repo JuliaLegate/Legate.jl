@@ -140,7 +140,6 @@ end
 """
 function build_deps(pkg_root, legate_root)
     install_dir = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build")
-    build_jlcxxwrap(pkg_root, legate_root) # $pkg_root/lib/libcxxwrap-julia 
     if !legate_valid(legate_root)
         error(
             "Legate.jl: Unsupported Legate version at $(legate_root). " *
@@ -148,6 +147,7 @@ function build_deps(pkg_root, legate_root)
             "$(MIN_LEGATE_VERSION)-$(MAX_LEGATE_VERSION).",
         )
     end
+    build_jlcxxwrap(pkg_root, legate_root) # $pkg_root/lib/libcxxwrap-julia 
     build_cpp_wrapper(pkg_root, legate_root, install_dir) # $pkg_root/lib/legate_jl_wrapper
 end
 

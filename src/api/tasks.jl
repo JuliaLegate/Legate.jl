@@ -19,11 +19,24 @@ end
 
 Submit an manual/auto task to the runtime.
 """
-_submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
-_submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
+function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
+    rt_ptr = Legate.get_obj_ptr(rt[])
+    task_ptr = Legate.get_obj_ptr(task)
+    GC.@preserve rt task begin
+        Base.@threadcall(
+            :legate_submit_auto_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
+        )
+    end
+end
 
-function submit_task(rt::CxxPtr{Runtime}, task::Union{AutoTask,ManualTask})
-    return fetch(Threads.@spawn _submit_task(rt, task))
+function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
+    rt_ptr = Legate.get_obj_ptr(rt[])
+    task_ptr = Legate.get_obj_ptr(task)
+    GC.@preserve rt task begin
+        Base.@threadcall(
+            :legate_submit_manual_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
+        )
+    end
 end
 
 """
