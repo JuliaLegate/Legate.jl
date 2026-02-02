@@ -13,19 +13,12 @@ function init_cpu_task(args)
     fill!(b, 2.0f0)
 end
 
-function read_cpu_task(args)
-    src, dest = args
-    copyto!(dest, src)
-end
-
 @testset "GPU Tasking" begin
     rt = Legate.get_runtime()
     lib = Legate.create_library("gpu_test_lib")
 
     gpu_task_wrapped = Legate.wrap_task(gpu_add_kernel; task_type=:gpu)
-
     init_wrapped = Legate.wrap_task(init_cpu_task)
-    # read_cpu_task unused in main, using closure below to capture result_host
 
     N = 100
     a = Legate.create_array([N], Float32)
@@ -46,22 +39,7 @@ end
     Legate.submit_task(rt, t2)
 
     # 3. Read Result (CPU copy)
-    result_host = zeros(Float32, N)
-
-    function read_task_closure(args::Vector{Legate.TaskArgument})
-        src = args[1]
-        for i in eachindex(src)
-            result_host[i] = src[i]
-        end
-    end
-    read_wrapped_closure = Legate.wrap_task(read_task_closure)
-
-    t3 = Legate.create_julia_task(rt, lib, read_wrapped_closure)
-    ins3 = [Legate.add_input(t3, c)]
-    Legate.default_alignment(t3, ins3, Vector{Legate.Variable}())
-    Legate.submit_task(rt, t3)
-
-    Legate.wait_ufi()
+    result_host = Array(c)
 
     @test all(result_host .== 3.0f0)
 end
