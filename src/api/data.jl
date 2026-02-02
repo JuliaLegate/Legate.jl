@@ -118,7 +118,7 @@ end
 
 Return the number of dimensions of the array/store.
 """
-dim
+dim(x::Union{LogicalArray,LogicalStore}) = dim(x.handle) # cxxwrap call
 
 """
     type(PhysicalStore) -> LegateType
@@ -128,7 +128,7 @@ dim
     
 Return the data type of elements stored in the array/store.
 """
-type
+type(x::Union{LogicalArray,LogicalStore}) = type(x.handle) # cxxwrap call
 
 """
     code(ty::LegateType) -> Int
