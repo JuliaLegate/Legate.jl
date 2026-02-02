@@ -24,7 +24,7 @@ function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
     task_ptr = Legate.get_obj_ptr(task)
     GC.@preserve rt task begin
         Base.@threadcall(
-            :legate_submit_auto_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
+            :submit_auto_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
         )
     end
 end
@@ -34,7 +34,7 @@ function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
     task_ptr = Legate.get_obj_ptr(task)
     GC.@preserve rt task begin
         Base.@threadcall(
-            :legate_submit_manual_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
+            :submit_manual_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
         )
     end
 end
