@@ -78,7 +78,7 @@ const REGISTRY_LOCK = ReentrantLock()
 const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
 
 # Task Synchronization
-# We now use the C++ side counter for more accurate instance tracking
+const PENDING_TASKS = Threads.Atomic{Int}(0)
 const ALL_TASKS_DONE = Threads.Condition()
 
 # Track if UFI has been shut down
@@ -88,6 +88,7 @@ function register_task_function(id::UInt32, fun::Union{CPUWrapType,Function})
     lock(REGISTRY_LOCK) do
         TASK_REGISTRY[id] = fun
     end
+    Threads.atomic_add!(Legate.PENDING_TASKS, 1)
 end
 
 @doc"""
@@ -186,9 +187,18 @@ function execute_julia_task(req::TaskRequest)
 
     try
         Base.invokelatest(_execute_julia_task, Val(bool_to_symbol(req.is_gpu != 0)), req, task_fun)
+        yield()
     catch e
         @error "Legate UFI: Julia task failed" exception=(e, catch_backtrace()) req.task_id
         rethrow()
+    finally
+        # task is done, decrement counter
+        val = Threads.atomic_sub!(PENDING_TASKS, 1)
+        if val[] == 1 # atomic_sub returns OLD value, so if old was 1, new is 0
+            lock(ALL_TASKS_DONE) do
+                notify(ALL_TASKS_DONE)
+            end
+        end
     end
 end
 
@@ -198,7 +208,7 @@ const WORKER_STARTED = Ref{Bool}(false)
 
 function _start_worker()
     # Spawn worker on interactive thread pool
-    WORKER_TASK[] = Threads.@spawn :interactive async_worker()
+    WORKER_TASK[] = Threads.@spawn async_worker()
 
     @debug "Legate UFI: Worker task spawned on interactive thread"
 
@@ -218,19 +228,11 @@ function init_ufi()
     sleep(0.1)
 end
 
-function get_pending_tasks()
-    return Int(ccall(:get_pending_tasks, Cint, ()))
-end
-
-# Wait for all tasks to complete
 function wait_ufi()
-    start_time = time()
-    while get_pending_tasks() > 0
-        if time() - start_time > 10.0
-            @warn "wait_ufi: hanging" pending=get_pending_tasks()
-            start_time = time()
+    lock(Legate.ALL_TASKS_DONE) do
+        while Legate.PENDING_TASKS[] > 0
+            wait(Legate.ALL_TASKS_DONE) # thread yield waiting on async condition
         end
-        sleep(0)
     end
 end
 

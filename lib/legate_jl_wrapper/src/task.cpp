@@ -103,19 +103,11 @@ struct TaskRequestData {
 static uv_async_t* g_async_handle = nullptr;
 static TaskRequestData* g_request_ptr = nullptr;
 static std::mutex g_completion_mutex;
-static std::mutex g_issue_mutex;
 static std::condition_variable g_completion_cv;
 static std::atomic<bool> g_task_done{false};
-static std::atomic<bool> g_task_ready{false};  // For polling worker
-static std::atomic<int> g_pending_tasks{0};
-
-extern "C" int get_pending_tasks() { return g_pending_tasks.load(); }
-
-extern "C" int get_task_ready() { return g_task_ready.load() ? 1 : 0; }
 
 extern "C" void completion_callback_from_julia() {
   std::unique_lock<std::mutex> lock(g_completion_mutex);
-  g_task_ready.store(false);  // Reset ready flag
   g_task_done.store(true);
   g_completion_cv.notify_one();
 }
@@ -198,10 +190,6 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   //   3. Wait for Julia to signal completion
 
   DEBUG_PRINT("Preparing async request for task %d...\n", task_id);
-
-  g_pending_tasks.fetch_add(1);
-
-  std::unique_lock<std::mutex> issue_lock(g_issue_mutex);
   {
     std::unique_lock<std::mutex> lock(g_completion_mutex);
 
@@ -229,7 +217,6 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
     // Reset completion flag
     g_task_done.store(false);
-    g_task_ready.store(true);  // Signal polling worker
 
     DEBUG_PRINT("Signaling Julia via uv_async_send for task %d...\n", task_id);
 
@@ -247,8 +234,6 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     // Wait for Julia to signal completion
     g_completion_cv.wait(lock, [] { return g_task_done.load(); });
   }
-
-  g_pending_tasks.fetch_sub(1);
 
   DEBUG_PRINT("Julia task %d completed!\n", task_id);
 

@@ -23,14 +23,7 @@ _submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
 _submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
 
 function submit_task(rt::CxxPtr{Runtime}, task::Union{AutoTask,ManualTask})
-    if Threads.nthreads() > 1
-        # Offload to another thread to keep the event loop alive on Thread 1
-        # This is critical if the submission blocks and needs Julia tasks to run
-        return fetch(Threads.@spawn _submit_task(rt, task))
-    else
-        # Single-threaded fallback - might deadlock if submission blocks and needs worker
-        return _submit_task(rt, task)
-    end
+    return fetch(Threads.@spawn _submit_task(rt, task))
 end
 
 """
