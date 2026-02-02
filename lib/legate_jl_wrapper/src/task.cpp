@@ -14,6 +14,7 @@
 #include "legate.h"
 #include "types.h"
 
+//#define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT(...)                  \
   fprintf(stderr, "DEBUG: " __VA_ARGS__); \
@@ -83,7 +84,7 @@ inline legate::Library create_library(legate::Runtime* rt,
 
 // TaskRequest struct  - matches Julia's TaskRequest mutable struct
 struct TaskRequestData {
-  bool is_gpu;
+  int is_gpu;  // Use int to match Julia Cint for alignment
   uint32_t task_id;
   void** inputs_ptr;
   void** outputs_ptr;
@@ -102,12 +103,19 @@ struct TaskRequestData {
 static uv_async_t* g_async_handle = nullptr;
 static TaskRequestData* g_request_ptr = nullptr;
 static std::mutex g_completion_mutex;
+static std::mutex g_issue_mutex;
 static std::condition_variable g_completion_cv;
 static std::atomic<bool> g_task_done{false};
+static std::atomic<bool> g_task_ready{false};  // For polling worker
+static std::atomic<int> g_pending_tasks{0};
 
-// Completion callback that Julia will call
+extern "C" int get_pending_tasks() { return g_pending_tasks.load(); }
+
+extern "C" int get_task_ready() { return g_task_ready.load() ? 1 : 0; }
+
 extern "C" void completion_callback_from_julia() {
   std::unique_lock<std::mutex> lock(g_completion_mutex);
+  g_task_ready.store(false);  // Reset ready flag
   g_task_done.store(true);
   g_completion_cv.notify_one();
 }
@@ -191,40 +199,56 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
   DEBUG_PRINT("Preparing async request for task %d...\n", task_id);
 
-  // Fill the shared request structure (Julia will read this)
-  g_request_ptr->is_gpu = is_gpu;
-  g_request_ptr->task_id = task_id;
-  // we don't have to worry about the lifetime of data as this function will
-  // block until Julia is done with the task.
-  g_request_ptr->inputs_ptr = inputs.data();
-  g_request_ptr->outputs_ptr = outputs.data();
-  g_request_ptr->scalars_ptr = scalar_values.data();
-  g_request_ptr->inputs_types = inputs_types.data();
-  g_request_ptr->outputs_types = outputs_types.data();
-  g_request_ptr->scalar_types = scalar_types.data();
-  g_request_ptr->num_inputs = num_inputs;
-  g_request_ptr->num_outputs = num_outputs;
-  g_request_ptr->num_scalars = num_scalars;
-  g_request_ptr->ndim = ndim;
-  for (int i = 0; i < 3; ++i) g_request_ptr->dims[i] = dims[i];
+  g_pending_tasks.fetch_add(1);
 
-  // Reset completion flag
-  g_task_done.store(false);
-
-  DEBUG_PRINT("Signaling Julia via uv_async_send for task %d...\n", task_id);
-
-  // Signal Julia's event loop - thread-safe
-  int result = uv_async_send(g_async_handle);
-  if (result != 0) {
-    ERROR_PRINT("uv_async_send failed with code %d\n", result);
-  }
-  DEBUG_PRINT("Waiting for Julia to complete task %d...\n", task_id);
-
-  // Wait for Julia to signal completion
+  std::unique_lock<std::mutex> issue_lock(g_issue_mutex);
   {
     std::unique_lock<std::mutex> lock(g_completion_mutex);
+
+    if (!g_request_ptr) {
+      ERROR_PRINT("g_request_ptr is null in JuliaTaskInterface!\n");
+      return;
+    }
+
+    // Fill the shared request structure (Julia will read this)
+    g_request_ptr->is_gpu = is_gpu ? 1 : 0;
+    g_request_ptr->task_id = task_id;
+    // we don't have to worry about the lifetime of data as this function will
+    // block until Julia is done with the task.
+    g_request_ptr->inputs_ptr = inputs.data();
+    g_request_ptr->outputs_ptr = outputs.data();
+    g_request_ptr->scalars_ptr = scalar_values.data();
+    g_request_ptr->inputs_types = inputs_types.data();
+    g_request_ptr->outputs_types = outputs_types.data();
+    g_request_ptr->scalar_types = scalar_types.data();
+    g_request_ptr->num_inputs = num_inputs;
+    g_request_ptr->num_outputs = num_outputs;
+    g_request_ptr->num_scalars = num_scalars;
+    g_request_ptr->ndim = ndim;
+    for (int i = 0; i < 3; ++i) g_request_ptr->dims[i] = dims[i];
+
+    // Reset completion flag
+    g_task_done.store(false);
+    g_task_ready.store(true);  // Signal polling worker
+
+    DEBUG_PRINT("Signaling Julia via uv_async_send for task %d...\n", task_id);
+
+    // Signal Julia's event loop - thread-safe
+    if (g_async_handle) {
+      int result = uv_async_send(g_async_handle);
+      if (result != 0) {
+        ERROR_PRINT("uv_async_send failed with code %d\n", result);
+      }
+    } else {
+      DEBUG_PRINT("g_async_handle is null, purely relying on polling\n");
+    }
+    DEBUG_PRINT("Waiting for Julia to complete task %d...\n", task_id);
+
+    // Wait for Julia to signal completion
     g_completion_cv.wait(lock, [] { return g_task_done.load(); });
   }
+
+  g_pending_tasks.fetch_sub(1);
 
   DEBUG_PRINT("Julia task %d completed!\n", task_id);
 

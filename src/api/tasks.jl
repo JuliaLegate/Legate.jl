@@ -9,7 +9,9 @@ Create an auto task in the runtime.
 - `id`: The local task identifier.
 """
 create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
-# create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain) = create_manual_task(rt, lib, id, domain)
+function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain)
+    create_manual_task(rt, lib, id, domain)
+end
 
 """
     submit_task(rt::Runtime, AutoTask)
@@ -17,8 +19,19 @@ create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_ta
 
 Submit an manual/auto task to the runtime.
 """
-submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
-submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
+_submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
+_submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
+
+function submit_task(rt::CxxPtr{Runtime}, task::Union{AutoTask,ManualTask})
+    if Threads.nthreads() > 1
+        # Offload to another thread to keep the event loop alive on Thread 1
+        # This is critical if the submission blocks and needs Julia tasks to run
+        return fetch(Threads.@spawn _submit_task(rt, task))
+    else
+        # Single-threaded fallback - might deadlock if submission blocks and needs worker
+        return _submit_task(rt, task)
+    end
+end
 
 """
     align(a::Variable, b::Variable) -> Constraint

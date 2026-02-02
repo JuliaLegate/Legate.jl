@@ -50,7 +50,7 @@ end
 
 # Shared data structure for passing task information from C++ to Julia
 struct TaskRequest
-    is_gpu::Bool
+    is_gpu::Cint # Use Cint for better alignment
     task_id::UInt32
     inputs_ptr::Ptr{Ptr{Cvoid}}
     outputs_ptr::Ptr{Ptr{Cvoid}}
@@ -65,7 +65,7 @@ struct TaskRequest
     dims::NTuple{3,Int64}
 
     function TaskRequest()
-        new(false, 0, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
+        new(0, 0, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
     end
 end
 
@@ -78,7 +78,7 @@ const REGISTRY_LOCK = ReentrantLock()
 const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
 
 # Task Synchronization
-const PENDING_TASKS = Threads.Atomic{Int}(0)
+# We now use the C++ side counter for more accurate instance tracking
 const ALL_TASKS_DONE = Threads.Condition()
 
 # Track if UFI has been shut down
@@ -88,7 +88,6 @@ function register_task_function(id::UInt32, fun::Union{CPUWrapType,Function})
     lock(REGISTRY_LOCK) do
         TASK_REGISTRY[id] = fun
     end
-    Threads.atomic_add!(Legate.PENDING_TASKS, 1)
 end
 
 @doc"""
@@ -125,11 +124,17 @@ const CURRENT_REQUEST = Ref{TaskRequest}()
 function async_worker()
     WORKER_STARTED[] = true
     try
-        while true
+        while !UFI_SHUTDOWN_DONE[]
             wait(ASYNC_COND[])
+            UFI_SHUTDOWN_DONE[] && break
             req = CURRENT_REQUEST[]
-            execute_julia_task(req)
-            ccall(:completion_callback_from_julia, Cvoid, ())
+            try
+                execute_julia_task(req)
+            catch e
+                @error "Ufi Worker: task failed" exception=(e, catch_backtrace())
+            finally
+                ccall(:completion_callback_from_julia, Cvoid, ())
+            end
         end
     catch e
         isa(e, EOFError) || rethrow()
@@ -167,8 +172,6 @@ function _execute_julia_task(::Val{:cpu}, req, task_fun)
 
     cpu_args = Vector{TaskArgument}(args)
     task_fun(cpu_args)
-
-    @debug "Legate UFI: CPU task completed successfully!" req.task_id
 end
 
 bool_to_symbol(is_gpu::Bool) = is_gpu ? :gpu : :cpu
@@ -182,18 +185,10 @@ function execute_julia_task(req::TaskRequest)
     end
 
     try
-        Base.invokelatest(_execute_julia_task, Val(bool_to_symbol(req.is_gpu)), req, task_fun)
-
+        Base.invokelatest(_execute_julia_task, Val(bool_to_symbol(req.is_gpu != 0)), req, task_fun)
     catch e
         @error "Legate UFI: Julia task failed" exception=(e, catch_backtrace()) req.task_id
         rethrow()
-    finally
-        val = Threads.atomic_sub!(PENDING_TASKS, 1)
-        if val == 1 # atomic_sub returns OLD value, so if old was 1, new is 0
-            lock(ALL_TASKS_DONE) do
-                notify(ALL_TASKS_DONE)
-            end
-        end
     end
 end
 
@@ -223,12 +218,19 @@ function init_ufi()
     sleep(0.1)
 end
 
+function get_pending_tasks()
+    return Int(ccall(:get_pending_tasks, Cint, ()))
+end
+
 # Wait for all tasks to complete
 function wait_ufi()
-    lock(Legate.ALL_TASKS_DONE) do
-        while Legate.PENDING_TASKS[] > 0
-            wait(Legate.ALL_TASKS_DONE)
+    start_time = time()
+    while get_pending_tasks() > 0
+        if time() - start_time > 10.0
+            @warn "wait_ufi: hanging" pending=get_pending_tasks()
+            start_time = time()
         end
+        sleep(0)
     end
 end
 

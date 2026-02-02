@@ -91,11 +91,15 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
   mod.add_bits<legate::mapping::StoreTarget>("StoreTarget");
 
-  mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
+  mod.set_const("SYSMEM", legate::mapping::StoreTarget::SYSMEM);
+  mod.set_const("SOCKETMEM", legate::mapping::StoreTarget::SOCKETMEM);
+#if LEGATE_DEFINED(LEGATE_USE_CUDA)
+  mod.set_const("FBMEM", legate::mapping::StoreTarget::FBMEM);
+  mod.set_const("ZCMEM", legate::mapping::StoreTarget::ZCMEM);
+#endif
 
-  // TODO: add DomainPoint and Domain for manual tasking interface
-  // mod.add_type<DomainPoint>("DomainPoint").constructor<Point>();
-  // mod.add_type<Domain>("Domain").constructor<DomainPoint, DomainPoint>();
+  mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
+  mod.add_type<Domain>("Domain");
 
   mod.add_type<Scalar>("Scalar")
       .constructor<float>()
@@ -174,6 +178,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("has_finished", &legate_wrapper::runtime::has_finished);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
+  mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
+  mod.method("create_manual_task",
+             &legate_wrapper::tasking::create_manual_task);
   mod.method("create_auto_task", &legate_wrapper::tasking::create_auto_task);
   mod.method("submit_auto_task", &legate_wrapper::tasking::submit_auto_task);
   mod.method("submit_manual_task",

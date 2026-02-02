@@ -20,28 +20,45 @@
 function attach_external(arr::Array{T,N}) where {T,N}
     ptr = Base.unsafe_convert(Ptr{Cvoid}, arr)
     shape = collect(UInt64, size(arr))
-    impl = attach_external_store_sysmem(ptr, shape, Legate.to_legate_type(T))
-    return LogicalArray{T,N}(impl, size(arr))
+    lshape = Shape(to_cxx_vector(shape))
+    impl = attach_external_store_sysmem(ptr, lshape, to_legate_type(T))
+    return LogicalStore{T,N}(impl, size(arr))
 end
 
-# Wrap a raw pointer into an Array view
-function make_array(::Type{T}, ptr::Ptr{T}, shape::NTuple{N,Int}) where {T,N}
-    return unsafe_wrap(Array{T,N}, ptr, shape; own=false)
+function _get_ptr_offloaded(store, target)
+    return get_ptr(store, target)
+end
+
+function Base.copyto!(
+    dest::Union{LogicalStore{T,N},LogicalArray{T,N}},
+    src::Union{LogicalStore{T,N},LogicalArray{T,N}},
+) where {T,N}
+    if Threads.nthreads() > 1
+        dest_ptr = Ptr{T}(fetch(Threads.@spawn _get_ptr_offloaded(dest, Legate.SYSMEM)))
+        src_ptr = Ptr{T}(fetch(Threads.@spawn _get_ptr_offloaded(src, Legate.SYSMEM)))
+    else
+        dest_ptr = Ptr{T}(get_ptr(dest, Legate.SYSMEM))
+        src_ptr = Ptr{T}(get_ptr(src, Legate.SYSMEM))
+    end
+    Base.unsafe_copyto!(dest_ptr, src_ptr, prod(size(dest)))
+    return dest
 end
 
 # conversion from LogicalArray to Base Julia array
 # get_ptr is a blocking call that grabs the physical store
 # we have not tested across multiple processes or devices yet
 function (::Type{<:Array{A}})(arr::LogicalArray{B}) where {A,B}
+    # REMOVED wait_ufi() - it can cause deadlocks if a task is queued but not yet running
+    # get_ptr naturally blocks until the store is ready.
     dims = Base.size(arr)
-    ptr = Ptr{A}(get_ptr(arr))
-    return make_array(A, ptr, dims)
+    out = Array{A}(undef, dims)
+    attached = Legate.attach_external(out)
+    copyto!(attached, arr)
+    return out
 end
 
 function (::Type{<:Array})(arr::LogicalArray{B}) where {B}
-    dims = Base.size(arr)
-    ptr = Ptr{B}(get_ptr(arr))
-    return make_array(B, ptr, dims)
+    return Array{B}(arr)
 end
 
 # conversion from Base Julia array to LogicalArray

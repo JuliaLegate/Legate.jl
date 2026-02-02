@@ -118,7 +118,7 @@ end
 
 Return the number of dimensions of the array/store.
 """
-dim(x::Union{LogicalArray,LogicalStore}) = dim(x.handle) # cxxwrap call
+dim
 
 """
     type(PhysicalStore) -> LegateType
@@ -128,7 +128,7 @@ dim(x::Union{LogicalArray,LogicalStore}) = dim(x.handle) # cxxwrap call
     
 Return the data type of elements stored in the array/store.
 """
-type(x::Union{LogicalArray,LogicalStore}) = type(x.handle) # cxxwrap call
+type
 
 """
     code(ty::LegateType) -> Int
@@ -198,16 +198,23 @@ slice
 
 """
     get_physical_store(LogicalStore) -> PhysicalStore
-    get_physical_array(LogicalArray) -> PhysicalArray
+    get_physical_store(LogicalArray) -> PhysicalStore
 
 Return the underlying physical store of this logical store or array.
 """
 function get_physical_store(x::LogicalStore)
     get_physical_store(x.handle, StoreTargetOptional{StoreTarget}())
-end # cxxwrap call
+end
+function get_physical_store(x::LogicalStore, target::StoreTarget)
+    get_physical_store(x.handle, StoreTargetOptional{StoreTarget}(target))
+end
+
 function get_physical_array(x::LogicalArray)
     get_physical_array(x.handle, StoreTargetOptional{StoreTarget}())
-end # cxxwrap call
+end
+function get_physical_array(x::LogicalArray, target::StoreTarget)
+    get_physical_array(x.handle, StoreTargetOptional{StoreTarget}(target))
+end
 
 """
     equal_storage(store1::LogicalStore, store2::LogicalStore) -> Bool
@@ -255,9 +262,17 @@ function get_ptr(arr::LogicalStore)
     return get_ptr(get_physical_store(arr)) # cxxwrap call  
 end
 
+function get_ptr(arr::LogicalStore, target::StoreTarget)
+    return get_ptr(get_physical_store(arr, target))
+end
+
 function get_ptr(arr::LogicalArray)
     # LogicalArray -> PhysicalArray -> PhysicalStore -> Ptr
     return get_ptr(data(get_physical_array(arr))) # cxxwrap call
+end
+
+function get_ptr(arr::LogicalArray, target::StoreTarget)
+    return get_ptr(data(get_physical_array(arr, target)))
 end
 
 function get_ptr(arr::PhysicalArray)

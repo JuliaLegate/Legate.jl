@@ -106,6 +106,42 @@ inline ManualTask create_manual_task(Runtime* rt, Library lib, LocalTaskID id,
 
 /**
  * @ingroup legate_wrapper
+ * @brief Create a Domain from a Shape.
+ *
+ * @param shape The shape.
+ * @return A Domain instance.
+ */
+inline Domain domain_from_shape(const Shape& shape) {
+  if (shape.volume() == 0) return Domain::NO_DOMAIN;
+  switch (shape.ndim()) {
+    case 1: {
+      Legion::Point<1> lo = Legion::Point<1>::ZEROES();
+      Legion::Point<1> hi;
+      hi[0] = shape[0] - 1;
+      return Domain(Legion::Rect<1>(lo, hi));
+    }
+    case 2: {
+      Legion::Point<2> lo = Legion::Point<2>::ZEROES();
+      Legion::Point<2> hi;
+      hi[0] = shape[0] - 1;
+      hi[1] = shape[1] - 1;
+      return Domain(Legion::Rect<2>(lo, hi));
+    }
+    case 3: {
+      Legion::Point<3> lo = Legion::Point<3>::ZEROES();
+      Legion::Point<3> hi;
+      hi[0] = shape[0] - 1;
+      hi[1] = shape[1] - 1;
+      hi[2] = shape[2] - 1;
+      return Domain(Legion::Rect<3>(lo, hi));
+    }
+    default:
+      return Domain::NO_DOMAIN;
+  }
+}
+
+/**
+ * @ingroup legate_wrapper
  * @brief Submit an auto task to the runtime.
  *
  * @param rt Pointer to the Runtime instance.

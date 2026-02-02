@@ -138,8 +138,6 @@ function _start_runtime()
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
     Legate.start_legate()
-    @debug "Started Legate"
-
     LegatePreferences.maybe_warn_prerelease()
     Legate.init_ufi()
 
