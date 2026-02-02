@@ -122,7 +122,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("is_reducible", &PhysicalStore::is_reducible)
       .method("valid", &PhysicalStore::valid);
 
-  mod.add_type<LogicalStore>("LogicalStore")
+  mod.add_type<LogicalStore>("LogicalStoreImpl")
       .method("dim", &LogicalStore::dim)
       .method("type", &LogicalStore::type)
       .method("reinterpret_as", &LogicalStore::reinterpret_as)
@@ -132,16 +132,19 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("equal_storage", &LogicalStore::equal_storage);
 
   mod.add_type<PhysicalArray>("PhysicalArray")
-      .method("nullable", &PhysicalArray::nullable)
       .method("dim", &PhysicalArray::dim)
       .method("type", &PhysicalArray::type)
-      .method("data", &PhysicalArray::data);
+      .method("nullable", &PhysicalArray::nullable)
+      .method("data", &PhysicalArray::data);  // returns PhysicalStore
 
-  mod.add_type<LogicalArray>("LogicalArray")
+  mod.add_type<LogicalArray>("LogicalArrayImpl")
       .method("dim", &LogicalArray::dim)
       .method("type", &LogicalArray::type)
-      .method("unbound", &LogicalArray::unbound)
-      .method("nullable", &LogicalArray::nullable);
+      .method("nullable", &LogicalArray::nullable)
+      .method("data", &LogicalArray::data)  // returns LogicalStore
+      .method("get_physical_array",
+              &LogicalArray::get_physical_array)  // return PhysicalArray
+      .method("unbound", &LogicalArray::unbound);
 
   mod.add_type<AutoTask>("AutoTask")
       .method("add_input", static_cast<Variable (AutoTask::*)(LogicalArray)>(
@@ -183,6 +186,11 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::data::create_unbound_store);
   mod.method("create_store", &legate_wrapper::data::create_store);
   mod.method("store_from_scalar", &legate_wrapper::data::store_from_scalar);
+  mod.method("attach_external_store_sysmem",
+             &legate_wrapper::data::attach_external_store_sysmem);
+  mod.method("attach_external_store_fbmem",
+             &legate_wrapper::data::attach_external_store_fbmem);
+  mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);
   /* timing */

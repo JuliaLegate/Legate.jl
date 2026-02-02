@@ -202,6 +202,78 @@ inline LogicalStore store_from_scalar(const Scalar& scalar,
                                       const Shape& shape = Shape{1}) {
   return Runtime::get_runtime()->create_store(scalar, shape);
 }
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Attach an external store in system memory.
+ *
+ * @param ptr Pointer to the external memory.
+ * @param shape The shape of the store.
+ * @param ty The type of the store elements.
+ */
+inline LogicalStore attach_external_store_sysmem(void* ptr, const Shape& shape,
+                                                 const Type& ty) {
+  legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
+      ptr, shape.volume() * ty.size());
+  legate::mapping::DimOrdering ordering =
+      legate::mapping::DimOrdering::fortran_order();
+
+  auto store =
+      legate::Runtime::get_runtime()->create_store(shape, ty, alloc, ordering);
+  return store;
+}
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Attach an external store in frame buffer memory.
+ *
+ * @param device_id The device ID.
+ * @param ptr Pointer to the external memory.
+ * @param shape The shape of the store.
+ * @param ty The type of the store elements.
+ * @param readonly Whether the store is read-only.
+ */
+inline LogicalStore attach_external_store_fbmem(int device_id, void* ptr,
+                                                const Shape& shape,
+                                                const Type& ty, bool readonly) {
+  legate::ExternalAllocation alloc = legate::ExternalAllocation::create_fbmem(
+      device_id, ptr, shape.volume() * ty.size(), readonly);
+  legate::mapping::DimOrdering ordering =
+      legate::mapping::DimOrdering::fortran_order();
+
+  auto store =
+      legate::Runtime::get_runtime()->create_store(shape, ty, alloc, ordering);
+  return store;
+}
+
+struct GetPtrFunctor {
+  template <legate::Type::Code CODE, int DIM>
+  void* operator()(legate::PhysicalStore* store) {
+#if !LEGATE_DEFINED(LEGATE_USE_CUDA)
+    // Check if FLOAT16 is being used without CUDA support
+    if (CODE == legate::Type::Code::FLOAT16) {
+      throw std::runtime_error(
+          "FLOAT16 type is not supported when building without CUDA");
+    }
+#endif
+    using CppT = typename legate_util::code_to_cxx<CODE>::type;
+    auto shp = store->shape<DIM>();
+    return store->write_accessor<CppT, DIM>().ptr(Realm::Point<DIM>(shp.lo));
+  }
+};
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Get a pointer to the data in a PhysicalStore.
+ *
+ * @param store Pointer to the PhysicalStore.
+ */
+inline void* get_ptr(legate::PhysicalStore* store) {
+  int dim = store->dim();
+  legate::Type::Code code = store->type().code();
+  return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
+}
+
 }  // namespace data
 
 namespace time {

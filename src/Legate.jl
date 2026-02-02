@@ -106,6 +106,7 @@ include("api/types.jl")
 include("api/runtime.jl")
 include("api/data.jl")
 include("api/tasks.jl")
+include("utilities/attach.jl")
 
 ### These functions guard against a user trying
 ### to start multiple runtimes and also to allow

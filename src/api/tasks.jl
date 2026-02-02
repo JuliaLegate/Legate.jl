@@ -64,7 +64,12 @@ add_constraint
 
 Add a logical array/store as an input to the task.
 """
-add_input
+function add_input(
+    task::Union{AutoTask,ManualTask},
+    item::Union{LogicalArray,LogicalStore},
+)
+    add_input(task, item.handle)
+end
 
 """
     add_output(AutoTask, LogicalArray) -> Variable
@@ -72,7 +77,12 @@ add_input
 
 Add a logical array/store as an output of the task.
 """
-add_output
+function add_output(
+    task::Union{AutoTask,ManualTask},
+    item::Union{LogicalArray,LogicalStore},
+)
+    add_output(task, item.handle)
+end
 
 """
     add_scalar(AutoTask, scalar::Scalar)
