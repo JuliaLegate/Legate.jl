@@ -40,7 +40,6 @@ function run_sh(cmd::Cmd, filename::String)
 
     try
         run(pipeline(cmd; stdout=tmp_build_log, stderr=err_log, append=false))
-        println(contents)
         contents = read(tmp_build_log, String)
         open(build_log, "a") do io
             println(contents)
