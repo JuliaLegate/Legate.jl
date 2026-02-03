@@ -40,25 +40,10 @@ function Base.copyto!(
     dest::Union{LogicalStore{T,N},LogicalArray{T,N}},
     src::Union{LogicalStore{T,N},LogicalArray{T,N}},
 ) where {T,N}
-    # https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
-    # Use @threadcall via our helper to avoid blocking the main thread
-    phys_dest = _get_physical_store(dest, Legate.SYSMEM)
-    phys_src = _get_physical_store(src, Legate.SYSMEM)
+    dest_handle = (dest isa LogicalArray) ? Legate.data(dest.handle) : dest.handle
+    src_handle = (src isa LogicalArray) ? Legate.data(src.handle) : src.handle
 
-    # retrieve the raw C++ pointer (void*) to the PhysicalStore object
-    raw_dest = Legate.get_obj_ptr(phys_dest)
-    raw_src = Legate.get_obj_ptr(phys_src)
-
-    local dest_void, src_void
-    GC.@preserve phys_dest phys_src begin
-        dest_void = Base.@threadcall(:get_ptr, Ptr{Cvoid}, (Ptr{Cvoid},), raw_dest)
-        src_void = Base.@threadcall(:get_ptr, Ptr{Cvoid}, (Ptr{Cvoid},), raw_src)
-    end
-
-    dest_ptr = Ptr{T}(dest_void)
-    src_ptr = Ptr{T}(src_void)
-
-    Base.unsafe_copyto!(dest_ptr, src_ptr, prod(size(dest)))
+    Legate.issue_copy(dest_handle, src_handle)
     return dest
 end
 
@@ -68,6 +53,7 @@ function (::Type{<:Array{A}})(arr::LogicalArray{B}) where {A,B}
     out = Array{A}(undef, dims)
     attached = Legate.attach_external(out)
     copyto!(attached, arr)
+    Legate.issue_execution_fence() # Ensure copy is finished before returning to Julia
     return out
 end
 

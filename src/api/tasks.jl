@@ -19,25 +19,28 @@ end
 
 Submit an manual/auto task to the runtime.
 """
-function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
-    rt_ptr = Legate.get_obj_ptr(rt[])
-    task_ptr = Legate.get_obj_ptr(task)
-    GC.@preserve rt task begin
-        Base.@threadcall(
-            :submit_auto_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
-        )
-    end
-end
+submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
+submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
 
-function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
-    rt_ptr = Legate.get_obj_ptr(rt[])
-    task_ptr = Legate.get_obj_ptr(task)
-    GC.@preserve rt task begin
-        Base.@threadcall(
-            :submit_manual_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
-        )
-    end
-end
+# function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
+#     rt_ptr = Legate.get_obj_ptr(rt[])
+#     task_ptr = Legate.get_obj_ptr(task)
+#     GC.@preserve rt task begin
+#         ccall(
+#             :submit_auto_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
+#         )
+#     end
+# end
+
+# function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
+#     rt_ptr = Legate.get_obj_ptr(rt[])
+#     task_ptr = Legate.get_obj_ptr(task)
+#     GC.@preserve rt task begin
+#         ccall(
+#             :submit_manual_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
+#         )
+#     end
+# end
 
 """
     align(a::Variable, b::Variable) -> Constraint

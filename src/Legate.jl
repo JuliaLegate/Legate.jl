@@ -65,11 +65,10 @@ elseif LegatePreferences.MODE == "developer"
         find_paths(LegatePreferences.MODE)
     end
 elseif LegatePreferences.MODE == "conda"
-    using legate_jl_wrapper_jll
     find_paths(
         LegatePreferences.MODE,
         legate_jll_module=nothing,
-        legate_jll_wrapper_module=legate_jl_wrapper_jll,
+        legate_jll_wrapper_module=nothing,
     )
 else
     error(
@@ -99,14 +98,15 @@ end
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
 include("utilities/type_map.jl")
-include("ufi.jl")
 
 # api functions and documentation
 include("api/types.jl")
 include("api/runtime.jl")
 include("api/data.jl")
 include("api/tasks.jl")
+
 include("utilities/attach.jl")
+include("ufi.jl")
 
 ### These functions guard against a user trying
 ### to start multiple runtimes and also to allow

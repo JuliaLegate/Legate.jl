@@ -1,7 +1,8 @@
 #pragma once
 
+#include <legate.h>
+
 #include "jlcxx/jlcxx.hpp"
-#include "legate.h"
 
 namespace legate_util {
 template <legate::Type::Code CODE>

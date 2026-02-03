@@ -1,5 +1,6 @@
 #include "task.h"
 
+#include <legate.h>
 #include <uv.h>  // For uv_async_send
 
 #include <atomic>
@@ -11,7 +12,6 @@
 #include <string>
 #include <vector>
 
-#include "legate.h"
 #include "types.h"
 
 //#define DEBUG

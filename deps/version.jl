@@ -19,8 +19,8 @@
 
 const MIN_CUDA_VERSION = v"13.0"
 const MAX_CUDA_VERSION = v"13.9.999"
-const MIN_LEGATE_VERSION = v"25.10.00"
-const MAX_LEGATE_VERSION = v"25.11.00"
+const MIN_LEGATE_VERSION = v"26.01.00"
+const MAX_LEGATE_VERSION = v"26.01.00"
 
 up_dir(dir::String) = abspath(joinpath(dir, ".."))
 
@@ -39,6 +39,9 @@ function get_version(version_file::String)
     return version
 end
 
+# 25.11 removes the need for our legion_redop patch.
+# See https://docs.nvidia.com/legate/26.01/changes/2511.html
+# Will leave function just in case if we need to patch any headers in the future.
 function check_if_patch(legate_root::String)
     patch = joinpath(legate_root, "include", "legate/legate", "patch")
     if isfile(patch)

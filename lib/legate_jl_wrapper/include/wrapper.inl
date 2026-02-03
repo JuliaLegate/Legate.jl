@@ -17,12 +17,11 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
  */
 
-#include "legate.h"
-#include "legate/mapping/machine.h"
-#include "legate/runtime/runtime.h"
-#include "legate/timing/timing.h"
-#include "legion.h"
-#include "legion/legion_config.h"
+#include <deps/legion.h>
+#include <legate.h>
+#include <legate/mapping/machine.h>
+#include <legate/runtime/runtime.h>
+#include <legate/timing/timing.h>
 
 using namespace legate;
 /**
@@ -63,6 +62,17 @@ inline bool has_started() { return legate::has_started(); }
  * @brief Check whether the Legate runtime has finished.
  */
 inline bool has_finished() { return legate::has_finished(); }
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Issue an execution fence.
+ *
+ * @param block Whether to block until the fence is reached.
+ */
+inline void issue_execution_fence(bool block) {
+  Runtime::get_runtime()->issue_execution_fence(block);
+}
+
 }  // namespace runtime
 
 namespace tasking {
@@ -308,6 +318,17 @@ inline void* get_ptr(legate::PhysicalStore* store) {
   int dim = store->dim();
   legate::Type::Code code = store->type().code();
   return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
+}
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Issue a copy between stores.
+ *
+ * @param target The target store for the copy.
+ * @param source The source store for the copy.
+ */
+inline void issue_copy(LogicalStore& target, const LogicalStore& source) {
+  Runtime::get_runtime()->issue_copy(target, source);
 }
 
 }  // namespace data

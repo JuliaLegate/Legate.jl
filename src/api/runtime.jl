@@ -71,3 +71,15 @@ time_microseconds
 Measure time in nanoseconds.
 """
 time_nanoseconds
+
+"""
+    issue_execution_fence(; blocking::Bool = true)
+
+Issue an execution fence.
+"""
+# issue_execution_fence(; blocking::Bool = true) = issue_execution_fence(blocking)
+
+function issue_execution_fence(blocking::Bool)
+    rt_ptr = get_obj_ptr(get_runtime()[])
+    Base.@threadcall(:issue_execution_fence, Cvoid, (Ptr{Cvoid}, Bool), rt_ptr, blocking)
+end
