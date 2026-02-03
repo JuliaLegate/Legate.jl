@@ -10,9 +10,9 @@ function task_test(args)
     end
 end
 
-# you can also use do the arg expansion like this
-# the above still applies where inputs are first, then outputs, then scalars
-function task_init(a, b, c)
+# init task
+function task_init(args)
+    a, b, c = args
     @inbounds @simd for i in eachindex(a)
         a[i] = rand(Float32)
         b[i] = rand(Float32)
@@ -20,7 +20,7 @@ function task_init(a, b, c)
     end
 end
 
-# Task with 2 inputs, 2 outputs
+# 4 arg task
 function task_4arg(args)
     in1, in2, out1, out2 = args
     @inbounds @simd for i in eachindex(in1)

@@ -68,28 +68,6 @@ function task_scalar(args::Vector{Legate.TaskArgument})
     end
 end
 
-# Helper function to read Legate array data by submitting a copy task
-function read_legate_array(rt, lib, legate_arr)
-    result = zeros(Float32, 10, 10)
-
-    function copy_task(args::Vector{Legate.TaskArgument})
-        src = args[1]
-        @inbounds @simd for i in eachindex(src)
-            result[i] = src[i]
-        end
-    end
-
-    copy_task_wrapped = Legate.wrap_task(copy_task)
-    task = Legate.create_julia_task(rt, lib, copy_task_wrapped)
-    in_vars = Vector{Legate.Variable}()
-    push!(in_vars, Legate.add_input(task, legate_arr))
-    Legate.default_alignment(task, in_vars, Vector{Legate.Variable}())
-    Legate.submit_task(rt, task)
-    Legate.wait_ufi()
-
-    return result
-end
-
 # get ground truth from base julia
 base_results = run_base_julia_test()
 
@@ -99,7 +77,7 @@ expected_b = base_results.a_init .* 2
 expected_d = expected_c .+ 1
 expected_a = expected_c .* 2.5f0
 
-@testset "CPU Tasking" begin
+@testset verbose=true "CPU Tasking" begin
     rt = Legate.get_runtime()
     lib = Legate.create_library("test_comparison")
 
@@ -133,8 +111,8 @@ expected_a = expected_c .* 2.5f0
         set_legate_array(rt, lib, c, zeros(Float32, 10, 10))
 
         # Verify Init
-        val_a = read_legate_array(rt, lib, a)
-        val_b = read_legate_array(rt, lib, b)
+        val_a = Array(a)
+        val_b = Array(b)
         @test val_a ≈ base_results.a_init
         @test val_b ≈ base_results.b_init
     end
@@ -157,7 +135,7 @@ expected_a = expected_c .* 2.5f0
         push!(output_vars, Legate.add_output(task2, c))
         Legate.default_alignment(task2, input_vars, output_vars)
         Legate.submit_task(rt, task2)
-        val_c = read_legate_array(rt, lib, c)
+        val_c = Array(c)
         @test val_c ≈ expected_c
     end
 
@@ -171,8 +149,8 @@ expected_a = expected_c .* 2.5f0
         push!(out_vars_4, Legate.add_output(task3, d))
         Legate.default_alignment(task3, in_vars_4, out_vars_4)
         Legate.submit_task(rt, task3)
-        val_b = read_legate_array(rt, lib, b)
-        val_d = read_legate_array(rt, lib, d)
+        val_b = Array(b)
+        val_d = Array(d)
         @test val_b ≈ expected_b
         @test val_d ≈ expected_d
     end
@@ -186,7 +164,7 @@ expected_a = expected_c .* 2.5f0
         Legate.add_scalar(task4, Legate.Scalar(2.5f0))
         Legate.default_alignment(task4, in_vars_s, out_vars_s)
         Legate.submit_task(rt, task4)
-        val_a = read_legate_array(rt, lib, a)
+        val_a = Array(a)
         @test val_a ≈ expected_a
     end
 end

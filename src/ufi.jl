@@ -50,7 +50,7 @@ end
 
 # Shared data structure for passing task information from C++ to Julia
 struct TaskRequest
-    is_gpu::Bool
+    is_gpu::Cint # Use Cint for better alignment
     task_id::UInt32
     inputs_ptr::Ptr{Ptr{Cvoid}}
     outputs_ptr::Ptr{Ptr{Cvoid}}
@@ -65,7 +65,7 @@ struct TaskRequest
     dims::NTuple{3,Int64}
 
     function TaskRequest()
-        new(false, 0, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
+        new(0, 0, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
     end
 end
 
@@ -116,7 +116,6 @@ end
 # ) end
 
 # Global state
-const ASYNC_COND = Ref{Base.AsyncCondition}()
 # We use a Ref{TaskRequest} to provide stable memory for C++
 # Ref{T} for bits types (immutable structs) holds the data inline.
 const CURRENT_REQUEST = Ref{TaskRequest}()
@@ -124,12 +123,22 @@ const CURRENT_REQUEST = Ref{TaskRequest}()
 # Worker task that waits for async signals from C++
 function async_worker()
     WORKER_STARTED[] = true
+    @debug "Legate UFI: Worker started on thread $(Threads.threadid())"
     try
-        while true
-            wait(ASYNC_COND[])
-            req = CURRENT_REQUEST[]
-            execute_julia_task(req)
-            ccall(:completion_callback_from_julia, Cvoid, ())
+        while !UFI_SHUTDOWN_DONE[]
+            ready = ccall(:legate_poll_work, Cint, ()) != 0
+            if ready
+                req = CURRENT_REQUEST[]
+                try
+                    execute_julia_task(req)
+                catch e
+                    @error "Ufi Worker: task failed" exception=(e, catch_backtrace())
+                finally
+                    ccall(:completion_callback_from_julia, Cvoid, ())
+                end
+            else
+                yield()
+            end
         end
     catch e
         isa(e, EOFError) || rethrow()
@@ -167,8 +176,6 @@ function _execute_julia_task(::Val{:cpu}, req, task_fun)
 
     cpu_args = Vector{TaskArgument}(args)
     task_fun(cpu_args)
-
-    @debug "Legate UFI: CPU task completed successfully!" req.task_id
 end
 
 bool_to_symbol(is_gpu::Bool) = is_gpu ? :gpu : :cpu
@@ -182,14 +189,15 @@ function execute_julia_task(req::TaskRequest)
     end
 
     try
-        Base.invokelatest(_execute_julia_task, Val(bool_to_symbol(req.is_gpu)), req, task_fun)
-
+        Base.invokelatest(_execute_julia_task, Val(bool_to_symbol(req.is_gpu != 0)), req, task_fun)
+        yield()
     catch e
         @error "Legate UFI: Julia task failed" exception=(e, catch_backtrace()) req.task_id
         rethrow()
     finally
+        # task is done, decrement counter
         val = Threads.atomic_sub!(PENDING_TASKS, 1)
-        if val == 1 # atomic_sub returns OLD value, so if old was 1, new is 0
+        if val[] == 1 # atomic_sub returns OLD value, so if old was 1, new is 0
             lock(ALL_TASKS_DONE) do
                 notify(ALL_TASKS_DONE)
             end
@@ -202,10 +210,10 @@ const WORKER_TASK = Ref{Task}()
 const WORKER_STARTED = Ref{Bool}(false)
 
 function _start_worker()
-    # Spawn worker on interactive thread pool
-    WORKER_TASK[] = Threads.@spawn :interactive async_worker()
+    # Spawn worker - will run on any available thread, or interleave on main thread
+    WORKER_TASK[] = errormonitor(Threads.@spawn async_worker())
 
-    @debug "Legate UFI: Worker task spawned on interactive thread"
+    @debug "Legate UFI: Worker task spawned"
 
     # Wait until worker is ready
     while !WORKER_STARTED[]
@@ -215,26 +223,21 @@ function _start_worker()
     @debug "Legate UFI: Worker confirmed started and waiting"
 end
 
-# Initialize AsyncCondition and start worker - called from Legate.__init__
+# Initialize and start worker on INTERACTIVE thread loop
 function init_ufi()
-    ASYNC_COND[] = Base.AsyncCondition()
-    CURRENT_REQUEST[] = TaskRequest()
-    _start_worker()
-    sleep(0.1)
+    init_task = Threads.@spawn :interactive begin
+        CURRENT_REQUEST[] = TaskRequest()
+        _start_worker()
+    end
+    wait(init_task)
 end
 
-# Wait for all tasks to complete
 function wait_ufi()
     lock(Legate.ALL_TASKS_DONE) do
         while Legate.PENDING_TASKS[] > 0
-            wait(Legate.ALL_TASKS_DONE)
+            wait(Legate.ALL_TASKS_DONE) # thread yield waiting on async condition
         end
     end
-end
-
-# Get the async handle for C++ to call uv_async_send
-function _get_async_handle()
-    return ASYNC_COND[].handle
 end
 
 # Get pointer to TaskRequest for C++ to write to
@@ -246,6 +249,5 @@ function shutdown_ufi()
     # Prevent double shutdown
     UFI_SHUTDOWN_DONE[] && return nothing
     UFI_SHUTDOWN_DONE[] = true
-    close(ASYNC_COND[])
     wait(WORKER_TASK[])
 end

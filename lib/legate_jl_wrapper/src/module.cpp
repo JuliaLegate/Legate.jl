@@ -26,6 +26,28 @@
 #include "types.h"
 #include "wrapper.inl"
 
+extern "C" {
+// Exposed for @threadcall
+// https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
+// Takes a raw C++ pointer to PhysicalStore (casted to void*)
+void* get_ptr(void* store_ptr) {
+  legate::PhysicalStore* store = static_cast<legate::PhysicalStore*>(store_ptr);
+  return legate_wrapper::data::get_ptr(store);
+}
+
+void submit_auto_task(void* rt_ptr, void* task_ptr) {
+  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
+  legate::AutoTask* task = static_cast<legate::AutoTask*>(task_ptr);
+  rt->submit(std::move(*task));
+}
+
+void submit_manual_task(void* rt_ptr, void* task_ptr) {
+  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
+  legate::ManualTask* task = static_cast<legate::ManualTask*>(task_ptr);
+  rt->submit(std::move(*task));
+}
+}
+
 legate::Type type_from_code(legate::Type::Code type_id) {
   switch (type_id) {
     case legate::Type::Code::BOOL:
@@ -91,11 +113,15 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
   mod.add_bits<legate::mapping::StoreTarget>("StoreTarget");
 
-  mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
+  mod.set_const("SYSMEM", legate::mapping::StoreTarget::SYSMEM);
+  mod.set_const("SOCKETMEM", legate::mapping::StoreTarget::SOCKETMEM);
+#if LEGATE_DEFINED(LEGATE_USE_CUDA)
+  mod.set_const("FBMEM", legate::mapping::StoreTarget::FBMEM);
+  mod.set_const("ZCMEM", legate::mapping::StoreTarget::ZCMEM);
+#endif
 
-  // TODO: add DomainPoint and Domain for manual tasking interface
-  // mod.add_type<DomainPoint>("DomainPoint").constructor<Point>();
-  // mod.add_type<Domain>("Domain").constructor<DomainPoint, DomainPoint>();
+  mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
+  mod.add_type<Domain>("Domain");
 
   mod.add_type<Scalar>("Scalar")
       .constructor<float>()
@@ -120,9 +146,11 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("is_readable", &PhysicalStore::is_readable)
       .method("is_writable", &PhysicalStore::is_writable)
       .method("is_reducible", &PhysicalStore::is_reducible)
-      .method("valid", &PhysicalStore::valid);
+      .method("valid", &PhysicalStore::valid)
+      .method("get_obj_ptr",
+              [](PhysicalStore& s) { return static_cast<void*>(&s); });
 
-  mod.add_type<LogicalStore>("LogicalStore")
+  mod.add_type<LogicalStore>("LogicalStoreImpl")
       .method("dim", &LogicalStore::dim)
       .method("type", &LogicalStore::type)
       .method("reinterpret_as", &LogicalStore::reinterpret_as)
@@ -132,16 +160,19 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("equal_storage", &LogicalStore::equal_storage);
 
   mod.add_type<PhysicalArray>("PhysicalArray")
-      .method("nullable", &PhysicalArray::nullable)
       .method("dim", &PhysicalArray::dim)
       .method("type", &PhysicalArray::type)
-      .method("data", &PhysicalArray::data);
+      .method("nullable", &PhysicalArray::nullable)
+      .method("data", &PhysicalArray::data);  // returns PhysicalStore
 
-  mod.add_type<LogicalArray>("LogicalArray")
+  mod.add_type<LogicalArray>("LogicalArrayImpl")
       .method("dim", &LogicalArray::dim)
       .method("type", &LogicalArray::type)
-      .method("unbound", &LogicalArray::unbound)
-      .method("nullable", &LogicalArray::nullable);
+      .method("nullable", &LogicalArray::nullable)
+      .method("data", &LogicalArray::data)  // returns LogicalStore
+      .method("get_physical_array",
+              &LogicalArray::get_physical_array)  // return PhysicalArray
+      .method("unbound", &LogicalArray::unbound);
 
   mod.add_type<AutoTask>("AutoTask")
       .method("add_input", static_cast<Variable (AutoTask::*)(LogicalArray)>(
@@ -152,7 +183,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
                                 &AutoTask::add_scalar_arg))
       .method("add_constraint",
               static_cast<void (AutoTask::*)(const Constraint&)>(
-                  &AutoTask::add_constraint));
+                  &AutoTask::add_constraint))
+      .method("get_obj_ptr",
+              [](AutoTask& t) { return static_cast<void*>(&t); });
 
   mod.add_type<ManualTask>("ManualTask")
       .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(
@@ -160,10 +193,14 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(
                                 &ManualTask::add_output))
       .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(
-                                &ManualTask::add_scalar_arg));
+                                &ManualTask::add_scalar_arg))
+      .method("get_obj_ptr",
+              [](ManualTask& t) { return static_cast<void*>(&t); });
 
   /* runtime */
-  mod.add_type<Runtime>("Runtime");
+  mod.add_type<Runtime>("Runtime").method(
+      "get_obj_ptr", [](Runtime& r) { return static_cast<void*>(&r); });
+
   mod.method("start_legate", &legate_wrapper::runtime::start_legate);
   mod.method("legate_finish", &legate_wrapper::runtime::legate_finish);
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);
@@ -171,6 +208,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("has_finished", &legate_wrapper::runtime::has_finished);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
+  mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
+  mod.method("create_manual_task",
+             &legate_wrapper::tasking::create_manual_task);
   mod.method("create_auto_task", &legate_wrapper::tasking::create_auto_task);
   mod.method("submit_auto_task", &legate_wrapper::tasking::submit_auto_task);
   mod.method("submit_manual_task",
@@ -183,6 +223,11 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::data::create_unbound_store);
   mod.method("create_store", &legate_wrapper::data::create_store);
   mod.method("store_from_scalar", &legate_wrapper::data::store_from_scalar);
+  mod.method("attach_external_store_sysmem",
+             &legate_wrapper::data::attach_external_store_sysmem);
+  mod.method("attach_external_store_fbmem",
+             &legate_wrapper::data::attach_external_store_fbmem);
+  mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);
   /* timing */

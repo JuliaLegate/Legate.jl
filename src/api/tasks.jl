@@ -9,7 +9,9 @@ Create an auto task in the runtime.
 - `id`: The local task identifier.
 """
 create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
-# create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain) = create_manual_task(rt, lib, id, domain)
+function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain)
+    create_manual_task(rt, lib, id, domain)
+end
 
 """
     submit_task(rt::Runtime, AutoTask)
@@ -17,8 +19,25 @@ create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_ta
 
 Submit an manual/auto task to the runtime.
 """
-submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
-submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
+function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
+    rt_ptr = Legate.get_obj_ptr(rt[])
+    task_ptr = Legate.get_obj_ptr(task)
+    GC.@preserve rt task begin
+        Base.@threadcall(
+            :submit_auto_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
+        )
+    end
+end
+
+function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
+    rt_ptr = Legate.get_obj_ptr(rt[])
+    task_ptr = Legate.get_obj_ptr(task)
+    GC.@preserve rt task begin
+        Base.@threadcall(
+            :submit_manual_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
+        )
+    end
+end
 
 """
     align(a::Variable, b::Variable) -> Constraint
@@ -64,7 +83,12 @@ add_constraint
 
 Add a logical array/store as an input to the task.
 """
-add_input
+function add_input(
+    task::Union{AutoTask,ManualTask},
+    item::Union{LogicalArray,LogicalStore},
+)
+    add_input(task, item.handle)
+end
 
 """
     add_output(AutoTask, LogicalArray) -> Variable
@@ -72,7 +96,12 @@ add_input
 
 Add a logical array/store as an output of the task.
 """
-add_output
+function add_output(
+    task::Union{AutoTask,ManualTask},
+    item::Union{LogicalArray,LogicalStore},
+)
+    add_output(task, item.handle)
+end
 
 """
     add_scalar(AutoTask, scalar::Scalar)

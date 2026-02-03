@@ -106,6 +106,7 @@ include("api/types.jl")
 include("api/runtime.jl")
 include("api/data.jl")
 include("api/tasks.jl")
+include("utilities/attach.jl")
 
 ### These functions guard against a user trying
 ### to start multiple runtimes and also to allow
@@ -137,8 +138,6 @@ function _start_runtime()
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
     Legate.start_legate()
-    @debug "Started Legate"
-
     LegatePreferences.maybe_warn_prerelease()
     Legate.init_ufi()
 

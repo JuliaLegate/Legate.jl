@@ -76,13 +76,6 @@ Represents a slice of an array or store. Can be constructed from optional start 
 Slice
 
 """
-    LogicalStore
-
-Represents a logical view over a physical store. Supports reinterpretation, promotion, slicing, and storage queries.
-"""
-LogicalStore
-
-"""
     PhysicalStore
 
 Represents a physical storage container. Provides methods to query its dimensions, type, and accessibility.
@@ -90,18 +83,39 @@ Represents a physical storage container. Provides methods to query its dimension
 PhysicalStore
 
 """
-    LogicalArray
-
-A logical view over a physical array. Supports unbound views and nullability checks.
-"""
-LogicalArray
-
-"""
     PhysicalArray
 
 A physical array container. Provides access to dimensions, type, and raw data pointer.
 """
 PhysicalArray
+
+"""
+    LogicalStore{T,N}
+
+Represents a logical view over a physical store. Supports reinterpretation, promotion, slicing, and storage queries.
+Wraps the underlying C++ `LogicalStoreImpl`.
+"""
+struct LogicalStore{T,N}
+    handle::LogicalStoreImpl
+    dims::Union{Nothing,NTuple{N,Int}}
+end
+
+Base.size(s::LogicalStore) = s.dims
+Base.size(s::LogicalStore, i::Integer) = size(s)[i]
+
+"""
+    LogicalArray{T,N}
+
+A logical view over a physical array. Supports unbound views and nullability checks.
+Wraps the underlying C++ `LogicalArrayImpl`.
+"""
+struct LogicalArray{T,N}
+    handle::LogicalArrayImpl
+    dims::Union{Nothing,NTuple{N,Int}}
+end
+
+Base.size(a::LogicalArray) = a.dims
+Base.size(a::LogicalArray, i::Integer) = size(a)[i]
 
 """
     LegateType
