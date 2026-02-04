@@ -185,6 +185,17 @@ inline Scalar string_to_scalar(std::string str) { return Scalar(str); }
 
 /**
  * @ingroup legate_wrapper
+ * @brief Create a Scalar from a pointer and type.
+ *
+ * @param ptr Pointer to the scalar data.
+ * @param ty The type of the scalar.
+ */
+inline Scalar make_scalar(void* ptr, const Type& ty) {
+  return Scalar(ty, ptr, true);
+}
+
+/**
+ * @ingroup legate_wrapper
  * @brief Create an unbound array.
  *
  * @param ty The type of the array elements.
@@ -258,11 +269,12 @@ inline LogicalStore store_from_scalar(const Scalar& scalar,
  * @param ty The type of the store elements.
  */
 inline LogicalStore attach_external_store_sysmem(void* ptr, const Shape& shape,
-                                                 const Type& ty) {
+                                                 const Type& ty,
+                                                 bool read_only) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
-      ptr, shape.volume() * ty.size());
+      ptr, shape.volume() * ty.size(), read_only);
   legate::mapping::DimOrdering ordering =
-      legate::mapping::DimOrdering::fortran_order();
+      legate::mapping::DimOrdering::c_order();
 
   auto store =
       legate::Runtime::get_runtime()->create_store(shape, ty, alloc, ordering);

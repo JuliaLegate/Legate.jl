@@ -110,8 +110,8 @@ function _find_paths(
     legate_jll_module::Nothing,
     legate_jll_wrapper_module::Nothing,
 )
-    @warn "mode = conda may break. You may need to set LD_PRELOAD to the path of the conda environment's libstdc++.so.6.\n" *
-        "Example: LD_PRELOAD=/home/david/anaconda3/envs/myenv/lib/libstdc++.so.6 julia --project=."
+    @warn "mode = conda may break. You may need to set LD_PRELOAD to the path of the conda environment's libstdc++.so.\n" *
+        "Example: LD_PRELOAD=/home/david/anaconda3/envs/myenv/lib/libstdc++.so julia --project=."
 
     conda_env = load_preference(LegatePreferences, "legate_conda_env", nothing)
     isnothing(conda_env) && error(

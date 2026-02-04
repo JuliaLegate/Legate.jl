@@ -26,18 +26,6 @@
 #include "types.h"
 #include "wrapper.inl"
 
-extern "C" {
-void* get_ptr(void* store_ptr) {
-  legate::PhysicalStore* store = static_cast<legate::PhysicalStore*>(store_ptr);
-  return legate_wrapper::data::get_ptr(store);
-}
-
-void issue_execution_fence(void* rt_ptr, bool block) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  rt->issue_execution_fence(block);
-}
-}
-
 legate::Type type_from_code(legate::Type::Code type_id) {
   switch (type_id) {
     case legate::Type::Code::BOOL:
@@ -113,12 +101,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
   mod.add_type<Domain>("Domain");
 
-  mod.add_type<Scalar>("Scalar")
-      .constructor<float>()
-      .constructor<double>()
-      .constructor<int32_t>()
-      .constructor<void*>();
-
+  mod.add_type<Scalar>("Scalar");
   mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(
           WrapDefault());
@@ -147,7 +130,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("promote", &LogicalStore::promote)
       .method("slice", &LogicalStore::slice)
       .method("get_physical_store", &LogicalStore::get_physical_store)
-      .method("equal_storage", &LogicalStore::equal_storage);
+      .method("equal_storage", &LogicalStore::equal_storage)
+      .method("detach", &LogicalStore::detach);
 
   mod.add_type<PhysicalArray>("PhysicalArray")
       .method("dim", &PhysicalArray::dim)
@@ -221,6 +205,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::data::attach_external_store_fbmem);
   mod.method("issue_copy", &legate_wrapper::data::issue_copy);
   mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
+  mod.method("make_scalar", &legate_wrapper::data::make_scalar);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);
   /* timing */

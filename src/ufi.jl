@@ -233,9 +233,33 @@ function init_ufi()
 end
 
 function wait_ufi()
-    lock(Legate.ALL_TASKS_DONE) do
+    # For single-threaded Julia, we need to manually poll and execute tasks
+    # because blocking in wait() prevents async_worker from running
+    if Threads.nthreads() == 1
+        # Manual polling loop for single-threaded execution
         while Legate.PENDING_TASKS[] > 0
-            wait(Legate.ALL_TASKS_DONE) # thread yield waiting on async condition
+            # Sleep to allow async_worker to wake up and process C++ signals
+            sleep(0.001)  # 1ms - lets async_worker run
+            yield()
+
+            # Check for work and execute it (non-blocking poll)
+            if ccall(:legate_poll_work, Cint, ()) != 0
+                try
+                    req = Legate.CURRENT_REQUEST[]
+                    Legate.execute_julia_task(req)
+                    ccall(:completion_callback_from_julia, Cvoid, ())
+                catch e
+                    @error "UFI task execution failed" exception=(e, catch_backtrace())
+                    rethrow()
+                end
+            end
+        end
+    else
+        # Multi-threaded: use condition variable (async_worker runs on separate thread)
+        lock(Legate.ALL_TASKS_DONE) do
+            while Legate.PENDING_TASKS[] > 0
+                wait(Legate.ALL_TASKS_DONE)
+            end
         end
     end
 end

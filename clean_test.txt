@@ -1,0 +1,34 @@
+Initialization: Test Failed at /pool/david/cunumeric-play/new-build-separation/Legate.jl/test/tests/tasking.jl:119
+  Expression: val_a ≈ base_results.a_init
+   Evaluated: Float32[0.9950404 0.08029777 … 0.19667286 0.2594152; 0.78703815 0.12650144 … 0.8543349 0.29833496; … ; 0.35796773 0.2848006 … 0.14013863 0.96657777; 0.24482179 0.27791536 … 0.39609033 0.7137107] ≈ Float32[0.9950404 0.78703815 … 0.35796773 0.24482179; 0.08029777 0.12650144 … 0.2848006 0.27791536; … ; 0.19667286 0.8543349 … 0.14013863 0.39609033; 0.2594152 0.29833496 … 0.96657777 0.7137107]
+
+Stacktrace:
+ [1] macro expansion
+   @ /pool/david/.julia/juliaup/julia-1.11.5+0.x64.linux.gnu/share/julia/stdlib/v1.11/Test/src/Test.jl:679 [inlined]
+ [2] macro expansion
+   @ /pool/david/cunumeric-play/new-build-separation/Legate.jl/test/tests/tasking.jl:119 [inlined]
+ [3] macro expansion
+   @ /pool/david/.julia/juliaup/julia-1.11.5+0.x64.linux.gnu/share/julia/stdlib/v1.11/Test/src/Test.jl:1704 [inlined]
+ [4] macro expansion
+   @ /pool/david/cunumeric-play/new-build-separation/Legate.jl/test/tests/tasking.jl:104 [inlined]
+ [5] macro expansion
+   @ /pool/david/.julia/juliaup/julia-1.11.5+0.x64.linux.gnu/share/julia/stdlib/v1.11/Test/src/Test.jl:1704 [inlined]
+ [6] top-level scope
+   @ /pool/david/cunumeric-play/new-build-separation/Legate.jl/test/tests/tasking.jl:81
+Initialization: Test Failed at /pool/david/cunumeric-play/new-build-separation/Legate.jl/test/tests/tasking.jl:120
+  Expression: val_b ≈ base_results.b_init
+   Evaluated: Float32[0.69041854 0.9472834 … 0.5021039 0.13398361; 0.3359005 0.39742565 … 0.053988338 0.35500985; … ; 0.70861185 0.62440675 … 0.7936697 0.7620593; 0.071059346 0.3979211 … 0.78459 0.61018115] ≈ Float32[0.69041854 0.3359005 … 0.70861185 0.071059346; 0.9472834 0.39742565 … 0.62440675 0.3979211; … ; 0.5021039 0.053988338 … 0.7936697 0.78459; 0.13398361 0.35500985 … 0.7620593 0.61018115]
+
+Stacktrace:
+ [1] macro expansion
+   @ /pool/david/.julia/juliaup/julia-1.11.5+0.x64.linux.gnu/share/julia/stdlib/v1.11/Test/src/Test.jl:679 [inlined]
+ [2] macro expansion
+   @ /pool/david/cunumeric-play/new-build-separation/Legate.jl/test/tests/tasking.jl:120 [inlined]
+ [3] macro expansion
+   @ /pool/david/.julia/juliaup/julia-1.11.5+0.x64.linux.gnu/share/julia/stdlib/v1.11/Test/src/Test.jl:1704 [inlined]
+ [4] macro expansion
+   @ /pool/david/cunumeric-play/new-build-separation/Legate.jl/test/tests/tasking.jl:104 [inlined]
+ [5] macro expansion
+   @ /pool/david/.julia/juliaup/julia-1.11.5+0.x64.linux.gnu/share/julia/stdlib/v1.11/Test/src/Test.jl:1704 [inlined]
+ [6] top-level scope
+   @ /pool/david/cunumeric-play/new-build-separation/Legate.jl/test/tests/tasking.jl:81

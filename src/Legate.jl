@@ -117,6 +117,7 @@ const RUNTIME_ACTIVE = 0
 const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
 const _start_lock = ReentrantLock()
 const _shutdown_done = Ref{Bool}(false)
+const LIB_LEGATE_JL = Ref{Library}() # Will be initialized in _start_runtime
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
@@ -138,8 +139,17 @@ function _start_runtime()
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
     Legate.start_legate()
-    LegatePreferences.maybe_warn_prerelease()
+
+    # Register UFI tasks
+    rt = Legate.get_runtime()
+    lib = Legate._create_library(rt, "legate_jl")
+    LIB_LEGATE_JL[] = lib
+    Legate._ufi_interface_register(lib)
     Legate.init_ufi()
+
+    # Initialize C++ async system
+    request_ptr = Legate._get_request_ptr()
+    Legate._initialize_async_system(request_ptr)
 
     Base.atexit(Legate._finish_runtime)
     return RUNTIME_ACTIVE

@@ -64,9 +64,15 @@ Shape
 """
     Scalar
 
-Represents a scalar value used in tasks. Can be constructed from `Float32`, `Float64`, or `Int`.
+Represents a scalar value used in tasks.
 """
-Scalar
+function Scalar(x::T) where {T<:SUPPORTED_TYPES}
+    r = Ref(x)
+    GC.@preserve r begin
+        ptr = Base.unsafe_convert(Ptr{Cvoid}, r)
+        return make_scalar(ptr, to_legate_type(T))
+    end
+end
 
 """
     Slice
