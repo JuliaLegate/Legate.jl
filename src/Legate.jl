@@ -94,7 +94,6 @@ if !isfile(WRAPPER_LIB_PATH)
     )
 end
 
-#! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
 include("utilities/type_map.jl")
@@ -108,8 +107,8 @@ include("api/tasks.jl")
 include("utilities/attach.jl")
 include("ufi.jl")
 
-### These functions guard against a user trying
-### to start multiple runtimes and also to allow
+## These functions guard against a user trying
+## to start multiple runtimes and also to allow
 ## package extensions which always try to re-load
 
 const RUNTIME_INACTIVE = -1
@@ -139,17 +138,7 @@ function _start_runtime()
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
     Legate.start_legate()
-
-    # Register UFI tasks
-    rt = Legate.get_runtime()
-    lib = Legate._create_library(rt, "legate_jl")
-    LIB_LEGATE_JL[] = lib
-    Legate._ufi_interface_register(lib)
     Legate.init_ufi()
-
-    # Initialize C++ async system
-    request_ptr = Legate._get_request_ptr()
-    Legate._initialize_async_system(request_ptr)
 
     Base.atexit(Legate._finish_runtime)
     return RUNTIME_ACTIVE

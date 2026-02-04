@@ -225,6 +225,9 @@ end
 
 # Initialize and start worker on INTERACTIVE thread loop
 function init_ufi()
+    request_ptr = Legate._get_request_ptr()
+    Legate._initialize_async_system(request_ptr)
+
     init_task = Threads.@spawn :interactive begin
         CURRENT_REQUEST[] = TaskRequest()
         _start_worker()
