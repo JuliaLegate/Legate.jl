@@ -20,7 +20,7 @@
 const MIN_CUDA_VERSION = v"13.0"
 const MAX_CUDA_VERSION = v"13.9.999"
 const MIN_LEGATE_VERSION = v"26.01.00"
-const MAX_LEGATE_VERSION = v"26.01.00"
+const MAX_LEGATE_VERSION = v"26.12.00"
 
 up_dir(dir::String) = abspath(joinpath(dir, ".."))
 
