@@ -45,35 +45,27 @@ const SUPPORTED_TYPES = Union{
 
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
 # This will also include the relevant JLLs if necessary.
-@static if LegatePreferences.MODE == "jll"
+MODE = load_preference(LegatePreferences, "legate_mode", LegatePreferences.MODE_JLL)
+@static if MODE == LegatePreferences.MODE_JLL
     using legate_jll, legate_jl_wrapper_jll
     find_paths(
-        LegatePreferences.MODE;
+        MODE;
         legate_jll_module=legate_jll,
         legate_jll_wrapper_module=legate_jl_wrapper_jll,
     )
-elseif LegatePreferences.MODE == "developer"
+elseif MODE == LegatePreferences.MODE_DEVELOPER
     use_legate_jll = load_preference(LegatePreferences, "legate_use_jll", true)
     if use_legate_jll
         using legate_jll
-        find_paths(
-            LegatePreferences.MODE;
-            legate_jll_module=legate_jll,
-            legate_jll_wrapper_module=nothing,
-        )
+        find_paths(MODE; legate_jll_module=legate_jll)
     else
-        find_paths(LegatePreferences.MODE)
+        find_paths(MODE)
     end
-elseif LegatePreferences.MODE == "conda"
-    using legate_jl_wrapper_jll
-    find_paths(
-        LegatePreferences.MODE,
-        legate_jll_module=nothing,
-        legate_jll_wrapper_module=legate_jl_wrapper_jll,
-    )
+elseif MODE == LegatePreferences.MODE_CONDA
+    find_paths(MODE)
 else
     error(
-        "Legate.jl: Unknown mode $(LegatePreferences.MODE)." *
+        "Legate.jl: Unknown mode $(MODE)." *
         "Must be one of 'jll', 'developer', or 'conda'.",
     )
 end
@@ -95,21 +87,21 @@ if !isfile(WRAPPER_LIB_PATH)
     )
 end
 
-#! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
 include("utilities/type_map.jl")
-include("ufi.jl")
 
 # api functions and documentation
 include("api/types.jl")
 include("api/runtime.jl")
 include("api/data.jl")
 include("api/tasks.jl")
-include("utilities/attach.jl")
 
-### These functions guard against a user trying
-### to start multiple runtimes and also to allow
+include("utilities/attach.jl")
+include("ufi.jl")
+
+## These functions guard against a user trying
+## to start multiple runtimes and also to allow
 ## package extensions which always try to re-load
 
 const RUNTIME_INACTIVE = -1
@@ -117,6 +109,7 @@ const RUNTIME_ACTIVE = 0
 const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
 const _start_lock = ReentrantLock()
 const _shutdown_done = Ref{Bool}(false)
+const LIB_LEGATE_JL = Ref{Library}() # Will be initialized in _start_runtime
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
@@ -138,7 +131,6 @@ function _start_runtime()
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
     Legate.start_legate()
-    LegatePreferences.maybe_warn_prerelease()
     Legate.init_ufi()
 
     Base.atexit(Legate._finish_runtime)

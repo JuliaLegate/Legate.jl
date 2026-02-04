@@ -109,7 +109,6 @@ expected_a = expected_c .* 2.5f0
         set_legate_array(rt, lib, a, base_results.a_init)
         set_legate_array(rt, lib, b, base_results.b_init)
         set_legate_array(rt, lib, c, zeros(Float32, 10, 10))
-
         # Verify Init
         val_a = Array(a)
         val_b = Array(b)
@@ -121,7 +120,6 @@ expected_a = expected_c .* 2.5f0
     b = Legate.create_array([10, 10], Float32)
     c = Legate.create_array([10, 10], Float32)
     d = Legate.create_array([10, 10], Float32)
-
     set_legate_array(rt, lib, a, base_results.a_init)
     set_legate_array(rt, lib, b, base_results.b_init)
     set_legate_array(rt, lib, c, zeros(Float32, 10, 10))

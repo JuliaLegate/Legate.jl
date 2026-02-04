@@ -26,28 +26,6 @@
 #include "types.h"
 #include "wrapper.inl"
 
-extern "C" {
-// Exposed for @threadcall
-// https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
-// Takes a raw C++ pointer to PhysicalStore (casted to void*)
-void* get_ptr(void* store_ptr) {
-  legate::PhysicalStore* store = static_cast<legate::PhysicalStore*>(store_ptr);
-  return legate_wrapper::data::get_ptr(store);
-}
-
-void submit_auto_task(void* rt_ptr, void* task_ptr) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  legate::AutoTask* task = static_cast<legate::AutoTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-
-void submit_manual_task(void* rt_ptr, void* task_ptr) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  legate::ManualTask* task = static_cast<legate::ManualTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-}
-
 legate::Type type_from_code(legate::Type::Code type_id) {
   switch (type_id) {
     case legate::Type::Code::BOOL:
@@ -123,12 +101,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
   mod.add_type<Domain>("Domain");
 
-  mod.add_type<Scalar>("Scalar")
-      .constructor<float>()
-      .constructor<double>()
-      .constructor<int32_t>()
-      .constructor<void*>();
-
+  mod.add_type<Scalar>("Scalar");
   mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(
           WrapDefault());
@@ -157,7 +130,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("promote", &LogicalStore::promote)
       .method("slice", &LogicalStore::slice)
       .method("get_physical_store", &LogicalStore::get_physical_store)
-      .method("equal_storage", &LogicalStore::equal_storage);
+      .method("equal_storage", &LogicalStore::equal_storage)
+      .method("detach", &LogicalStore::detach);
 
   mod.add_type<PhysicalArray>("PhysicalArray")
       .method("dim", &PhysicalArray::dim)
@@ -206,6 +180,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);
   mod.method("has_started", &legate_wrapper::runtime::has_started);
   mod.method("has_finished", &legate_wrapper::runtime::has_finished);
+  mod.method("issue_execution_fence",
+             &legate_wrapper::runtime::issue_execution_fence);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
   mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
@@ -227,7 +203,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::data::attach_external_store_sysmem);
   mod.method("attach_external_store_fbmem",
              &legate_wrapper::data::attach_external_store_fbmem);
+  mod.method("issue_copy", &legate_wrapper::data::issue_copy);
   mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
+  mod.method("make_scalar", &legate_wrapper::data::make_scalar);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);
   /* timing */

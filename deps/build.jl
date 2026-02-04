@@ -55,16 +55,6 @@ function run_sh(cmd::Cmd, filename::String)
     end
 end
 
-# patch legion. The readme below talks about our compilation error
-# https://github.com/ejmeitz/cuNumeric.jl/blob/main/scripts/README.md
-function patch_legion(repo_root::String, legate_root::String)
-    if !check_if_patch(legate_root)
-        legion_patch = joinpath(repo_root, "scripts/patch_legion.sh")
-        @info "Legate.jl: Running legion patch script: $legion_patch"
-        run_sh(`bash $legion_patch $repo_root $legate_root`, "legion_patch")
-    end
-end
-
 function build_jlcxxwrap(repo_root, legate_root)
     build_libcxxwrap = joinpath(repo_root, "scripts/install_cxxwrap.sh")
     version_path = joinpath(DEPOT_PATH[1], "dev/libcxxwrap_julia_jll/override/LEGATE_INSTALL.txt")
@@ -165,7 +155,6 @@ function build(::LegatePreferences.Conda)
     end
 
     is_legate_installed(legate_root; throw_errors=true)
-    patch_legion(pkg_root, legate_root)
     build_deps(pkg_root, legate_root)
 end
 
@@ -180,7 +169,6 @@ function build(::LegatePreferences.Developer)
     else
         # this means we have a custom path set
         is_legate_installed(legate_root; throw_errors=true)
-        patch_legion(pkg_root, legate_root)
     end
     build_deps(pkg_root, legate_root)
 end

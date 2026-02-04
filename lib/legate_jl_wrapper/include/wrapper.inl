@@ -17,12 +17,11 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
  */
 
-#include "legate.h"
-#include "legate/mapping/machine.h"
-#include "legate/runtime/runtime.h"
-#include "legate/timing/timing.h"
-#include "legion.h"
-#include "legion/legion_config.h"
+#include <deps/legion.h>
+#include <legate.h>
+#include <legate/mapping/machine.h>
+#include <legate/runtime/runtime.h>
+#include <legate/timing/timing.h>
 
 using namespace legate;
 /**
@@ -63,6 +62,17 @@ inline bool has_started() { return legate::has_started(); }
  * @brief Check whether the Legate runtime has finished.
  */
 inline bool has_finished() { return legate::has_finished(); }
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Issue an execution fence.
+ *
+ * @param block Whether to block until the fence is reached.
+ */
+inline void issue_execution_fence(bool block) {
+  Runtime::get_runtime()->issue_execution_fence(block);
+}
+
 }  // namespace runtime
 
 namespace tasking {
@@ -175,6 +185,17 @@ inline Scalar string_to_scalar(std::string str) { return Scalar(str); }
 
 /**
  * @ingroup legate_wrapper
+ * @brief Create a Scalar from a pointer and type.
+ *
+ * @param ptr Pointer to the scalar data.
+ * @param ty The type of the scalar.
+ */
+inline Scalar make_scalar(void* ptr, const Type& ty) {
+  return Scalar(ty, ptr, true);
+}
+
+/**
+ * @ingroup legate_wrapper
  * @brief Create an unbound array.
  *
  * @param ty The type of the array elements.
@@ -248,11 +269,12 @@ inline LogicalStore store_from_scalar(const Scalar& scalar,
  * @param ty The type of the store elements.
  */
 inline LogicalStore attach_external_store_sysmem(void* ptr, const Shape& shape,
-                                                 const Type& ty) {
+                                                 const Type& ty,
+                                                 bool read_only) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
-      ptr, shape.volume() * ty.size());
+      ptr, shape.volume() * ty.size(), read_only);
   legate::mapping::DimOrdering ordering =
-      legate::mapping::DimOrdering::fortran_order();
+      legate::mapping::DimOrdering::c_order();
 
   auto store =
       legate::Runtime::get_runtime()->create_store(shape, ty, alloc, ordering);
@@ -308,6 +330,17 @@ inline void* get_ptr(legate::PhysicalStore* store) {
   int dim = store->dim();
   legate::Type::Code code = store->type().code();
   return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
+}
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Issue a copy between stores.
+ *
+ * @param target The target store for the copy.
+ * @param source The source store for the copy.
+ */
+inline void issue_copy(LogicalStore& target, const LogicalStore& source) {
+  Runtime::get_runtime()->issue_copy(target, source);
 }
 
 }  // namespace data

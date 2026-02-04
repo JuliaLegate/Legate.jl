@@ -30,13 +30,7 @@ function check_legate_install(legate_root)
             "$(MIN_LEGATE_VERSION)-$(MAX_LEGATE_VERSION).",
         )
     end
-
-    patch = check_if_patch(legate_root)
-    if patch == false
-        error("Legate.jl: legate does not have patch. Please run Pkg.build()")
-    end
-
-    @info "Legate.jl: Found a valid install in: $(legate_root)"
+    @debug "Legate.jl: Found a valid install in: $(legate_root)"
     return true
 end
 
@@ -114,9 +108,10 @@ end
 function _find_paths(
     mode::Conda,
     legate_jll_module::Nothing,
-    legate_jll_wrapper_module::Module,
+    legate_jll_wrapper_module::Nothing,
 )
-    @warn "mode = conda may break. We are using a subset of libraries from conda."
+    @warn "mode = conda may break. You may need to set LD_PRELOAD to the path of the conda environment's libstdc++.so.\n" *
+        "Example: LD_PRELOAD=/home/david/anaconda3/envs/myenv/lib/libstdc++.so julia --project=."
 
     conda_env = load_preference(LegatePreferences, "legate_conda_env", nothing)
     isnothing(conda_env) && error(
@@ -124,11 +119,10 @@ function _find_paths(
     )
 
     check_legate_install(conda_env)
-    legate_path = conda_env
-    check_jll(legate_jll_wrapper_module)
-    legate_wrapper_lib = joinpath(legate_jll_wrapper_module.artifact_dir, "lib")
+    pkg_root = abspath(joinpath(@__DIR__, "../../"))
+    legate_wrapper_lib = joinpath(pkg_root, "lib", "legate_jl_wrapper", "build", "lib")
 
-    return joinpath(legate_path, "lib"), legate_wrapper_lib
+    return joinpath(conda_env, "lib"), legate_wrapper_lib
 end
 
 const DEPS_MAP = Dict(

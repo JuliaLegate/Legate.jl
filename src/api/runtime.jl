@@ -71,3 +71,10 @@ time_microseconds
 Measure time in nanoseconds.
 """
 time_nanoseconds
+
+"""
+    issue_execution_fence(; blocking::Bool = true)
+
+Issue an execution fence.
+"""
+issue_execution_fence(; blocking::Bool=true) = issue_execution_fence(blocking)
