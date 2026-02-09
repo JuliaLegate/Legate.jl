@@ -132,7 +132,7 @@ function build_deps(pkg_root, legate_root)
     if !legate_valid(legate_root)
         error(
             "Legate.jl: Unsupported Legate version at $(legate_root). " *
-            "Installed version: $(installed_version) not in range supported: " *
+            "Installed version: $(get_legate_version(legate_root)) not in range supported: " *
             "$(MIN_LEGATE_VERSION)-$(MAX_LEGATE_VERSION).",
         )
     end

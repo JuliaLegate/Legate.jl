@@ -11,10 +11,13 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <iostream>
+#include <map>
+#include <chrono>
 
 #include "types.h"
 
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT(...)                  \
   fprintf(stderr, "DEBUG: " __VA_ARGS__); \
@@ -82,6 +85,9 @@ inline legate::Library create_library(legate::Runtime* rt,
   return rt->create_library(library_name, legate::ResourceConfig{});
 }
 
+constexpr int MAX_UFI_SLOTS = 8;
+static std::atomic<uint64_t> g_task_sequence{0};
+
 // TaskRequest struct  - matches Julia's TaskRequest mutable struct
 struct TaskRequestData {
   int is_gpu;  // Use int to match Julia Cint for alignment
@@ -99,34 +105,148 @@ struct TaskRequestData {
   int64_t dims[3];  // Up to 3 dimensions
 };
 
+struct UFISlot {
+  TaskRequestData request;
+  std::mutex mutex;
+  std::condition_variable cv;
+  std::atomic<int32_t> work_available{0};
+  std::atomic<bool> task_done{false};
+  std::atomic<bool> in_use{false};
+
+  UFISlot() {
+    work_available.store(0);
+    task_done.store(false);
+    in_use.store(false);
+  }
+
+  void reset() {
+    work_available.store(0);
+    task_done.store(false);
+    inputs.clear();
+    outputs.clear();
+    scalar_values.clear();
+    inputs_types.clear();
+    outputs_types.clear();
+    scalar_types.clear();
+    request.ndim = 0;
+  }
+
+  // Keep these alive during task execution
+  std::vector<void*> inputs;
+  std::vector<void*> outputs;
+  std::vector<void*> scalar_values;
+  std::vector<int> inputs_types;
+  std::vector<int> outputs_types;
+  std::vector<int> scalar_types;
+};
+
 // Global state
-static TaskRequestData* g_request_ptr = nullptr;
-static std::mutex g_issue_mutex;       // Serializes access to request buffer
-static std::mutex g_completion_mutex;  // Protects completion CV
-static std::condition_variable g_completion_cv;
-static std::atomic<bool> g_task_done{false};
-static std::atomic<bool> g_work_available{false};  // For polling
+static UFISlot g_ufi_slots[MAX_UFI_SLOTS];
+static std::mutex g_slot_mutex;          // Protects slot allocation
+static std::mutex g_julia_callback_mutex; // Serializes entry into Julia for thread safety
+static std::condition_variable g_slot_cv;
+static uv_async_t* g_async_handle = nullptr;
+static std::atomic<int> g_active_calls{0};
+static std::atomic<int> g_work_sequence{1}; // Starts at 1, avoids 0
 
-extern "C" int legate_poll_work() { return g_work_available.load() ? 1 : 0; }
+struct ActiveCallGuard {
+  ActiveCallGuard() { g_active_calls.fetch_add(1); }
+  ~ActiveCallGuard() { g_active_calls.fetch_sub(1); }
+};
 
-extern "C" void completion_callback_from_julia() {
-  std::unique_lock<std::mutex> lock(g_completion_mutex);
-  g_task_done.store(true);
-  g_work_available.store(false);  // Task completed
-  g_completion_cv.notify_one();
+extern "C" void legate_set_async_handle(void* handle) {
+  g_async_handle = static_cast<uv_async_t*>(handle);
+  fprintf(stderr, "DEBUG: C++ Async handle set to: %p\n", (void*)g_async_handle);
 }
 
-// Initialize async infrastructure - called from Julia
-void initialize_async_system(void* request_ptr) {
-  g_request_ptr = static_cast<TaskRequestData*>(request_ptr);
-  DEBUG_PRINT("Async system initialized: request=%p\n", g_request_ptr);
+extern "C" int32_t* legate_get_slot_work_available_ptr(int slot_id) {
+  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return nullptr;
+  return reinterpret_cast<int32_t*>(&g_ufi_slots[slot_id].work_available);
+}
+
+extern "C" bool legate_try_claim_slot(int slot_id) {
+  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return false;
+  int32_t expected = 1;
+  return g_ufi_slots[slot_id].work_available.compare_exchange_strong(expected, 0);
+}
+
+extern "C" int legate_wait_for_work(int timeout_ms) {
+  auto start = std::chrono::steady_clock::now();
+  static std::atomic<int> total_wait_calls{0};
+  int calls = total_wait_calls.fetch_add(1);
+
+  while (true) {
+    for (int i = 0; i < MAX_UFI_SLOTS; ++i) {
+      if (g_ufi_slots[i].work_available.load() != 0) {
+        int32_t expected = 1;
+        if (g_ufi_slots[i].work_available.compare_exchange_strong(expected, 0)) {
+          return i;
+        }
+      }
+    }
+
+    auto now = std::chrono::steady_clock::now();
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count() > timeout_ms) {
+      return -1;
+    }
+    
+    // Yield to avoid 100% CPU lock while keeping high responsiveness
+    std::this_thread::yield();
+  }
+}
+
+extern "C" void completion_callback_from_julia(int slot_id) {
+  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return;
+  DEBUG_PRINT("C++ completion callback received for slot %d\n", slot_id);
+  auto& slot = g_ufi_slots[slot_id];
+  std::unique_lock<std::mutex> lock(slot.mutex);
+  slot.task_done.store(true);
+  slot.cv.notify_one();
+}
+
+// Returns the max number of slots
+extern "C" int legate_get_max_slots() { return MAX_UFI_SLOTS; }
+
+// Returns the pointer to the request data for a specific slot
+extern "C" void* legate_get_slot_request_ptr(int slot_id) {
+  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return nullptr;
+  return static_cast<void*>(&g_ufi_slots[slot_id].request);
+}
+
+extern "C" bool legate_get_slot_work_available(int slot_id) {
+  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return false;
+  return g_ufi_slots[slot_id].work_available.load();
+}
+
+extern "C" int legate_get_pending_tasks_count() {
+  return g_active_calls.load();
+}
+
+void initialize_async_system() {
+  for (int i = 0; i < MAX_UFI_SLOTS; ++i) {
+    g_ufi_slots[i].reset();
+  }
 }
 
 inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
+  ActiveCallGuard guard;
+  
+  // Serialize entry to avoid crashing Julia internal mutexes
+  std::unique_lock<std::mutex> callback_lock(g_julia_callback_mutex);
+
+  if (context.num_scalars() == 0) {
+    ERROR_PRINT("Task has no scalars! Variant aborted.\n");
+    return;
+  }
+  
   std::int32_t task_id = context.scalar(0).value<std::int32_t>();
 
+  DEBUG_PRINT("JuliaTaskInterface starting for task %d...\n", task_id);
+  
   const std::size_t num_inputs = context.num_inputs();
   const std::size_t num_outputs = context.num_outputs();
+  
+  DEBUG_PRINT("Task %d: inputs=%zu, outputs=%zu\n", task_id, num_inputs, num_outputs);
 
   std::vector<void*> inputs;
   std::vector<void*> outputs;
@@ -137,6 +257,8 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   // Scalar 0 is reserved for task ID. User scalars start at 1.
   const std::size_t total_scalars = context.num_scalars();
   const std::size_t num_scalars = (total_scalars > 1) ? total_scalars - 1 : 0;
+  
+  DEBUG_PRINT("Task %d: total_scalars=%zu, user_scalars=%zu\n", task_id, total_scalars, num_scalars);
 
   std::vector<void*> scalar_values;
   std::vector<int> scalar_types;
@@ -145,29 +267,31 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   int64_t dims[3] = {1, 1, 1};
   ufiFunctor functor{&ndim, dims};
 
+  DEBUG_PRINT("Task %d: Processing inputs...\n", task_id);
   for (std::size_t i = 0; i < num_inputs; ++i) {
     auto ps = context.input(i);
     auto code = ps.type().code();
     auto dim = ps.dim();
-    std::uintptr_t p;
+    std::uintptr_t p = 0;
     legate::double_dispatch(dim, code, functor, ufi::AccessMode::READ, p, ps);
-    assert(p != 0);
+    // Note: p may be null for empty domains, handled by Julia/operator()
     inputs.push_back(reinterpret_cast<void*>(p));
     inputs_types.push_back((int)code);
   }
 
+  DEBUG_PRINT("Task %d: Processing outputs...\n", task_id);
   for (std::size_t i = 0; i < num_outputs; ++i) {
     auto ps = context.output(i);
     auto code = ps.type().code();
     auto dim = ps.dim();
-    std::uintptr_t p;
+    std::uintptr_t p = 0;
     legate::double_dispatch(dim, code, functor, ufi::AccessMode::WRITE, p, ps);
-    assert(p != 0);
+    // Note: p may be null for empty domains, handled by Julia/operator()
     outputs.push_back(reinterpret_cast<void*>(p));
     outputs_types.push_back((int)code);
   }
 
-  // Process User Scalars
+  DEBUG_PRINT("Task %d: Processing user scalars...\n", task_id);
   for (std::size_t i = 0; i < num_scalars; ++i) {
     // Offset by 1 because scalar 0 is reserved for task_id
     auto scal = context.scalar(i + 1);
@@ -186,57 +310,129 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     scalar_types.push_back((int)code);
   }
 
+  DEBUG_PRINT("Task %d: Finding an available slot...\n", task_id);
+
+  // find an available slot using CV to avoid spin-waiting
+  int slot_id = -1;
+  {
+    std::unique_lock<std::mutex> lock(g_slot_mutex);
+    g_slot_cv.wait(lock, [&slot_id, task_id] {
+      for (int i = 0; i < MAX_UFI_SLOTS; ++i) {
+        if (!g_ufi_slots[i].in_use.load()) {
+          g_ufi_slots[i].in_use.store(true);
+          slot_id = i;
+          return true;
+        }
+      }
+      DEBUG_PRINT("Task %d: No slots available, waiting on CV...\n", task_id);
+      return false;
+    });
+  }
+  DEBUG_PRINT("Task %d: Claimed slot %d\n", task_id, slot_id);
+
   // Instead of calling Julia directly, we:
   //   1. Fill the shared TaskRequest structure
   //   2. Call uv_async_send to wake up Julia's async worker
   //   3. Wait for Julia to signal completion
 
-  DEBUG_PRINT("Preparing async request for task %d...\n", task_id);
-  {
-    // Hold issue lock for the ENTIRE duration of the transaction
-    // to prevent other threads from overwriting the shared request buffer.
-    std::lock_guard<std::mutex> issue_lock(g_issue_mutex);
+  try {
+    {
+      auto& slot = g_ufi_slots[slot_id];
+      std::unique_lock<std::mutex> lock(slot.mutex);
 
-    std::unique_lock<std::mutex> lock(g_completion_mutex);
+      // copy vectors to slot to keep them alive
+      slot.inputs = std::move(inputs);
+      slot.outputs = std::move(outputs);
+      slot.scalar_values = std::move(scalar_values);
+      slot.inputs_types = std::move(inputs_types);
+      slot.outputs_types = std::move(outputs_types);
+      slot.scalar_types = std::move(scalar_types);
 
-    if (!g_request_ptr) {
-      ERROR_PRINT("g_request_ptr is null in JuliaTaskInterface!\n");
-      return;
+      // 1. Fill the shared TaskRequest structure
+      slot.request.is_gpu = is_gpu ? 1 : 0;
+      slot.request.task_id = task_id;
+      slot.request.inputs_ptr = num_inputs > 0 ? slot.inputs.data() : nullptr;
+      slot.request.outputs_ptr = num_outputs > 0 ? slot.outputs.data() : nullptr;
+      slot.request.scalars_ptr =
+          num_scalars > 0 ? slot.scalar_values.data() : nullptr;
+      slot.request.inputs_types =
+          num_inputs > 0 ? slot.inputs_types.data() : nullptr;
+      slot.request.outputs_types =
+          num_outputs > 0 ? slot.outputs_types.data() : nullptr;
+      slot.request.scalar_types =
+          num_scalars > 0 ? slot.scalar_types.data() : nullptr;
+      slot.request.num_inputs = num_inputs;
+      slot.request.num_outputs = num_outputs;
+      slot.request.num_scalars = num_scalars;
+      slot.request.ndim = ndim;
+      for (int i = 0; i < 3; ++i) slot.request.dims[i] = dims[i];
+
+      // reset completion flag
+      slot.task_done.store(false);
+      
+      // signal availability with unique sequence ID
+      int seq = g_work_sequence.fetch_add(1);
+      if (seq == 0) seq = g_work_sequence.fetch_add(1); // Skip 0
+      slot.work_available.store(seq);
+      
+      DEBUG_PRINT(
+          "[SEQ %d] Task %d ready in slot %d (work_seq=%d) addr=%p\n",
+          (int)g_task_sequence++, task_id, slot_id, seq, (void*)&slot.work_available);
+      
+      // 2. Call uv_async_send to wake up Julia's async worker
+      if (g_async_handle != nullptr) {
+          uv_async_send(g_async_handle);
+      }
+    } 
+
+    // release g_julia_callback_mutex BEFORE waiting for Julia
+    callback_lock.unlock();
+
+    // 3. Wait for Julia to signal completion
+    {
+      auto& slot = g_ufi_slots[slot_id];
+      std::unique_lock<std::mutex> lock(slot.mutex);
+      DEBUG_PRINT("Task %d: Entering CV wait for slot %d...\n", task_id, slot_id);
+      auto timeout = std::chrono::seconds(30);
+      bool success = slot.cv.wait_for(lock, timeout, [&] { return slot.task_done.load(); });
+
+      if (!success) {
+        fprintf(stderr, "ERROR: Julia task %d TIMED OUT in slot %d after 30s\n", task_id, slot_id);
+      } else {
+        DEBUG_PRINT("Task %d done in slot %d, proceeding to cleanup\n", task_id, slot_id);
+      }
+
+      // free the memory we allocated for the scalar values
+      for (void* ptr : slot.scalar_values) {
+        delete[] static_cast<char*>(ptr);
+      }
+
+      // reset slot data before releasing
+      slot.request.inputs_ptr = nullptr;
+      slot.request.outputs_ptr = nullptr;
+      slot.request.scalars_ptr = nullptr;
+      slot.inputs.clear();
+      slot.outputs.clear();
+      slot.scalar_values.clear();
+      slot.inputs_types.clear();
+      slot.outputs_types.clear();
+      slot.scalar_types.clear();
+
+      // release slot while holding its mutex
+      DEBUG_PRINT("Releasing slot %d...\n", slot_id);
+      slot.work_available.store(0);
+      slot.in_use.store(false);
     }
-
-    // Fill the shared request structure (Julia will read this)
-    g_request_ptr->is_gpu = is_gpu ? 1 : 0;
-    g_request_ptr->task_id = task_id;
-    // we don't have to worry about the lifetime of data as this function will
-    // block until Julia is done with the task.
-    g_request_ptr->inputs_ptr = inputs.data();
-    g_request_ptr->outputs_ptr = outputs.data();
-    g_request_ptr->scalars_ptr = scalar_values.data();
-    g_request_ptr->inputs_types = inputs_types.data();
-    g_request_ptr->outputs_types = outputs_types.data();
-    g_request_ptr->scalar_types = scalar_types.data();
-    g_request_ptr->num_inputs = num_inputs;
-    g_request_ptr->num_outputs = num_outputs;
-    g_request_ptr->num_scalars = num_scalars;
-    g_request_ptr->ndim = ndim;
-    for (int i = 0; i < 3; ++i) g_request_ptr->dims[i] = dims[i];
-
-    // Reset completion flag
-    g_task_done.store(false);
-    g_work_available.store(true);  // Signal Julia to wake up
-
-    DEBUG_PRINT("Signaling Julia for task %d...\n", task_id);
-    DEBUG_PRINT("Waiting for Julia to complete task %d...\n", task_id);
-
-    // Wait for Julia to signal completion
-    g_completion_cv.wait(lock, [] { return g_task_done.load(); });
-  }
-
-  DEBUG_PRINT("Julia task %d completed!\n", task_id);
-
-  // Free the memory we allocated for the scalar values
-  for (void* ptr : scalar_values) {
-    delete[] static_cast<char*>(ptr);
+    // notify threads waiting for an available slot
+    g_slot_cv.notify_one();
+  } catch (const std::exception& e) {
+    ERROR_PRINT("C++ exception [ERR_UFI_1] in JuliaTaskInterface for task %d: %s\n",
+                task_id, e.what());
+    abort();
+  } catch (...) {
+    ERROR_PRINT("Unknown C++ exception [ERR_UFI_2] in JuliaTaskInterface for task %d\n",
+                task_id);
+    abort();
   }
 }
 
@@ -269,6 +465,9 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("_ufi_interface_register", &ufi::ufi_interface_register);
   mod.method("_create_library", &ufi::create_library);
   mod.method("_initialize_async_system", &ufi::initialize_async_system);
+  mod.method("legate_set_async_handle", &ufi::legate_set_async_handle);
+  mod.method("legate_get_slot_work_available",
+             &ufi::legate_get_slot_work_available);
   mod.set_const("JULIA_CUSTOM_TASK",
                 legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
 #if LEGATE_DEFINED(LEGATE_USE_CUDA)

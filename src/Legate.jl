@@ -90,15 +90,14 @@ end
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
 include("utilities/type_map.jl")
-
 # api functions and documentation
 include("api/types.jl")
 include("api/runtime.jl")
 include("api/data.jl")
 include("api/tasks.jl")
 
-include("utilities/attach.jl")
 include("ufi.jl")
+include("utilities/attach.jl")
 
 ## These functions guard against a user trying
 ## to start multiple runtimes and also to allow
@@ -108,8 +107,7 @@ const RUNTIME_INACTIVE = -1
 const RUNTIME_ACTIVE = 0
 const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
 const _start_lock = ReentrantLock()
-const _shutdown_done = Ref{Bool}(false)
-const LIB_LEGATE_JL = Ref{Library}() # Will be initialized in _start_runtime
+const _shutdown_done = Threads.Atomic{Bool}(false)
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
@@ -119,6 +117,8 @@ function _finish_runtime()
     _shutdown_done[] = true
 
     if !Legate.UFI_SHUTDOWN_DONE[]
+        # Non-blocking block to ensure all Legate tasks are finished before we stop UFI
+        Legate.issue_execution_fence(false)
         Legate.wait_ufi() # make sure UFI is done
         Legate.shutdown_ufi() # shutdown UFI
     end

@@ -8,6 +8,7 @@ function task_test(args)
     @inbounds @simd for i in eachindex(a)
         c[i] = a[i] + b[i]
     end
+    @debug "task_test executed"
 end
 
 # init task
@@ -18,6 +19,7 @@ function task_init(args)
         b[i] = rand(Float32)
         c[i] = 0.0f0
     end
+    @debug "task_init executed"
 end
 
 # 4 arg task
@@ -27,6 +29,7 @@ function task_4arg(args)
         out1[i] = in1[i] * 2
         out2[i] = in2[i] + 1
     end
+    @debug "task_4arg executed"
 end
 
 # Task with Scalar argument
@@ -35,6 +38,7 @@ function task_scalar(args)
     @inbounds @simd for i in eachindex(a)
         b[i] = a[i] * scalar
     end
+    @debug "task_scalar executed"
 end
 
 function test_driver()
