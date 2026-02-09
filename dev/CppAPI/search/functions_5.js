@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['legate_5ffinish_0',['legate_finish',['../namespacelegate__wrapper_1_1runtime.html#a12d0a6b01c36260b1a24558ac7170ece',1,'legate_wrapper::runtime']]]
+  ['initialize_5fasync_5fsystem_0',['initialize_async_system',['../namespaceufi.html#abc974903c1f02d559bed5affa1157f19',1,'ufi']]]
 ];
