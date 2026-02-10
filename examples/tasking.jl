@@ -43,7 +43,6 @@ end
 
 function test_driver()
     N = 1000
-    GC.enable(false)
     rt = Legate.get_runtime()
     lib = Legate.create_library("test")
 

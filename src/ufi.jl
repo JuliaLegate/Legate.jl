@@ -104,8 +104,9 @@ function register_task_function(id::UInt32, fun::Union{CPUWrapType,Function})
     lock(REGISTRY_LOCK) do
         TASK_REGISTRY[id] = fun
     end
-    precompile(fun, (Vector{Any},))
-    precompile(Base.invokelatest, (typeof(fun), Vector{Any}))
+    # Forces the JIT compiler to warm up for the expected signatures
+    precompile(fun, (Vector{TaskArgument},))
+    precompile(Base.invokelatest, (typeof(fun), Vector{TaskArgument}))
 end
 
 function create_julia_task(rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaCPUTask)
@@ -200,6 +201,7 @@ function _execute_julia_task_cpu(req::TaskRequest, task_fun::CPUWrapType, args::
         type_code = unsafe_load(req.inputs_types, i)
         T = get_code_type(type_code)
         ptr = Ptr{T}(unsafe_load(req.inputs_ptr, i))
+        # Zero-copy wrap: Directly using C++ memory
         push!(args, unsafe_wrap(Array, ptr, dims))
     end
 
@@ -207,6 +209,7 @@ function _execute_julia_task_cpu(req::TaskRequest, task_fun::CPUWrapType, args::
         type_code = unsafe_load(req.outputs_types, i)
         T = get_code_type(type_code)
         ptr = Ptr{T}(unsafe_load(req.outputs_ptr, i))
+        # Zero-copy wrap: Directly using C++ memory
         push!(args, unsafe_wrap(Array, ptr, dims))
     end
 
@@ -220,29 +223,6 @@ function _execute_julia_task_cpu(req::TaskRequest, task_fun::CPUWrapType, args::
 
     @debug "UFI $task_fun Task executed"
     Base.invokelatest(task_fun, args)
-end
-
-function execute_julia_task(req::TaskRequest, slot_id::Integer)
-    task_id = req.task_id
-    
-    # 1. Thread-safe lookup of task function
-    local task_fun
-    lock(REGISTRY_LOCK) do
-        task_fun = TASK_REGISTRY[task_id]
-    end
-
-    # Dispatch task
-    _dispatch_task(req, task_fun)
-end
-
-function _dispatch_task(req::TaskRequest, task_fun)
-    if req.is_gpu != 0
-        # GPU Dispatch
-        _execute_julia_task_gpu(req, task_fun)
-    else
-        # CPU Dispatch
-        _execute_julia_task_cpu(req, task_fun)
-    end
 end
 
 function _start_ufi_system()
@@ -259,7 +239,7 @@ function _start_ufi_system()
     nworkers = 4
     for i in 1:nworkers
         @debug "_start_ufi_system: Spawning worker $i"
-        push!(UFI_WORKER_TASKS, Threads.@spawn ufi_worker_task())
+        push!(UFI_WORKER_TASKS, Threads.@spawn :interactive ufi_worker_task())
         sleep(0.1)
     end
     yield()
