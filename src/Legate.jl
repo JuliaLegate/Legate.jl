@@ -103,27 +103,30 @@ include("utilities/attach.jl")
 ## to start multiple runtimes and also to allow
 ## package extensions which always try to re-load
 
-const RUNTIME_INACTIVE = -1
-const RUNTIME_ACTIVE = 0
-const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
+const RUNTIME_INACTIVE = false
+const RUNTIME_ACTIVE = true
 const _start_lock = ReentrantLock()
-const _shutdown_done = Threads.Atomic{Bool}(false)
+const _shutdown_lock = ReentrantLock()
+const _runtime_ref = Ref{Bool}(RUNTIME_INACTIVE)
+const _shutdown_done = Ref{Bool}(false)
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
 function _finish_runtime()
-    # Prevent double shutdown
-    _shutdown_done[] && return nothing
-    _shutdown_done[] = true
+    lock(_shutdown_lock) do
+        # Prevent double shutdown
+        _shutdown_done[] && return
+        _shutdown_done[] = true
 
-    if !Legate.UFI_SHUTDOWN_DONE[]
-        # Non-blocking block to ensure all Legate tasks are finished before we stop UFI
-        Legate.issue_execution_fence(false)
-        Legate.wait_ufi() # make sure UFI is done
-        Legate.shutdown_ufi() # shutdown UFI
+        if !Legate.UFI_SHUTDOWN_DONE[]
+            # Non-blocking block to ensure all Legate tasks are finished before we stop UFI
+            Legate.issue_execution_fence(false)
+            Legate.wait_ufi() # make sure UFI is done
+            Legate.shutdown_ufi() # shutdown UFI
+        end
+        # finish legate runtime
+        Legate.legate_finish()
     end
-    # finish legate runtime
-    Legate.legate_finish()
 end
 
 function _start_runtime()

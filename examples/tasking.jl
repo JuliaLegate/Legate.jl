@@ -64,6 +64,7 @@ function test_driver()
     Legate.default_alignment(task, Vector{Legate.Variable}(), init_output_vars)
 
     Legate.submit_task(rt, task)
+    sleep(2)
 
     # 2. Compute Task (3 args)
     task2 = Legate.create_julia_task(rt, lib, my_task)
@@ -104,7 +105,11 @@ function test_driver()
     Legate.default_alignment(task4, in_vars_s, out_vars_s)
 
     Legate.submit_task(rt, task4)
+    
+    # Wait for all the async tasks to finish properly
+    Legate.wait_ufi()
 end
+
 
 if abspath(PROGRAM_FILE) == @__FILE__
     test_driver()

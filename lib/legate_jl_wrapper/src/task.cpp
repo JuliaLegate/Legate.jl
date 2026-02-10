@@ -17,7 +17,8 @@
 
 #include "types.h"
 
-#define DEBUG
+// #define DEBUG
+
 #ifdef DEBUG
 #define DEBUG_PRINT(...)                  \
   fprintf(stderr, "DEBUG: " __VA_ARGS__); \
@@ -29,6 +30,10 @@
 #define ERROR_PRINT(...)                  \
   fprintf(stderr, "ERROR: " __VA_ARGS__); \
   fflush(stderr);
+
+#ifndef JULIA_LEGATE_UFI_EXPORT
+#define JULIA_LEGATE_UFI_EXPORT extern "C"
+#endif
 
 namespace ufi {
 
@@ -154,48 +159,17 @@ struct ActiveCallGuard {
   ~ActiveCallGuard() { g_active_calls.fetch_sub(1); }
 };
 
-extern "C" void legate_set_async_handle(void* handle) {
+JULIA_LEGATE_UFI_EXPORT void legate_set_async_handle(void* handle) {
   g_async_handle = static_cast<uv_async_t*>(handle);
-  fprintf(stderr, "DEBUG: C++ Async handle set to: %p\n", (void*)g_async_handle);
+  DEBUG_PRINT("DEBUG: C++ Async handle set to: %p\n", (void*)g_async_handle);
 }
 
-extern "C" int32_t* legate_get_slot_work_available_ptr(int slot_id) {
+JULIA_LEGATE_UFI_EXPORT int32_t* legate_get_slot_work_available_ptr(int slot_id) {
   if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return nullptr;
   return reinterpret_cast<int32_t*>(&g_ufi_slots[slot_id].work_available);
 }
 
-extern "C" bool legate_try_claim_slot(int slot_id) {
-  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return false;
-  int32_t expected = 1;
-  return g_ufi_slots[slot_id].work_available.compare_exchange_strong(expected, 0);
-}
-
-extern "C" int legate_wait_for_work(int timeout_ms) {
-  auto start = std::chrono::steady_clock::now();
-  static std::atomic<int> total_wait_calls{0};
-  int calls = total_wait_calls.fetch_add(1);
-
-  while (true) {
-    for (int i = 0; i < MAX_UFI_SLOTS; ++i) {
-      if (g_ufi_slots[i].work_available.load() != 0) {
-        int32_t expected = 1;
-        if (g_ufi_slots[i].work_available.compare_exchange_strong(expected, 0)) {
-          return i;
-        }
-      }
-    }
-
-    auto now = std::chrono::steady_clock::now();
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count() > timeout_ms) {
-      return -1;
-    }
-    
-    // Yield to avoid 100% CPU lock while keeping high responsiveness
-    std::this_thread::yield();
-  }
-}
-
-extern "C" void completion_callback_from_julia(int slot_id) {
+JULIA_LEGATE_UFI_EXPORT void completion_callback_from_julia(int slot_id) {
   if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return;
   DEBUG_PRINT("C++ completion callback received for slot %d\n", slot_id);
   auto& slot = g_ufi_slots[slot_id];
@@ -204,21 +178,14 @@ extern "C" void completion_callback_from_julia(int slot_id) {
   slot.cv.notify_one();
 }
 
-// Returns the max number of slots
-extern "C" int legate_get_max_slots() { return MAX_UFI_SLOTS; }
+JULIA_LEGATE_UFI_EXPORT int legate_get_max_slots() { return MAX_UFI_SLOTS; }
 
-// Returns the pointer to the request data for a specific slot
-extern "C" void* legate_get_slot_request_ptr(int slot_id) {
+JULIA_LEGATE_UFI_EXPORT void* legate_get_slot_request_ptr(int slot_id) {
   if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return nullptr;
   return static_cast<void*>(&g_ufi_slots[slot_id].request);
 }
 
-extern "C" bool legate_get_slot_work_available(int slot_id) {
-  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return false;
-  return g_ufi_slots[slot_id].work_available.load();
-}
-
-extern "C" int legate_get_pending_tasks_count() {
+JULIA_LEGATE_UFI_EXPORT int legate_get_pending_tasks_count() {
   return g_active_calls.load();
 }
 
@@ -418,13 +385,18 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
       slot.outputs_types.clear();
       slot.scalar_types.clear();
 
-      // release slot while holding its mutex
+      // release slot state
       DEBUG_PRINT("Releasing slot %d...\n", slot_id);
       slot.work_available.store(0);
       slot.in_use.store(false);
+      lock.unlock();
+
+      // notify threads waiting for an available slot (must use g_slot_mutex)
+      {
+        std::lock_guard<std::mutex> global_lock(g_slot_mutex);
+        g_slot_cv.notify_all();
+      }
     }
-    // notify threads waiting for an available slot
-    g_slot_cv.notify_one();
   } catch (const std::exception& e) {
     ERROR_PRINT("C++ exception [ERR_UFI_1] in JuliaTaskInterface for task %d: %s\n",
                 task_id, e.what());
@@ -466,8 +438,6 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("_create_library", &ufi::create_library);
   mod.method("_initialize_async_system", &ufi::initialize_async_system);
   mod.method("legate_set_async_handle", &ufi::legate_set_async_handle);
-  mod.method("legate_get_slot_work_available",
-             &ufi::legate_get_slot_work_available);
   mod.set_const("JULIA_CUSTOM_TASK",
                 legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
 #if LEGATE_DEFINED(LEGATE_USE_CUDA)

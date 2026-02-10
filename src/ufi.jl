@@ -151,13 +151,13 @@ end
 #     rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaGPUTask
 # ) end
 
-const SLOT_WORK_AVAILABLE_PTRS = Vector{Ptr{Int32}}()
-
 # Global state for multi-threaded UFI
-const MAX_UFI_SLOTS = 8
-const SLOT_REQUEST_PTRS = Vector{Ptr{TaskRequest}}()
-const UFI_CHANNEL = Channel{Int}(MAX_UFI_SLOTS)
+const MAX_UFI_SLOTS = Ref{Int}(0)
 const UFI_ASYNC_COND = Ref{Base.AsyncCondition}()
+
+# Pointer vectors for optimized polling
+const SLOT_WORK_AVAILABLE_PTRS = Vector{Ptr{Int32}}()
+const SLOT_REQUEST_PTRS = Vector{Ptr{TaskRequest}}()
 
 const UFI_WORKER_TASKS = Vector{Task}()
 const JOB_QUEUE = Ref{Channel{Int}}()
@@ -175,7 +175,8 @@ end
 
 # Receives signals from C++ or polls, and executes tasks
 function ufi_poller_task()
-    @info "ufi_poller_task starting" thread=Threads.threadid()
+    tid = Threads.threadid()
+    @debug "ufi_poller_task starting" thread=tid
     try
         while !UFI_SHUTDOWN[]
             # 1. DRAIN all slots
@@ -196,21 +197,26 @@ function ufi_poller_task()
             end
             
             if !work_found
-                sleep(0.01)
+                try
+                    wait(UFI_ASYNC_COND[])
+                catch e
+                    # During shutdown, close() throws EOFError or we check the flag
+                    (e isa EOFError || UFI_SHUTDOWN[]) && break
+                    rethrow(e)
+                end
             else
                 yield()
             end
         end
     catch e
-        @error "Poller CRASHED: $e"
+        @error "Poller($tid) CRASHED: $e"
     end
-    @debug "Poller exiting."
+    @debug "Poller($tid) exiting."
 end
 
 # Worker Task
 function ufi_worker_task()
     tid = Threads.threadid()
-    @info "ufi_worker_task starting" thread=tid
     try
         for slot_id in JOB_QUEUE[]
             @debug "Worker($tid): Picking up slot $slot_id"
@@ -218,7 +224,7 @@ function ufi_worker_task()
             try
                 execute_julia_task(req, slot_id)
             catch e
-                @debug "Worker($tid): Task failed in slot $slot_id: $e"
+                @error "Worker($tid): Task failed" exception=(e, catch_backtrace())
             finally
                 _completion_callback(slot_id)
                 Threads.atomic_add!(Legate.COMPLETED_TASKS, 1)
@@ -226,7 +232,7 @@ function ufi_worker_task()
             end
         end
     catch e
-        @error "Worker($tid) CRASHED: $e"
+        @error "Worker($tid) CRASHED" exception=(e, catch_backtrace())
     end
     @debug "Worker($tid) exiting."
 end
@@ -238,7 +244,14 @@ function _execute_julia_task_gpu(req, task_fun)
     error("Legate UFI: GPU task execution not implemented or CUDA extension not loaded.")
 end
 
-function _execute_julia_task_cpu(req, task_fun)
+function _execute_julia_task_cpu(req::TaskRequest, task_fun)
+    if req.ndim < 0 || req.ndim > 3
+        @error "UFI: Invalid ndim" ndim=req.ndim task_id=req.task_id
+        return
+    end
+
+    @debug "Executing UFI task" task_id=req.task_id ndim=req.ndim dims=req.dims num_inputs=req.num_inputs num_outputs=req.num_outputs num_scalars=req.num_scalars
+
     args = Vector{TaskArgument}()
     sizehint!(args, Int(req.num_inputs + req.num_outputs + req.num_scalars))
 
@@ -269,6 +282,19 @@ function _execute_julia_task_cpu(req, task_fun)
     task_fun(args)
 end
 
+function execute_julia_task(req::TaskRequest, slot_id::Integer)
+    task_id = req.task_id
+    
+    # 1. Thread-safe lookup of task function
+    local task_fun
+    lock(REGISTRY_LOCK) do
+        task_fun = TASK_REGISTRY[task_id]
+    end
+
+    # Dispatch task
+    _dispatch_task(req, task_fun)
+end
+
 function _dispatch_task(req::TaskRequest, task_fun)
     if req.is_gpu != 0
         # GPU Dispatch
@@ -279,48 +305,34 @@ function _dispatch_task(req::TaskRequest, task_fun)
     end
 end
 
-
-function execute_julia_task(req::TaskRequest, slot_id::Integer)
-    task_id = req.task_id
-    
-    # Looking up task function by ID (thread-safe via REGISTRY_LOCK)
-    local task_fun
-    lock(REGISTRY_LOCK) do
-        task_fun = TASK_REGISTRY[task_id]
-    end
-
-    try
-        _dispatch_task(req, task_fun)
-    catch e
-        @error "Legate UFI: task_fun FAILED" task_id=task_id exception=(e, catch_backtrace())
-        rethrow(e)
-    finally
-        # task is done
-    end
-end
-
 function _start_ufi_system()
     # Initialize System state
     UFI_SHUTDOWN[] = false
-    JOB_QUEUE[] = Channel{Int}(MAX_UFI_SLOTS)
+    JOB_QUEUE[] = Channel{Int}(MAX_UFI_SLOTS[])
     empty!(UFI_WORKER_TASKS)
+
+    @debug "_start_ufi_system" max_slots=MAX_UFI_SLOTS[]
 
     # Spawn the Poller on default pool
     push!(UFI_WORKER_TASKS, Threads.@spawn ufi_poller_task())
 
+    @debug "_start_ufi_system: Poller spawned"
+    sleep(0.1)
+
     nworkers = 4
     for i in 1:nworkers
+        @debug "_start_ufi_system: Spawning worker $i"
         push!(UFI_WORKER_TASKS, Threads.@spawn ufi_worker_task())
         sleep(0.1)
     end
 
-    sleep(0.1)
+    @debug "_start_ufi_system done"
     yield()
 end
 
 # Initialize and start worker on INTERACTIVE thread loop
-const UFI_INITIALIZED = Ref{Bool}(false)
 const UFI_INIT_LOCK = ReentrantLock()
+const UFI_INITIALIZED = Ref{Bool}(false)
 
 function init_ufi()
     lock(UFI_INIT_LOCK) do
@@ -331,20 +343,23 @@ function init_ufi()
     ccall((:legate_set_async_handle, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid},), UFI_ASYNC_COND[].handle)
 
     max_slots = ccall((:legate_get_max_slots, Legate.WRAPPER_LIB_PATH), Cint, ())
-    @info "init_ufi" max_slots sizeof_TaskRequest=sizeof(TaskRequest)
+    MAX_UFI_SLOTS[] = max_slots
+    
+    @debug "init_ufi" max_slots sizeof_TaskRequest=sizeof(TaskRequest)
 
-    resize!(SLOT_REQUEST_PTRS, max_slots)
-    resize!(SLOT_WORK_AVAILABLE_PTRS, max_slots)
-
+    resize!(UFI_LAST_TASK_IDS, max_slots)
+    fill!(UFI_LAST_TASK_IDS, 0)
+    
+    # Cache slot pointers for direct memory access in poller
+    empty!(SLOT_WORK_AVAILABLE_PTRS)
+    empty!(SLOT_REQUEST_PTRS)
     for i in 1:max_slots
-        SLOT_REQUEST_PTRS[i] = ccall((:legate_get_slot_request_ptr, Legate.WRAPPER_LIB_PATH), Ptr{TaskRequest}, (Cint,), i-1)
-        SLOT_WORK_AVAILABLE_PTRS[i] = ccall((:legate_get_slot_work_available_ptr, Legate.WRAPPER_LIB_PATH), Ptr{Int32}, (Cint,), i-1)
+        push!(SLOT_WORK_AVAILABLE_PTRS, ccall((:legate_get_slot_work_available_ptr, Legate.WRAPPER_LIB_PATH), Ptr{Int32}, (Cint,), i-1))
+        push!(SLOT_REQUEST_PTRS, ccall((:legate_get_slot_request_ptr, Legate.WRAPPER_LIB_PATH), Ptr{TaskRequest}, (Cint,), i-1))
     end
 
-    empty!(UFI_LAST_TASK_IDS)
-    resize!(UFI_LAST_TASK_IDS, max_slots)
+    @debug "init_ufi: Slot pointers cached" SLOT_WORK_AVAILABLE_PTRS=SLOT_WORK_AVAILABLE_PTRS SLOT_REQUEST_PTRS=SLOT_REQUEST_PTRS
 
-    fill!(UFI_LAST_TASK_IDS, Int32(0))
     _start_ufi_system()
     UFI_INITIALIZED[] = true
     end
@@ -359,6 +374,15 @@ function shutdown_ufi()
     
     # Signal poller and workers to stop
     UFI_SHUTDOWN[] = true
+    
+    # Wake up poller efficiently by closing the condition
+    if isassigned(UFI_ASYNC_COND)
+        try
+            close(UFI_ASYNC_COND[])
+        catch
+        end
+    end
+
     if isassigned(JOB_QUEUE) && isopen(JOB_QUEUE[])
         close(JOB_QUEUE[])
     end
@@ -366,35 +390,12 @@ function shutdown_ufi()
     # Wait for poller and workers to exit
     for task in UFI_WORKER_TASKS
         try
-            wait(task)
+            # Process may be exiting, so we use fetch to join
+            fetch(task)
         catch
         end
     end
     empty!(UFI_WORKER_TASKS)
-    
-    while true
-        tasks_to_wait = lock(UFI_TASKS_LOCK) do
-            collect(UFI_ACTIVE_TASKS)
-        end
-        
-        isempty(tasks_to_wait) && break
-        
-        # Join the tasks
-        for t in tasks_to_wait
-            try
-                wait(t)
-            catch
-            end
-        end
-        yield()
-    end
-
-    if isassigned(UFI_ASYNC_COND)
-        try
-            close(UFI_ASYNC_COND[])
-        catch
-        end
-    end
     
     UFI_SHUTDOWN_DONE[] = true
 end
