@@ -1,19 +1,13 @@
 using Legate
 
-# args is a vector that can be expanded
-# it is in the order that the inputs and outputs are added
-# in1 in2 ... out1 out2 ... scalar1 scalar2 ...
-function task_test(args)
-    a, b, c = args # inputs are first, then outputs
+function task_test(a, b, c)
     @inbounds @simd for i in eachindex(a)
         c[i] = a[i] + b[i]
     end
     @info "task_test executed"
 end
 
-# init task
-function task_init(args)
-    a, b, c = args
+function task_init(a, b, c)
     @inbounds @simd for i in eachindex(a)
         a[i] = rand(Float32)
         b[i] = rand(Float32)
@@ -22,9 +16,7 @@ function task_init(args)
     @info "task_init executed"
 end
 
-# 4 arg task
-function task_4arg(args)
-    in1, in2, out1, out2 = args
+function task_4arg(in1, in2, out1, out2)
     @inbounds @simd for i in eachindex(in1)
         out1[i] = in1[i] * 2
         out2[i] = in2[i] + 1
@@ -32,9 +24,7 @@ function task_4arg(args)
     @info "task_4arg executed"
 end
 
-# Task with Scalar argument
-function task_scalar(args)
-    a, b, scalar = args
+function task_scalar(a, b, scalar)
     @inbounds @simd for i in eachindex(a)
         b[i] = a[i] * scalar
     end
@@ -55,7 +45,7 @@ function test_driver()
     a = Legate.create_array([N, N], Float32)
     b = Legate.create_array([N, N], Float32)
     c = Legate.create_array([N, N], Float32)
-    d = Legate.create_array([N, N], Float32) # Extra array for 4-arg test
+    d = Legate.create_array([N, N], Float32)
 
     task = Legate.create_julia_task(rt, lib, my_init_task)
     init_output_vars = Vector{Legate.Variable}()
@@ -82,10 +72,8 @@ function test_driver()
     task3 = Legate.create_julia_task(rt, lib, my_4arg_task)
     in_vars_4 = Vector{Legate.Variable}()
     out_vars_4 = Vector{Legate.Variable}()
-    # Inputs: a, c
     push!(in_vars_4, Legate.add_input(task3, a))
     push!(in_vars_4, Legate.add_input(task3, c))
-    # Outputs: b (reuse), d (new)
     push!(out_vars_4, Legate.add_output(task3, b))
     push!(out_vars_4, Legate.add_output(task3, d))
     Legate.default_alignment(task3, in_vars_4, out_vars_4)
@@ -96,18 +84,13 @@ function test_driver()
     task4 = Legate.create_julia_task(rt, lib, my_scalar_task)
     in_vars_s = Vector{Legate.Variable}()
     out_vars_s = Vector{Legate.Variable}()
-    # Input: c (result of task2)
     push!(in_vars_s, Legate.add_input(task4, c))
-    # Output: a (reuse)
     push!(out_vars_s, Legate.add_output(task4, a))
-
-    # Add user scalar argument (Float32)
     Legate.add_scalar(task4, Legate.Scalar(2.5f0))
     Legate.default_alignment(task4, in_vars_s, out_vars_s)
 
     Legate.submit_task(rt, task4)
 end
-
 
 if abspath(PROGRAM_FILE) == @__FILE__
     test_driver()

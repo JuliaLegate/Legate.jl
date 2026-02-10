@@ -104,9 +104,6 @@ function register_task_function(id::UInt32, fun::Union{CPUWrapType,Function})
     lock(REGISTRY_LOCK) do
         TASK_REGISTRY[id] = fun
     end
-    # Forces the JIT compiler to warm up for the expected signatures
-    precompile(fun, (Vector{TaskArgument},))
-    precompile(Base.invokelatest, (typeof(fun), Vector{TaskArgument}))
 end
 
 function create_julia_task(rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaCPUTask)
@@ -157,13 +154,10 @@ end
 function ufi_worker_task()
     tid = Threads.threadid()
     @debug "ufi_worker_task starting" thread=tid
-
-    args = Vector{TaskArgument}()
-    sizehint!(args, 64)
     try
         for (slot_id, req) in JOB_QUEUE[]
             try
-                execute_julia_task(req, slot_id, args)
+                execute_julia_task(req, slot_id)
             catch e
                 @error "UFI Worker task failure" exception=(e, catch_backtrace())
             finally
@@ -180,11 +174,13 @@ function ufi_worker_task()
     @debug "ufi_worker_task finished" thread=tid
 end
 
-function execute_julia_task(req::TaskRequest, slot_id::Integer, args::Vector{TaskArgument})
+function execute_julia_task(req::TaskRequest, slot_id::Integer)
     local task_fun
     lock(REGISTRY_LOCK) do
         task_fun = TASK_REGISTRY[req.task_id]
     end
+    
+    args = Vector{TaskArgument}()
     
     if req.is_gpu != 0
         error("Legate UFI: GPU execution not supported.")
@@ -221,8 +217,8 @@ function _execute_julia_task_cpu(req::TaskRequest, task_fun::CPUWrapType, args::
         push!(args, val)
     end
 
-    @debug "UFI $task_fun Task executed"
-    Base.invokelatest(task_fun, args)
+    @debug "UFI Dispatch" task_id=req.task_id thread=Threads.threadid()
+    Base.invokelatest(task_fun, args...)
 end
 
 function _start_ufi_system()
@@ -232,14 +228,18 @@ function _start_ufi_system()
 
     @debug "_start_ufi_system: Booting true concurrent UFI pool"
 
-    # Poller runs independently on main thread pool
+    precompile(ufi_poller_task, ())
+    precompile(ufi_worker_task, ())
+
+    # Poller runs independently
     push!(UFI_WORKER_TASKS, @async ufi_poller_task())
     sleep(0.1)
 
+    # Parallel workers
     nworkers = 4
     for i in 1:nworkers
         @debug "_start_ufi_system: Spawning worker $i"
-        push!(UFI_WORKER_TASKS, Threads.@spawn :interactive ufi_worker_task())
+        push!(UFI_WORKER_TASKS, Threads.@spawn ufi_worker_task())
         sleep(0.1)
     end
     yield()
