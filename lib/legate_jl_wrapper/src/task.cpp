@@ -93,22 +93,28 @@ inline legate::Library create_library(legate::Runtime* rt,
 constexpr int MAX_UFI_SLOTS = 8;
 static std::atomic<uint64_t> g_task_sequence{0};
 
-// TaskRequest struct  - matches Julia's TaskRequest mutable struct
+#include <cstddef> // For offsetof
+
+// TaskRequest struct  - matches Julia's TaskRequest immutable struct
 struct TaskRequestData {
-  int is_gpu;  // Use int to match Julia Cint for alignment
-  uint32_t task_id;
-  void** inputs_ptr;
-  void** outputs_ptr;
-  void** scalars_ptr;
-  int* inputs_types;
-  int* outputs_types;
-  int* scalar_types;
-  size_t num_inputs;
-  size_t num_outputs;
-  size_t num_scalars;
-  int ndim;
-  int64_t dims[3];  // Up to 3 dimensions
+  uint64_t work_seq; // Offset 0
+  int is_gpu;        // Offset 8
+  uint32_t task_id;  // Offset 12
+  void** inputs_ptr; // Offset 16
+  void** outputs_ptr; // Offset 24
+  void** scalars_ptr; // Offset 32
+  int* inputs_types; // Offset 40
+  int* outputs_types; // Offset 48
+  int* scalar_types; // Offset 56
+  size_t num_inputs; // Offset 64
+  size_t num_outputs; // Offset 72
+  size_t num_scalars; // Offset 80
+  int ndim;          // Offset 88
+  int64_t dims[3];   // Offset 96 (starts here due to 8-byte alignment)
 };
+
+static_assert(sizeof(TaskRequestData) == 120, "TaskRequestData size must be 120 bytes");
+static_assert(offsetof(TaskRequestData, dims) == 96, "TaskRequestData dims offset must be 96");
 
 struct UFISlot {
   TaskRequestData request;
@@ -127,6 +133,7 @@ struct UFISlot {
   void reset() {
     work_available.store(0);
     task_done.store(false);
+    in_use.store(false);
     inputs.clear();
     outputs.clear();
     scalar_values.clear();
@@ -134,6 +141,7 @@ struct UFISlot {
     outputs_types.clear();
     scalar_types.clear();
     request.ndim = 0;
+    request.work_seq = 0;
   }
 
   // Keep these alive during task execution
@@ -148,7 +156,6 @@ struct UFISlot {
 // Global state
 static UFISlot g_ufi_slots[MAX_UFI_SLOTS];
 static std::mutex g_slot_mutex;          // Protects slot allocation
-static std::mutex g_julia_callback_mutex; // Serializes entry into Julia for thread safety
 static std::condition_variable g_slot_cv;
 static uv_async_t* g_async_handle = nullptr;
 static std::atomic<int> g_active_calls{0};
@@ -198,9 +205,6 @@ void initialize_async_system() {
 inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   ActiveCallGuard guard;
   
-  // Serialize entry to avoid crashing Julia internal mutexes
-  std::unique_lock<std::mutex> callback_lock(g_julia_callback_mutex);
-
   if (context.num_scalars() == 0) {
     ERROR_PRINT("Task has no scalars! Variant aborted.\n");
     return;
@@ -338,22 +342,20 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
       slot.task_done.store(false);
       
       // signal availability with unique sequence ID
-      int seq = g_work_sequence.fetch_add(1);
+      uint64_t seq = g_work_sequence.fetch_add(1);
       if (seq == 0) seq = g_work_sequence.fetch_add(1); // Skip 0
-      slot.work_available.store(seq);
+      slot.request.work_seq = seq;
+      slot.work_available.store((int32_t)seq); // Still use int32 for atomic poll if preferred
       
       DEBUG_PRINT(
-          "[SEQ %d] Task %d ready in slot %d (work_seq=%d) addr=%p\n",
-          (int)g_task_sequence++, task_id, slot_id, seq, (void*)&slot.work_available);
+          "[SEQ %llu] Task %u ready in slot %d (work_seq=%llu)\n",
+          (unsigned long long)g_task_sequence++, (unsigned int)task_id, slot_id, (unsigned long long)seq);
       
       // 2. Call uv_async_send to wake up Julia's async worker
       if (g_async_handle != nullptr) {
           uv_async_send(g_async_handle);
       }
     } 
-
-    // release g_julia_callback_mutex BEFORE waiting for Julia
-    callback_lock.unlock();
 
     // 3. Wait for Julia to signal completion
     {

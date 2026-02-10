@@ -8,7 +8,7 @@ function task_test(args)
     @inbounds @simd for i in eachindex(a)
         c[i] = a[i] + b[i]
     end
-    @debug "task_test executed"
+    @info "task_test executed"
 end
 
 # init task
@@ -19,7 +19,7 @@ function task_init(args)
         b[i] = rand(Float32)
         c[i] = 0.0f0
     end
-    @debug "task_init executed"
+    @info "task_init executed"
 end
 
 # 4 arg task
@@ -29,7 +29,7 @@ function task_4arg(args)
         out1[i] = in1[i] * 2
         out2[i] = in2[i] + 1
     end
-    @debug "task_4arg executed"
+    @info "task_4arg executed"
 end
 
 # Task with Scalar argument
@@ -38,10 +38,12 @@ function task_scalar(args)
     @inbounds @simd for i in eachindex(a)
         b[i] = a[i] * scalar
     end
-    @debug "task_scalar executed"
+    @info "task_scalar executed"
 end
 
 function test_driver()
+    N = 1000
+    GC.enable(false)
     rt = Legate.get_runtime()
     lib = Legate.create_library("test")
 
@@ -51,10 +53,10 @@ function test_driver()
     my_scalar_task = Legate.wrap_task(task_scalar)
 
     # 1. Init Task (3 args)
-    a = Legate.create_array([10, 10], Float32)
-    b = Legate.create_array([10, 10], Float32)
-    c = Legate.create_array([10, 10], Float32)
-    d = Legate.create_array([10, 10], Float32) # Extra array for 4-arg test
+    a = Legate.create_array([N, N], Float32)
+    b = Legate.create_array([N, N], Float32)
+    c = Legate.create_array([N, N], Float32)
+    d = Legate.create_array([N, N], Float32) # Extra array for 4-arg test
 
     task = Legate.create_julia_task(rt, lib, my_init_task)
     init_output_vars = Vector{Legate.Variable}()
@@ -105,9 +107,6 @@ function test_driver()
     Legate.default_alignment(task4, in_vars_s, out_vars_s)
 
     Legate.submit_task(rt, task4)
-    
-    # Wait for all the async tasks to finish properly
-    Legate.wait_ufi()
 end
 
 
