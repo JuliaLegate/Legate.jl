@@ -152,6 +152,7 @@ function _start_runtime()
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
+    LegateInternal.init()
     start_legate()
     init_ufi()
 

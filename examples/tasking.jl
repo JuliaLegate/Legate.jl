@@ -31,35 +31,6 @@ function task_noop(a)
     return nothing
 end
 
-# WARMUP: pre-compile tasks before Legate runtime starts
-@info "Warming up tasks..."
-let 
-    N = 10
-    a = zeros(Float32, N, N)
-    b = zeros(Float32, N, N)
-    c = zeros(Float32, N, N)
-    d = zeros(Float32, N, N)
-    task_init(a, b, c)
-    task_test(a, b, c)
-    task_4arg(a, c, b, d)
-    task_scalar(c, a, 1.0f0)
-    task_noop(a)
-
-    # WARMUP DISPATCH PIPELINE
-    @info "Warming up dispatch pipeline..."
-    ptr_in = pointer(a)
-    FLOAT32_C = Int(Legate.LegateInternal.FLOAT32)
-    
-    req_mock = Legate.TaskRequestPrivate(
-        UInt32(50001), 
-        Csize_t(1), Csize_t(0), Csize_t(0), Cint(2), (Int64(N), Int64(N), 1),
-        [ptr_in], [Cint(FLOAT32_C)], [], [], [], [], Cint(0)
-    )
-    Legate.register_task_function(UInt32(50001), task_noop)
-    Legate._execute_julia_task_internal(req_mock, 0)
-end
-@info "Warmup complete."
-
 function test_driver()
     Legate.ensure_runtime!()
     N = 1000
