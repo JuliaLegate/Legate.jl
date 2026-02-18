@@ -21,7 +21,9 @@ supported_types() = SUPPORTED_TYPES
 
 Convert a string to a `Scalar`.
 """
-string_to_scalar
+function string_to_scalar(str::AbstractString)
+    LegateInternal.string_to_scalar(str)
+end
 
 """
     create_array(ty::LegateType; dim::Integer=1; 
@@ -35,7 +37,7 @@ Create an unbound array.
 - `nullable`: Whether the array can contain null values.
 """
 function create_array(ty::Type{T}; dim::Integer=1, nullable::Bool=false) where {T<:SUPPORTED_TYPES}
-    impl = create_unbound_array(to_legate_type(ty), dim, nullable) # cxxwrap call
+    impl = LegateInternal.create_unbound_array(to_legate_type(ty), dim, nullable)
     return LogicalArray{T,dim}(impl, nothing)
 end
 
@@ -56,8 +58,8 @@ Create an array with a specified shape.
 function create_array(shape::Vector{B}, ty::Type{T};
     nullable::Bool=false,
     optimize_scalar::Bool=false) where {T<:SUPPORTED_TYPES,B<:Integer}
-    lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type
-    impl = create_array(lshape, to_legate_type(ty), nullable, optimize_scalar) # cxxwrap call
+    lshape = Legate.Shape(to_cxx_vector(shape))
+    impl = LegateInternal.create_array(lshape, to_legate_type(ty), nullable, optimize_scalar)
     return LogicalArray{T,length(shape)}(impl, Tuple(shape))
 end
 
@@ -71,7 +73,7 @@ Create an unbound store.
 - `dim`: Dimensionality of the store.
 """
 function create_store(ty::Type{T}; dim::Integer=1) where {T<:SUPPORTED_TYPES}
-    impl = create_unbound_store(to_legate_type(ty), dim) # cxxwrap call
+    impl = LegateInternal.create_unbound_store(to_legate_type(ty), dim)
     return LogicalStore{T,dim}(impl, nothing)
 end
 
@@ -89,8 +91,8 @@ Create a store with a specified shape.
 """
 function create_store(shape::Vector{B}, ty::Type{T};
     optimize_scalar::Bool=false) where {T<:SUPPORTED_TYPES,B<:Integer}
-    lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type
-    impl = create_store(lshape, to_legate_type(ty), optimize_scalar) # cxxwrap call
+    lshape = Legate.Shape(to_cxx_vector(shape))
+    impl = LegateInternal.create_store(lshape, to_legate_type(ty), optimize_scalar)
     return LogicalStore{T,length(shape)}(impl, Tuple(shape))
 end
 
@@ -105,8 +107,8 @@ Create a store from a scalar value.
 - `shape`: Shape of the resulting store.
 """
 function create_store(scalar::T; shape::Vector{B}=[1]) where {T<:SUPPORTED_TYPES,B<:Integer}
-    lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type   
-    impl = store_from_scalar(Legate.Scalar(scalar), lshape) # cxxwrap call
+    lshape = Legate.Shape(to_cxx_vector(shape))
+    impl = LegateInternal.store_from_scalar(Legate.Scalar(scalar), lshape)
     return LogicalStore{T,length(shape)}(impl, Tuple(shape))
 end
 
@@ -118,7 +120,9 @@ end
 
 Return the number of dimensions of the array/store.
 """
-dim(x::Union{LogicalArray,LogicalStore}) = dim(x.handle) # cxxwrap call
+function dim(x::Union{LogicalArray,LogicalStore,PhysicalArray,PhysicalStore})
+    LegateInternal.dim(x.handle)
+end
 
 """
     type(PhysicalStore) -> LegateType
@@ -128,42 +132,54 @@ dim(x::Union{LogicalArray,LogicalStore}) = dim(x.handle) # cxxwrap call
     
 Return the data type of elements stored in the array/store.
 """
-type(x::Union{LogicalArray,LogicalStore}) = type(x.handle) # cxxwrap call
+function type(x::Union{LogicalArray,LogicalStore,PhysicalArray,PhysicalStore})
+    LegateInternal.type(x.handle)
+end
 
 """
     code(ty::LegateType) -> Int
 
 Return the internal code representing the `LegateType`.
 """
-code
+function code(ty::LegateType)
+    LegateInternal.code(ty)
+end
 
 """
     is_readable(PhysicalStore) -> Bool
 
 Check if the physical store can be read.
 """
-is_readable
+function is_readable(s::PhysicalStore)
+    LegateInternal.is_readable(s)
+end
 
 """
     is_writable(PhysicalStore) -> Bool
 
 Check if the physical store can be written to.
 """
-is_writable
+function is_writable(s::PhysicalStore)
+    LegateInternal.is_writable(s)
+end
 
 """
     is_reducible(PhysicalStore) -> Bool
 
 Check if the physical store supports reduction operations.
 """
-is_reducible
+function is_reducible(s::PhysicalStore)
+    LegateInternal.is_reducible(s)
+end
 
 """
     valid(PhysicalStore) -> Bool
 
 Check if the physical store is in a valid state.
 """
-valid
+function valid(s::PhysicalStore)
+    LegateInternal.valid(s)
+end
 
 """
     reinterpret_as(LogicalStore, T) -> LogicalStore
@@ -173,8 +189,8 @@ Return a view of the logical store reinterpreted as type `T`.
 function reinterpret_as(
     store::LogicalStore, ::Type{T}
 ) where {T<:SUPPORTED_TYPES}
-    impl = reinterpret_as(store.handle, to_legate_type(T)) # cxxwrap call
-    return LogicalStore{T,dim(impl)}(impl, store.dims)
+    impl = LegateInternal.reinterpret_as(store.handle, to_legate_type(T))
+    return LogicalStore{T,Int(LegateInternal.dim(impl))}(impl, store.dims)
 end
 
 """
@@ -185,8 +201,8 @@ Return a new logical store with elements promoted to type `T`.
 function promote(
     store::LogicalStore, ::Type{T}
 ) where {T<:SUPPORTED_TYPES}
-    impl = promote(store.handle, to_legate_type(T)) # cxxwrap call
-    return LogicalStore{T,dim(impl)}(impl, store.dims)
+    impl = LegateInternal.promote(store.handle, to_legate_type(T))
+    return LogicalStore{T,Int(LegateInternal.dim(impl))}(impl, store.dims)
 end
 
 """
@@ -194,7 +210,12 @@ end
 
 Return a sliced view of the logical store according to the given indices.
 """
-slice
+function slice(store::LogicalStore, indices...)
+    # Convert indices to Slice or appropriate type if needed
+    # Assuming LegateInternal.slice handles it
+    impl = LegateInternal.slice(store.handle, indices...)
+    return LogicalStore{eltype(store),Int(LegateInternal.dim(impl))}(impl, nothing)
+end
 
 """
     get_physical_store(LogicalStore) -> PhysicalStore
@@ -203,48 +224,34 @@ slice
 Return the underlying physical store of this logical store or array.
 """
 function get_physical_store(x::LogicalStore)
-    get_physical_store(x.handle, StoreTargetOptional{StoreTarget}())
+    LegateInternal.get_physical_store(x.handle, StoreTargetOptional{StoreTarget}())
 end
 function get_physical_store(x::LogicalStore, target::StoreTarget)
-    get_physical_store(x.handle, StoreTargetOptional{StoreTarget}(target))
+    LegateInternal.get_physical_store(x.handle, StoreTargetOptional{StoreTarget}(target))
 end
 
 function get_physical_array(x::LogicalArray)
-    get_physical_array(x.handle, StoreTargetOptional{StoreTarget}())
+    LegateInternal.get_physical_array(x.handle, StoreTargetOptional{StoreTarget}())
 end
 function get_physical_array(x::LogicalArray, target::StoreTarget)
-    get_physical_array(x.handle, StoreTargetOptional{StoreTarget}(target))
+    LegateInternal.get_physical_array(x.handle, StoreTargetOptional{StoreTarget}(target))
 end
 
-"""
-    equal_storage(store1::LogicalStore, store2::LogicalStore) -> Bool
+function equal_storage(x::LogicalStore, y::LogicalStore)
+    LegateInternal.equal_storage(x.handle, y.handle)
+end
 
-Check if two logical stores refer to the same underlying physical store.
-"""
-equal_storage(x::LogicalStore, y::LogicalStore) = equal_storage(x.handle, y.handle) # cxxwrap call
+function nullable(x::Union{LogicalArray,PhysicalArray})
+    LegateInternal.nullable(x.handle)
+end
 
-"""
-    nullable(LogicalArray) -> Bool
-    nullable(PhysicalArray) -> Bool
+function data(x::Union{LogicalArray,PhysicalArray})
+    LegateInternal.data(x.handle)
+end
 
-Check if the array supports null values.
-"""
-nullable(x::LogicalArray) = nullable(x.handle) # cxxwrap call
-
-"""
-    data(PhysicalArray) -> PhysicalStore
-    data(LogicalArray) -> LogicalStore
-
-Return the underlying store of the array (physical or logical).
-"""
-data(x::LogicalArray) = data(x.handle) # cxxwrap call
-
-"""
-    unbound(LogicalArray) -> Bool
-
-Check if the logical array is unbound (not tied to a physical store).
-"""
-unbound(x::LogicalArray) = unbound(x.handle) # cxxwrap call
+function unbound(x::LogicalArray)
+    LegateInternal.unbound(x.handle)
+end
 
 # Delegation for wrappers
 Base.eltype(x::Union{LogicalArray{T},LogicalStore{T}}) where {T} = T
@@ -258,8 +265,7 @@ Base.eltype(x::Union{LogicalArray{T},LogicalStore{T}}) where {T} = T
 Return the pointer to the underlying data of the array/store.
 """
 function get_ptr(arr::LogicalStore)
-    # LogicalStore -> PhysicalStore -> Ptr
-    return get_ptr(get_physical_store(arr)) # cxxwrap call  
+    return get_ptr(get_physical_store(arr))
 end
 
 function get_ptr(arr::LogicalStore, target::StoreTarget)
@@ -267,8 +273,7 @@ function get_ptr(arr::LogicalStore, target::StoreTarget)
 end
 
 function get_ptr(arr::LogicalArray)
-    # LogicalArray -> PhysicalArray -> PhysicalStore -> Ptr
-    return get_ptr(data(get_physical_array(arr))) # cxxwrap call
+    return get_ptr(data(get_physical_array(arr)))
 end
 
 function get_ptr(arr::LogicalArray, target::StoreTarget)
@@ -276,11 +281,9 @@ function get_ptr(arr::LogicalArray, target::StoreTarget)
 end
 
 function get_ptr(arr::PhysicalArray)
-    # PhysicalArray -> PhysicalStore -> Ptr
-    return get_ptr(data(arr)) # cxxwrap call
+    return get_ptr(data(arr))
 end
 
 function get_ptr(arr::PhysicalStore)
-    # PhysicalStore -> Ptr
-    return _get_ptr(CxxWrap.CxxPtr(arr)) # cxxwrap call
+    LegateInternal._get_ptr(CxxWrap.CxxPtr(arr))
 end

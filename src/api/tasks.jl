@@ -8,9 +8,11 @@ Create an auto task in the runtime.
 - `lib`: The library to associate with the task.
 - `id`: The local task identifier.
 """
-create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
+function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID)
+    LegateInternal.create_auto_task(rt, lib, id)
+end
 function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain)
-    create_manual_task(rt, lib, id, domain)
+    LegateInternal.create_manual_task(rt, lib, id, domain)
 end
 
 """
@@ -19,8 +21,18 @@ end
 
 Submit an manual/auto task to the runtime.
 """
-submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = submit_auto_task(rt, task)
-submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = submit_manual_task(rt, task)
+submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = begin
+    # Update High Water Mark for UFI tracking
+    # MAX_SUBMITTED_TASK_ID bridges the gap until the first variant starts in C++
+    Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, LAST_CREATED_TASK_ID[])
+
+    # Use @threadcall to avoid blocking the Julia thread while Legate processes the submission.
+    @threadcall((:legate_submit_auto_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.cpp_object)
+end
+submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = begin
+    Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, Int(LAST_CREATED_TASK_ID[]))
+    @threadcall((:legate_submit_manual_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.cpp_object)
+end
 
 """
     align(a::Variable, b::Variable) -> Constraint
@@ -29,7 +41,9 @@ Align two variables.
 
 Returns a new constraint representing the alignment of `a` and `b`.
 """
-align
+function align(a::Variable, b::Variable)
+    LegateInternal.align(a, b)
+end
 
 """
     default_alignment(task::AutoTask, inputs::Vector{Variable}, outputs::Vector{Variable})
@@ -58,7 +72,9 @@ end
 
 Add a constraint to the task.
 """
-add_constraint
+function add_constraint(task::AutoTask, c::Constraint)
+    LegateInternal.add_constraint(task, c)
+end
 
 """
     add_input(AutoTask, LogicalArray) -> Variable
@@ -70,7 +86,7 @@ function add_input(
     task::Union{AutoTask,ManualTask},
     item::Union{LogicalArray,LogicalStore},
 )
-    add_input(task, item.handle)
+    LegateInternal.add_input(task, item.handle)
 end
 
 """
@@ -83,7 +99,7 @@ function add_output(
     task::Union{AutoTask,ManualTask},
     item::Union{LogicalArray,LogicalStore},
 )
-    add_output(task, item.handle)
+    LegateInternal.add_output(task, item.handle)
 end
 
 """
@@ -92,4 +108,6 @@ end
 
 Add a scalar argument to the task.
 """
-add_scalar
+function add_scalar(task::Union{AutoTask,ManualTask}, scalar::Scalar)
+    LegateInternal.add_scalar(task, scalar)
+end

@@ -26,6 +26,19 @@
 #include "types.h"
 #include "wrapper.inl"
 
+namespace jlcxx {
+  template<> struct Finalizer<legate::LogicalStore>
+  {
+    static void finalize(legate::LogicalStore* store)
+    {
+      // No-op finalizer to prevent crashes during GC.
+      // LogicalStore destructors call discard_fields() which can crash
+      // if the Legion runtime state is invalid or if called from a non-Legion thread.
+      // Cleanup is handled by _exit(0) at shutdown.
+    }
+  };
+}
+
 legate::Type type_from_code(legate::Type::Code type_id) {
   switch (type_id) {
     case legate::Type::Code::BOOL:
@@ -131,7 +144,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("slice", &LogicalStore::slice)
       .method("get_physical_store", &LogicalStore::get_physical_store)
       .method("equal_storage", &LogicalStore::equal_storage)
-      .method("detach", &LogicalStore::detach);
+      .method("detach", &LogicalStore::detach)
+      .method("get_obj_ptr",
+              [](LogicalStore& s) { return static_cast<void*>(&s); });
 
   mod.add_type<PhysicalArray>("PhysicalArray")
       .method("dim", &PhysicalArray::dim)
@@ -179,9 +194,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("legate_finish", &legate_wrapper::runtime::legate_finish);
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);
   mod.method("has_started", &legate_wrapper::runtime::has_started);
-  mod.method("has_finished", &legate_wrapper::runtime::has_finished);
   mod.method("issue_execution_fence",
              &legate_wrapper::runtime::issue_execution_fence);
+// mod.method("is_store_ready", &legate_wrapper::runtime::is_store_ready);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
   mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
@@ -213,4 +228,32 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("time_nanoseconds", &legate_wrapper::time::time_nanoseconds);
 
   wrap_ufi(mod);
+}
+
+extern "C" void legate_logical_store_detach(void* store_ptr) {
+  reinterpret_cast<legate::LogicalStore*>(store_ptr)->detach();
+}
+
+extern "C" void legate_issue_copy(void* dest_ptr, void* src_ptr) {
+  auto& dest = *reinterpret_cast<legate::LogicalStore*>(dest_ptr);
+  auto& src = *reinterpret_cast<const legate::LogicalStore*>(src_ptr);
+  legate::Runtime::get_runtime()->issue_copy(dest, src);
+}
+
+extern "C" void legate_issue_execution_fence_blocking() {
+  legate::Runtime::get_runtime()->issue_execution_fence(/*block=*/true);
+}
+
+extern "C" void legate_submit_auto_task(void* rt_ptr, void* task_ptr) {
+
+  auto* rt = reinterpret_cast<legate::Runtime*>(rt_ptr);
+  auto* task = reinterpret_cast<legate::AutoTask*>(task_ptr);
+  rt->submit(std::move(*task));
+}
+
+extern "C" void legate_submit_manual_task(void* rt_ptr, void* task_ptr) {
+
+  auto* rt = reinterpret_cast<legate::Runtime*>(rt_ptr);
+  auto* task = reinterpret_cast<legate::ManualTask*>(task_ptr);
+  rt->submit(std::move(*task));
 }

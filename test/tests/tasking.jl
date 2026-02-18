@@ -34,25 +34,15 @@ function run_base_julia_test()
     return (a=a, b=b, c=c, d=d, a_init=a_init, b_init=b_init)
 end
 
-function task_test(args::Vector{Legate.TaskArgument})
-    a, b, c = args
+function task_test(a, b, c)
     @inbounds @simd for i in eachindex(a)
         c[i] = a[i] + b[i]
     end
 end
 
-function task_init(args::Vector{Legate.TaskArgument})
-    a, b, c = args
-    @inbounds @simd for i in eachindex(a)
-        a[i] = rand(Float32)
-        b[i] = rand(Float32)
-        c[i] = 0.0f0
-    end
-end
-
 # Task with 2 inputs, 2 outputs
-function task_4arg(args::Vector{Legate.TaskArgument})
-    in1, in2, out1, out2 = args
+# Task with 2 inputs, 2 outputs
+function task_4arg(in1, in2, out1, out2)
     @inbounds @simd for i in eachindex(in1)
         out1[i] = in1[i] * 2
         out2[i] = in2[i] + 1
@@ -60,8 +50,8 @@ function task_4arg(args::Vector{Legate.TaskArgument})
 end
 
 # Task with Scalar argument
-function task_scalar(args::Vector{Legate.TaskArgument})
-    a, b, scalar = args
+# Task with Scalar argument
+function task_scalar(a, b, scalar)
     # scalar is a scalar (Float32)
     @inbounds @simd for i in eachindex(a)
         b[i] = a[i] * scalar
@@ -85,30 +75,17 @@ expected_a = expected_c .* 2.5f0
     my_4arg_task = Legate.wrap_task(task_4arg)
     my_scalar_task = Legate.wrap_task(task_scalar)
 
-    function set_legate_array(rt, lib, legate_arr, values)
-        function set_task(args::Vector{Legate.TaskArgument})
-            arr = args[1]
-            @inbounds @simd for i in eachindex(arr)
-                arr[i] = values[i]
-            end
-        end
-        set_wrapped = Legate.wrap_task(set_task)
-        task = Legate.create_julia_task(rt, lib, set_wrapped)
-        out_vars = Vector{Legate.Variable}()
-        push!(out_vars, Legate.add_output(task, legate_arr))
-        Legate.default_alignment(task, Vector{Legate.Variable}(), out_vars)
-        Legate.submit_task(rt, task)
-    end
-
     @testset "Initialization" begin
         a = Legate.create_array([10, 10], Float32)
         b = Legate.create_array([10, 10], Float32)
         c = Legate.create_array([10, 10], Float32)
         d = Legate.create_array([10, 10], Float32)
 
-        set_legate_array(rt, lib, a, base_results.a_init)
-        set_legate_array(rt, lib, b, base_results.b_init)
-        set_legate_array(rt, lib, c, zeros(Float32, 10, 10))
+        # Use copyto! instead of set_task closure
+        copyto!(a, base_results.a_init)
+        copyto!(b, base_results.b_init)
+        copyto!(c, zeros(Float32, 10, 10))
+
         # Verify Init
         val_a = Array(a)
         val_b = Array(b)
@@ -120,9 +97,9 @@ expected_a = expected_c .* 2.5f0
     b = Legate.create_array([10, 10], Float32)
     c = Legate.create_array([10, 10], Float32)
     d = Legate.create_array([10, 10], Float32)
-    set_legate_array(rt, lib, a, base_results.a_init)
-    set_legate_array(rt, lib, b, base_results.b_init)
-    set_legate_array(rt, lib, c, zeros(Float32, 10, 10))
+    copyto!(a, base_results.a_init)
+    copyto!(b, base_results.b_init)
+    copyto!(c, zeros(Float32, 10, 10))
 
     @testset "3-Argument Task (c = a + b)" begin
         task2 = Legate.create_julia_task(rt, lib, my_task)

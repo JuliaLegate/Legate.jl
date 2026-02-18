@@ -87,7 +87,21 @@ if !isfile(WRAPPER_LIB_PATH)
     )
 end
 
-@wrapmodule(() -> WRAPPER_LIB_PATH)
+module LegateInternal
+    using CxxWrap
+    import ..WRAPPER_LIB_PATH
+    @wrapmodule(() -> WRAPPER_LIB_PATH)
+    function init()
+        @initcxx
+    end
+end
+
+# Expose C++ types to the main Legate namespace for use in other files
+# Note: TaskRequest and TaskRequestPrivate are defined in ufi.jl, not C++
+using .LegateInternal: Library, Variable, Constraint, LocalTaskID, GlobalTaskID,
+                       AutoTask, ManualTask, StoreTarget, Shape, Scalar, Slice,
+                       PhysicalStore, PhysicalArray, LogicalStoreImpl, LogicalArrayImpl,
+                       LegateType, Domain, Runtime
 
 include("utilities/type_map.jl")
 # api functions and documentation
@@ -114,34 +128,45 @@ runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
 function _finish_runtime()
     lock(_shutdown_lock) do
-        # Prevent double shutdown
         _shutdown_done[] && return
         _shutdown_done[] = true
 
         if !Legate.UFI_SHUTDOWN_DONE[]
-            # Non-blocking block to ensure all Legate tasks are finished before we stop UFI
-            Legate.issue_execution_fence(false)
-            Legate.wait_ufi() # make sure UFI is done
-            Legate.shutdown_ufi() # shutdown UFI
+            Legate.shutdown_ufi()
         end
-        # finish legate runtime
-        Legate.legate_finish()
+
+        try
+            legate_finish()
+        catch e
+            @error "legate_finish() failed" exception=(e, catch_backtrace())
+        end
+
+        # Safety net: _exit bypasses GC finalizers that crash in
+        # LogicalStore::~LogicalStore() after the Legion runtime is gone.
+        ccall(:_exit, Cvoid, (Cint,), Cint(0))
     end
 end
 
 function _start_runtime()
-    Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+    # Load libraries into global namespace for C++ symbol resolution
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+    Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
-    Legate.start_legate()
-    Legate.init_ufi()
+    if Threads.nthreads() == 1
+        @warn "Legate.jl is running with a single Julia thread. " *
+              "Blocking operations (like `detach`) may cause deadlocks if UFI tasks are pending. " *
+              "Please run with `JULIA_NUM_THREADS > 1` for full stability."
+    end
 
-    Base.atexit(Legate._finish_runtime)
+    LegateInternal.init()
+    start_legate()
+    init_ufi()
+
+    Base.atexit(_finish_runtime)
     return RUNTIME_ACTIVE
 end
 
 function ensure_runtime!()
-    # fast path (no lock)
     rt = _runtime_ref[]
     (rt == RUNTIME_INACTIVE) || return rt
 
@@ -162,14 +187,10 @@ end
 _is_precompiling() = ccall(:jl_generating_output, Cint, ()) != 0
 
 function __init__()
-    # @info "Legate __init__" pid=getpid() tid=Threads.threadid() precomp=_is_precompiling()
-
     LegatePreferences.check_unchanged()
-
-    @initcxx
+    UFI_EXEC_LOCK[] = ReentrantLock()
 
     _is_precompiling() && return nothing
-
     ensure_runtime!()
 end
 end

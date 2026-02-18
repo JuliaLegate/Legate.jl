@@ -1,12 +1,6 @@
-"""
-    start_legate()
-
-Start the Legate runtime.
-
-This function initializes the Legate runtime and must be called
-before creating tasks or data objects.
-"""
-start_legate
+function start_legate()
+    LegateInternal.start_legate()
+end
 
 """
     legate_finish() -> Int32
@@ -15,30 +9,38 @@ Finalize the Legate runtime.
 
 Returns an integer status code from the runtime shutdown procedure.
 """
-legate_finish
+function legate_finish()
+    LegateInternal.legate_finish()
+    return nothing
+end
+
 
 """
-    get_runtime() -> Runtime
+    get_runtime() -> CxxPtr{Runtime}
 
-Return the current Legate runtime instance.
-
-This returns a handle to the singleton `Runtime` object managed by Legate.
+Returns the Legate runtime.
 """
-get_runtime
+function get_runtime()
+    LegateInternal.get_runtime()
+end
 
 """
     has_started() -> Bool
 
-Check whether the Legate runtime has started.
+Returns true if the Legate runtime has started.
 """
-has_started
+function has_started()
+    LegateInternal.has_started()
+end
 
 """
     has_finished() -> Bool
 
-Check whether the Legate runtime has finished.
+Returns true if the Legate runtime has finished.
 """
-has_finished
+function has_finished()
+    LegateInternal.has_finished()
+end
 
 """
     create_library(name::String) -> Library
@@ -48,30 +50,43 @@ with the C++ runtime.
 """
 function create_library(name::String)
     rt = get_runtime()
-    lib = _create_library(rt, name) # cxxwrap call
+    lib = LegateInternal._create_library(rt, name)
     # registers JuliaCustomTask::cpu_variant to legate runtime
-    _ufi_interface_register(lib) # cxxwrap call
+    LegateInternal._ufi_interface_register(lib)
     @debug "Registered library with C++ runtime"
     return lib
 end
 
 """
-    time_microseconds() -> UInt64
+    time_microseconds() -> Int64
 
-Measure time in microseconds.
+Returns the current time in microseconds.
 """
-time_microseconds
-
-"""
-    time_nanoseconds() -> UInt64
-
-Measure time in nanoseconds.
-"""
-time_nanoseconds
+function time_microseconds()
+    LegateInternal.time_microseconds()
+end
 
 """
-    issue_execution_fence(; blocking::Bool = true)
+    time_nanoseconds() -> Int64
 
-Issue an execution fence.
+Returns the current time in nanoseconds.
 """
-issue_execution_fence(; blocking::Bool=true) = issue_execution_fence(blocking)
+function time_nanoseconds()
+    LegateInternal.time_nanoseconds()
+end
+
+"""
+    issue_execution_fence(; blocking::Bool=true)
+
+Issues an execution fence to the runtime.
+
+# Arguments
+- `blocking`: If true, the fence will block until all tasks are completed.
+"""
+function issue_execution_fence(; blocking::Bool=true)
+    if blocking
+        @threadcall((:legate_issue_execution_fence_blocking, Legate.WRAPPER_LIB_PATH), Cvoid, ())
+    else
+        LegateInternal.issue_execution_fence(false)
+    end
+end

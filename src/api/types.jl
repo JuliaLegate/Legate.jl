@@ -70,7 +70,7 @@ function Scalar(x::T) where {T<:SUPPORTED_TYPES}
     r = Ref(x)
     GC.@preserve r begin
         ptr = Base.unsafe_convert(Ptr{Cvoid}, r)
-        return make_scalar(ptr, to_legate_type(T))
+        return LegateInternal.make_scalar(ptr, to_legate_type(T))
     end
 end
 
