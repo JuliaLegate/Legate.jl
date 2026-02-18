@@ -152,13 +152,6 @@ function _start_runtime()
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
-    if Threads.nthreads() == 1
-        @warn "Legate.jl is running with a single Julia thread. " *
-              "Blocking operations (like `detach`) may cause deadlocks if UFI tasks are pending. " *
-              "Please run with `JULIA_NUM_THREADS > 1` for full stability."
-    end
-
-    LegateInternal.init()
     start_legate()
     init_ufi()
 
