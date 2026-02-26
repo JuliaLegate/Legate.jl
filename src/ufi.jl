@@ -213,7 +213,8 @@ function _execute_julia_task_internal(job::JuliaTaskRequest)
     if job.req.is_gpu != 0
         error("Legate UFI: GPU execution not supported.")
     else
-        Base.invokelatest(_execute_julia_task_cpu, task_fun, job.args)
+        # task_fun(job.args...)
+        Base.invokelatest(task_fun, job.args...)
         _completion_callback(job.slot_id)
     end
 end
@@ -237,10 +238,6 @@ end
 # Field access helpers for TaskRequest
 _get_type(x::Ptr{Cint}, i) = unsafe_load(x, i)
 _get_ptr(x::Ptr{Ptr{Cvoid}}, i) = unsafe_load(x, i)
-
-function _execute_julia_task_cpu(task_fun::Function, args::Vector{TaskArgument})
-    Base.invokelatest(task_fun, args...)
-end
 
 function _fill_args_core!(args, req, dims)
     offset = 1
@@ -295,7 +292,6 @@ function init_ufi()
             precompile(ufi_poll_sync, ())
             precompile(_completion_callback, (Int,))
             precompile(_execute_julia_task_internal, (JuliaTaskRequest,))
-            precompile(_execute_julia_task_cpu, (Function, Vector{TaskArgument}))
             precompile(_fill_args_core!, (Vector{TaskArgument}, TaskRequest, NTuple{3, Int64}))
         catch e
             @warn "Precompilation failed" exception=(e, catch_backtrace())
