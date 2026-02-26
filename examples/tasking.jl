@@ -43,16 +43,11 @@ function test_driver()
     my_scalar_task = Legate.wrap_task(task_scalar)
     my_noop_task = Legate.wrap_task(task_noop)
 
-    @info "Task wrappers created"
-
     # 0. NOOP Task
     a_noop = Legate.create_array([10], Float32)
     task0 = Legate.create_julia_task(rt, lib, my_noop_task)
     Legate.add_output(task0, a_noop)
     Legate.submit_task(rt, task0)
-    @info "Task 0 submitted"
-    Legate.wait_ufi()
-    @info "Bob has been here"
 
     # 1. Init Task (3 args)
     a = Legate.create_array([N, N], Float32)

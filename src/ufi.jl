@@ -143,7 +143,7 @@ end
 const UFI_POLL_LOCK = ReentrantLock()
 
 function wait_ufi()
-    @info "Waiting for UFI to complete"
+    @debug "Waiting for UFI to complete"
     Legate.issue_execution_fence(blocking=false)
 
     while ufi_has_pending_work()
@@ -200,8 +200,6 @@ function ufi_poll_sync()
             return
         end
 
-        @info "UFI: Polling for pending slots" thread=tid
-
         # 2. Poll Slots
         # Popping from the C++ pending queue to avoid O(N) scanning
         while true
@@ -214,7 +212,7 @@ function ufi_poll_sync()
             
             req = unsafe_load(SLOT_REQUEST_PTRS[i])
             sig = _get_task_signature(req)
-            @info "UFI: Found pending slot" thread=tid slot_id=found_slot req=req sig=sig
+            @debug "UFI: Found pending slot" thread=tid slot_id=found_slot req=req sig=sig
             
             put!(JOB_QUEUE[], JuliaTaskRequest(req, sig, found_slot))
             return
@@ -250,7 +248,7 @@ function _ufi_worker_loop()
         try
             # take! blocks until a job is available
             job = take!(JOB_QUEUE[])
-            @info "UFI: executing task" slot_id=job.slot_id req=job.req
+            @debug "UFI: executing task" slot_id=job.slot_id req=job.req
             
             _execute_julia_task_internal(job)
         catch e
