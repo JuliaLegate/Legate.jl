@@ -55,7 +55,6 @@ struct TaskRequest
 
     function TaskRequest(work_seq, is_gpu, task_id, args...)
         if task_id == 0
-            # ERROR_PRINT equivalent in Julia
             @error "Task ID 0 is invalid."
         end
         new(work_seq, is_gpu, task_id, args...)
@@ -201,6 +200,8 @@ function ufi_poll_sync()
             return
         end
 
+        @info "UFI: Polling for pending slots" thread=tid
+
         # 2. Poll Slots
         # Popping from the C++ pending queue to avoid O(N) scanning
         while true
@@ -249,7 +250,7 @@ function _ufi_worker_loop()
         try
             # take! blocks until a job is available
             job = take!(JOB_QUEUE[])
-            @info "UFI: executing task" thread=tid slot_id=job.slot_id req=job.req
+            @info "UFI: executing task" slot_id=job.slot_id req=job.req
             
             _execute_julia_task_internal(job)
         catch e
