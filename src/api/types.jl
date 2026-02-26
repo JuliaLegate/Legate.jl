@@ -38,14 +38,24 @@ GlobalTaskID
 
 Represents an automatically scheduled task. Supports adding inputs, outputs, scalars, and constraints.
 """
-AutoTask
+mutable struct AutoTask
+    impl::AutoTaskImpl
+    task_id::UInt32
+    arg_types::Vector{DataType}
+    AutoTask(impl) = new(impl, 0, DataType[])
+end
 
 """
     ManualTask
 
 Represents a manually scheduled task. Supports adding inputs, outputs, and scalars.
 """
-ManualTask
+mutable struct ManualTask
+    impl::ManualTaskImpl
+    task_id::UInt32
+    arg_types::Vector{DataType}
+    ManualTask(impl) = new(impl, 0, DataType[])
+end
 
 """
     StoreTarget

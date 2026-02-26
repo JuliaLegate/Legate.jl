@@ -53,8 +53,12 @@ struct TaskRequest
     ndim::Cint
     dims::NTuple{3,Int64}
 
-    function TaskRequest()
-        new(0, 0, 0, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, C_NULL, 0, 0, 0, 0, (0, 0, 0))
+    function TaskRequest(work_seq, is_gpu, task_id, args...)
+        if task_id == 0
+            # ERROR_PRINT equivalent in Julia
+            @error "Task ID 0 is invalid."
+        end
+        new(work_seq, is_gpu, task_id, args...)
     end
 end
 
@@ -81,10 +85,6 @@ const UFI_EXEC_LOCK = Ref{ReentrantLock}()
 
 const UFI_POLLER_TIMER = Ref{Base.Timer}()
 const UFI_POLL_INTERVAL = 0.001 # 1ms
-
-# MTW: Tracking compiled task signatures (task_id, Tuple(ArgTypes...))
-const JIT_SEEN = Set{Tuple{Int32, Tuple}}()
-const JIT_LOCK = ReentrantLock()
 
 function get_pending_tasks()
     return ccall((:legate_get_pending_tasks_count, Legate.WRAPPER_LIB_PATH), Cint, ())
@@ -158,26 +158,25 @@ function register_task_function(id::UInt32, fun::Union{CPUWrapType,Function})
     end
 end
 
-function create_julia_task(rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaCPUTask)
+function create_julia_task(rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaTask)
     if task_obj isa JuliaCPUTask
         id = LegateInternal.JULIA_CUSTOM_TASK
-        task = LegateInternal.create_auto_task(rt, lib, id)
+        task_impl = LegateInternal.create_auto_task(rt, lib, id)
     else
         id = LegateInternal.JULIA_CUSTOM_GPU_TASK
-        task = LegateInternal.create_auto_task(rt, lib, id)
+        task_impl = LegateInternal.create_auto_task(rt, lib, id)
     end
+    
+    task = AutoTask(task_impl)
+    task.task_id = task_obj.task_id
+    
     add_scalar(task, Scalar(Int32(task_obj.task_id)))
     register_task_function(task_obj.task_id, task_obj.fun)
     Threads.atomic_xchg!(LAST_CREATED_TASK_ID, Int(task_obj.task_id))
-    
-    # Opportunistic Poll: Drive progress during submission to prevent blocking on window size
-    ufi_poll_sync()
-    
     return task
 end
 
 function _completion_callback(slot_id::Int)
-    # Yield removed to prevent unnecessary scheduler stress (ijl_task_get_next segfaults)
     ccall((:completion_callback_from_julia, Legate.WRAPPER_LIB_PATH), Cvoid, (Cint,), slot_id)
 end
 
@@ -187,105 +186,63 @@ function ufi_poll_sync()
     
     try
         if UFI_SHUTDOWN[]
-            return false
+            return
         end
-
-        if is_main
-            if mod(Threads.atomic_add!(UFI_POLL_COUNT, 1), 1000) == 0
-                @debug "UFI: Main poller heartbeat (Iteration: $(UFI_POLL_COUNT[]))"
-            end
-        end
-
-        found_any = false
 
         # 2. Poll Slots
-        for i in 1:length(SLOT_WORK_AVAILABLE_PTRS)
-            ptr = SLOT_WORK_AVAILABLE_PTRS[i]
-            val = unsafe_load(ptr)
-            Threads.atomic_fence()
-
-            if val != 0
-                target_atom = UFI_LAST_TASK_IDS[i]
-                last_seen = target_atom[]
-                
-                # Check for new work
-                if val > last_seen
-                    # Only the main thread initiates processing to manage world age and JIT
-                    if is_main
-                        # MTFJ: Load request to check if task_id is JITed
-                        req = unsafe_load(SLOT_REQUEST_PTRS[i])
-                        sig = _get_task_signature(req)
-                        
-                        is_jit_done = lock(JIT_LOCK) do
-                            (req.task_id, sig) ∈ JIT_SEEN
-                        end
-                        
-                        if !is_jit_done
-                            # MTW: Warmup JIT safely on main thread
-                            lock(JIT_LOCK) do
-                                if (req.task_id, sig) ∉ JIT_SEEN
-                                    local task_fun
-                                    lock(REGISTRY_LOCK) do
-                                        task_fun = req.task_id == 0 ? ((args...) -> nothing) : TASK_REGISTRY[req.task_id]
-                                    end
-                                    # Safe precompile on main thread
-                                    precompile(task_fun, sig)
-                                    push!(JIT_SEEN, (req.task_id, sig))
-                                end
-                            end
-                        end
-                        
-                        # ALL executions are now concurrent after the main-thread JIT is warm
-                        if Threads.atomic_cas!(target_atom, last_seen, val) == last_seen
-                            Threads.@spawn begin
-                                try
-                                    _execute_julia_task_internal(req, i-1)
-                                catch e
-                                    @error "UFI: Error in spawned task" slot_id=i-1 exception=(e, catch_backtrace())
-                                    _completion_callback(i-1)
-                                end
-                            end
-                            found_any = true
-                        end
-                    end
-                end
+        # Popping from the C++ pending queue to avoid O(N) scanning
+        while true
+            slot_id_0 = LegateInternal.legate_pop_pending_slot()
+            if slot_id_0 == -1
+                break
             end
+            
+            i = slot_id_0 + 1 # Julia is 1-indexed
+            
+            req = unsafe_load(SLOT_REQUEST_PTRS[i])
+            sig = _get_task_signature(req)
+            
+            put!(JOB_QUEUE[], (req, slot_id_0, sig))
         end
-        return found_any
     catch e
         @error "UFI: Critical error in ufi_poll_sync" thread=Threads.threadid() exception=(e, catch_backtrace())
-        return false
+        return
     end
 end
-
 
 
 function _start_ufi_system()
     UFI_SHUTDOWN[] = false
 end
 
-function execute_julia_task(@nospecialize(req::TaskRequest), @nospecialize(slot_id::Integer))
-    # Drive execution on main thread queue if needed, or wait for polling.
-    # Note: In multi-threaded mode, workers or the timer will pick this up.
-    # Submission path now relies on opportunistic polling (implemented in create_julia_task).
-    while ufi_has_pending_work()
-        sleep(0.001)
-    end
-end
-
-function _execute_julia_task_internal(req::TaskRequest, slot_id::Integer)
+function _execute_julia_task_internal(req::TaskRequest, slot_id::Integer, sig::Tuple)
     local task_fun
     lock(REGISTRY_LOCK) do
-        task_fun = req.task_id == 0 ? ((args...) -> nothing) : TASK_REGISTRY[req.task_id]
+        task_fun = TASK_REGISTRY[req.task_id]
     end
     
     if req.is_gpu != 0
         error("Legate UFI: GPU execution not supported.")
     else
         args = Vector{TaskArgument}(undef, Int(req.num_inputs + req.num_outputs + req.num_scalars))
-        # Signature is already warm due to main-thread MTW precompile
-        _execute_julia_task_cpu(req, task_fun, args)
+        Base.invokelatest(_execute_julia_task_cpu, req, task_fun, args)
         _completion_callback(slot_id)
+    end
+end
+
+function _ufi_worker_loop()
+    while !UFI_SHUTDOWN[]
+        try
+            # take! blocks until a job is available
+            job = take!(JOB_QUEUE[])
+            (req, slot_id, sig) = job
+            
+            _execute_julia_task_internal(req, slot_id, sig)
+        catch e
+            if !UFI_SHUTDOWN[]
+                @error "UFI Worker: Unexpected error" exception=(e, catch_backtrace())
+            end
+        end
     end
 end
 
@@ -297,7 +254,6 @@ function _execute_julia_task_cpu(req::TaskRequest, task_fun::Function, args::Vec
     dims = ntuple(i -> Int(max(0, req.dims[i])), req.ndim)
     _fill_args_core!(args, req, dims)
     # Always use invokelatest for workers and dynamic world ages.
-    # Signature is already warm from main-thread precompile.
     Base.invokelatest(task_fun, args...)
 end
 
@@ -356,19 +312,30 @@ function init_ufi()
         try
             precompile(ufi_poll_sync, ())
             precompile(_completion_callback, (Int,))
-            precompile(_execute_julia_task_internal, (TaskRequest, Int, Bool))
+            precompile(_execute_julia_task_internal, (TaskRequest, Int, Tuple))
+            precompile(_execute_julia_task_cpu, (TaskRequest, Function, Vector{TaskArgument}))
+            precompile(_fill_args_core!, (Vector{TaskArgument}, TaskRequest, NTuple{3, Int64}))
         catch e
             @warn "Precompilation failed" exception=(e, catch_backtrace())
         end
-
-        # Force-compile ufi_poll_sync on main thread before any workers touch it.
-        # This prevents the JIT race where multiple threads simultaneously
-        # compile the same function, crashing in _jl_mutex_wait.
-        ufi_poll_sync()
-
         UFI_INITIALIZED[] = true
     end
+
     _start_ufi_threads()
+    
+    # Spawn dedicated worker threads on background threads if available
+    n = Threads.nthreads()
+    num_workers = max(1, n - 1)
+    empty!(UFI_WORKER_TASKS)
+    
+    if n > 1
+        for i in 2:n
+            push!(UFI_WORKER_TASKS, Threads.@spawn _ufi_worker_loop())
+        end
+    else
+        # Single-threaded fallback
+        push!(UFI_WORKER_TASKS, Threads.@spawn _ufi_worker_loop())
+    end
 end
 
 function _start_ufi_threads()
@@ -377,8 +344,7 @@ function _start_ufi_threads()
     @debug "UFI System: Initializing Main-Thread Poller (Interval: $(UFI_POLL_INTERVAL)s)"
     UFI_POLLER_TIMER[] = Base.Timer(0.0; interval=UFI_POLL_INTERVAL) do timer
         if !UFI_SHUTDOWN[]
-            # Wrap poller in invokelatest to catch newly defined tasks in user scripts
-            Base.invokelatest(ufi_poll_sync)
+            ufi_poll_sync()
         else
             close(timer)
         end

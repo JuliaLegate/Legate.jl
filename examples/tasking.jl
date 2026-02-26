@@ -62,9 +62,7 @@ function test_driver()
     push!(init_output_vars, Legate.add_output(task, b))
     push!(init_output_vars, Legate.add_output(task, c))
     Legate.default_alignment(task, Vector{Legate.Variable}(), init_output_vars)
-
-    Legate.submit_task(rt, task)
-    sleep(1)
+    Legate.submit_task(rt, task) 
 
     # 2. Compute Task (3 args)
     task2 = Legate.create_julia_task(rt, lib, my_task)
@@ -74,9 +72,7 @@ function test_driver()
     push!(input_vars, Legate.add_input(task2, b))
     push!(output_vars, Legate.add_output(task2, c))
     Legate.default_alignment(task2, input_vars, output_vars)
-
     Legate.submit_task(rt, task2)
-    sleep(1)
 
     # 3. Arbitrary Arg Task (4 args: 2 in, 2 out)
     task3 = Legate.create_julia_task(rt, lib, my_4arg_task)
@@ -87,9 +83,7 @@ function test_driver()
     push!(out_vars_4, Legate.add_output(task3, b))
     push!(out_vars_4, Legate.add_output(task3, d))
     Legate.default_alignment(task3, in_vars_4, out_vars_4)
-
     Legate.submit_task(rt, task3)
-    sleep(1)
 
     # 4. Scalar Arg Task (2 args + scalar)
     task4 = Legate.create_julia_task(rt, lib, my_scalar_task)
@@ -99,10 +93,7 @@ function test_driver()
     push!(out_vars_s, Legate.add_output(task4, a))
     Legate.add_scalar(task4, Legate.Scalar(2.5f0))
     Legate.default_alignment(task4, in_vars_s, out_vars_s)
-
     Legate.submit_task(rt, task4)
-    # Background workers should handle this now.
-    sleep(2)
 
     # --- VERIFICATION OF ASYNC EXECUTION ---
     @info "Submitting 100 bulk tasks to verify asynchronous polling..."

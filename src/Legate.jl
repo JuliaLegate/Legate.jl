@@ -99,7 +99,7 @@ end
 # Expose C++ types to the main Legate namespace for use in other files
 # Note: TaskRequest and TaskRequestPrivate are defined in ufi.jl, not C++
 using .LegateInternal: Library, Variable, Constraint, LocalTaskID, GlobalTaskID,
-                       AutoTask, ManualTask, StoreTarget, Shape, Scalar, Slice,
+                       AutoTask as AutoTaskImpl, ManualTask as ManualTaskImpl, StoreTarget, Shape, Scalar as ScalarImpl, Slice,
                        PhysicalStore, PhysicalArray, LogicalStoreImpl, LogicalArrayImpl,
                        LegateType, Domain, Runtime
 

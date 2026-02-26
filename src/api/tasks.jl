@@ -9,10 +9,12 @@ Create an auto task in the runtime.
 - `id`: The local task identifier.
 """
 function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID)
-    LegateInternal.create_auto_task(rt, lib, id)
+    impl = LegateInternal.create_auto_task(rt, lib, id)
+    return AutoTask(impl)
 end
 function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain)
-    LegateInternal.create_manual_task(rt, lib, id, domain)
+    impl = LegateInternal.create_manual_task(rt, lib, id, domain)
+    return ManualTask(impl)
 end
 
 """
@@ -21,17 +23,16 @@ end
 
 Submit an manual/auto task to the runtime.
 """
-submit_task(rt::CxxPtr{Runtime}, task::AutoTask) = begin
+function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
     # Update High Water Mark for UFI tracking
-    # MAX_SUBMITTED_TASK_ID bridges the gap until the first variant starts in C++
-    Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, LAST_CREATED_TASK_ID[])
-
-    # Use @threadcall to avoid blocking the Julia thread while Legate processes the submission.
-    @threadcall((:legate_submit_auto_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.cpp_object)
-end
-submit_task(rt::CxxPtr{Runtime}, task::ManualTask) = begin
     Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, Int(LAST_CREATED_TASK_ID[]))
-    @threadcall((:legate_submit_manual_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.cpp_object)
+
+    @threadcall((:legate_submit_auto_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.impl.cpp_object)
+end
+function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
+    Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, Int(LAST_CREATED_TASK_ID[]))
+    
+    @threadcall((:legate_submit_manual_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.impl.cpp_object)
 end
 
 """
@@ -73,7 +74,7 @@ end
 Add a constraint to the task.
 """
 function add_constraint(task::AutoTask, c::Constraint)
-    LegateInternal.add_constraint(task, c)
+    LegateInternal.add_constraint(task.impl, c)
 end
 
 """
@@ -84,30 +85,29 @@ Add a logical array/store as an input to the task.
 """
 function add_input(
     task::Union{AutoTask,ManualTask},
-    item::Union{LogicalArray,LogicalStore},
-)
-    LegateInternal.add_input(task, item.handle)
+    item::LogicalArray{T, N},
+) where {T, N}
+    push!(task.arg_types, Array{T, N})
+    LegateInternal.add_input(task.impl, item.handle)
 end
 
-"""
-    add_output(AutoTask, LogicalArray) -> Variable
-    add_output(ManualTask, LogicalStore) -> Variable
-
-Add a logical array/store as an output of the task.
-"""
 function add_output(
     task::Union{AutoTask,ManualTask},
-    item::Union{LogicalArray,LogicalStore},
-)
-    LegateInternal.add_output(task, item.handle)
+    item::LogicalArray{T, N},
+) where {T, N}
+    push!(task.arg_types, Array{T, N})
+    LegateInternal.add_output(task.impl, item.handle)
 end
 
-"""
-    add_scalar(AutoTask, scalar::Scalar)
-    add_scalar(ManualTask, scalar::Scalar)
+function add_scalar(task::Union{AutoTask,ManualTask}, scalar::ScalarImpl)
+    # Note: We don't easily have the Julia type here unless we wrap Scalar.
+    # For now, we rely on the MTW in ufi_poll if this is missing.
+    # But often Julia tasks are created via wrap_task which does MTW.
+    LegateInternal.add_scalar(task.impl, scalar)
+end
 
-Add a scalar argument to the task.
-"""
-function add_scalar(task::Union{AutoTask,ManualTask}, scalar::Scalar)
-    LegateInternal.add_scalar(task, scalar)
+# Specialized add_scalar to capture type for precompile
+function add_scalar(task::Union{AutoTask,ManualTask}, x::T) where {T<:SUPPORTED_TYPES}
+    push!(task.arg_types, T)
+    LegateInternal.add_scalar(task.impl, Scalar(x))
 end

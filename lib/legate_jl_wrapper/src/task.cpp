@@ -149,10 +149,11 @@ struct UFISlot {
 
 static UFISlot g_ufi_slots[MAX_UFI_SLOTS];
 static std::mutex g_slot_mutex;          // Protects slot allocation
-static std::condition_variable g_slot_cv;
+static std::condition_variable g_slot_cv; // Signaled when a slot is released
+static std::deque<int> g_pending_queue;   // Queue of slot IDs waiting for Julia
+static std::mutex g_pending_mutex;       // Protects g_pending_queue
 
 static std::atomic<int> g_active_calls{0};
-
 static std::atomic<int> g_max_task_id_seen{0};
 static std::atomic<int> g_work_sequence{1};
 static std::atomic<uint64_t> g_task_sequence{0};
@@ -189,14 +190,21 @@ JULIA_LEGATE_UFI_EXPORT void* legate_get_slot_request_ptr(int slot_id) {
   return static_cast<void*>(&g_ufi_slots[slot_id].request);
 }
 
-
-
 JULIA_LEGATE_UFI_EXPORT int legate_get_active_call_count() {
   return g_active_calls.load();
 }
 
 JULIA_LEGATE_UFI_EXPORT int legate_get_max_task_id_seen() {
   return g_max_task_id_seen.load();
+}
+
+// Returns the next slot ID that is ready for processing, or -1 if none.
+JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot() {
+  std::lock_guard<std::mutex> lock(g_pending_mutex);
+  if (g_pending_queue.empty()) return -1;
+  int slot_id = g_pending_queue.front();
+  g_pending_queue.pop_front();
+  return slot_id;
 }
 
 JULIA_LEGATE_UFI_EXPORT int legate_get_active_slot_count() {
@@ -371,6 +379,12 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
       // Release lock before signaling Julia to prevent deadlock
       lock.unlock();
+
+      // Push to the pending queue for Julia to pop
+      {
+        std::lock_guard<std::mutex> qlock(g_pending_mutex);
+        g_pending_queue.push_back(slot_id);
+      }
     }
 
     // Wait for Julia to signal completion
@@ -459,6 +473,7 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("legate_get_slot_work_available_ptr", &ufi::legate_get_slot_work_available_ptr);
   mod.method("legate_get_max_slots", &ufi::legate_get_max_slots);
   mod.method("legate_get_slot_request_ptr", &ufi::legate_get_slot_request_ptr);
+  mod.method("legate_pop_pending_slot", &ufi::legate_pop_pending_slot);
 
   mod.method("legate_get_active_call_count", &ufi::legate_get_active_call_count);
   mod.method("legate_get_max_task_id_seen", &ufi::legate_get_max_task_id_seen);
