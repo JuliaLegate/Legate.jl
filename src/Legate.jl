@@ -27,6 +27,7 @@ using CxxWrap
 
 using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
+using StaticArrays
 
 include(joinpath(@__DIR__, "../deps/version.jl"))
 include("utilities/preference.jl")

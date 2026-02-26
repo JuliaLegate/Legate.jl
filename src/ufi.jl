@@ -19,6 +19,8 @@
 
 export JuliaGPUTask, JuliaCPUTask, JuliaTask, TaskArgument, TaskRequest
 
+using StaticArrays
+
 const TaskArgument = Union{AbstractArray,SUPPORTED_TYPES}
 const CPUWrapType = Function
 
@@ -77,7 +79,8 @@ const MAX_SUBMITTED_TASK_ID = Threads.Atomic{Int}(0)
 
 const MAX_UFI_SLOTS_VAL = 32
 const MAX_UFI_SLOTS = Ref{Int}(32)
-const SLOT_REQUEST_PTRS = Ref{NTuple{32, Ptr{TaskRequest}}}()
+# StaticArrays provide a cleaner high-level interface while keeping NTuple performance
+const SLOT_REQUEST_PTRS = Ref{SVector{32, Ptr{TaskRequest}}}()
 const UFI_WORKER_TASKS = Vector{Task}(undef, 64)
 const UFI_WORKER_COUNT = Threads.Atomic{Int}(0)
 
@@ -188,7 +191,7 @@ function ufi_poll_sync()
             return
         end
 
-        # 2. Poll Slots
+        # Poll Slots
         while true
             found_slot = LegateInternal.legate_pop_pending_slot()
             if found_slot == -1
@@ -223,8 +226,31 @@ function _start_ufi_system()
 end
 
 function _execute_julia_task_internal(job::JuliaTaskRequest)
+    # Core._apply_iterate JIT race that causes stochastic segfaults.
     try
-        Base.invokelatest(job.task_fun, job.args[1:job.num_args]...)
+        n = job.num_args
+        args = job.args
+        if n == 0
+            Base.invokelatest(job.task_fun)
+        elseif n == 1
+            Base.invokelatest(job.task_fun, args[1])
+        elseif n == 2
+            Base.invokelatest(job.task_fun, args[1], args[2])
+        elseif n == 3
+            Base.invokelatest(job.task_fun, args[1], args[2], args[3])
+        elseif n == 4
+            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4])
+        elseif n == 5
+            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4], args[5])
+        elseif n == 6
+            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4], args[5], args[6])
+        elseif n == 7
+            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4], args[5], args[6], args[7])
+        elseif n == 8
+            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8])
+        else
+            Base.invokelatest(job.task_fun, args[1:n]...)
+        end
         _completion_callback(job.slot_id)
     catch e
         @error "UFI Execution Error" slot_id=job.slot_id exception=(e, catch_backtrace())
@@ -261,13 +287,13 @@ function init_ufi()
         max_slots = ccall((:legate_get_max_slots, Legate.WRAPPER_LIB_PATH), Cint, ())
         MAX_UFI_SLOTS[] = max_slots
         
-        # Initialize SLOT_REQUEST_PTRS as a fixed-size NTuple in a Ref
+        # Initialize SLOT_REQUEST_PTRS as a fixed-size StaticArray
         tmp_ptrs = Vector{Ptr{TaskRequest}}(undef, 32)
         fill!(tmp_ptrs, Ptr{TaskRequest}(C_NULL))
         for i in 1:max_slots
             tmp_ptrs[i] = ccall((:legate_get_slot_request_ptr, Legate.WRAPPER_LIB_PATH), Ptr{TaskRequest}, (Cint,), i-1)
         end
-        SLOT_REQUEST_PTRS[] = Tuple(tmp_ptrs)
+        SLOT_REQUEST_PTRS[] = SVector{32}(tmp_ptrs)
 
         LegateInternal._initialize_async_system()
 
@@ -277,7 +303,7 @@ function init_ufi()
             precompile(_completion_callback, (Int,))
             precompile(_execute_julia_task_internal, (JuliaTaskRequest,))
             
-            # Precompile internal helpers for common dimensionalities
+            # Precompile internal helpers
             precompile(_get_arg, (TaskRequest, Int, NTuple{1, Int64}))
             precompile(_get_arg, (TaskRequest, Int, NTuple{2, Int64}))
             precompile(_get_arg, (TaskRequest, Int, NTuple{3, Int64}))
