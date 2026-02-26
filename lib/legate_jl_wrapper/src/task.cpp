@@ -80,51 +80,44 @@ struct ufiFunctor {
 
 inline legate::Library create_library(legate::Runtime* rt,
                                       std::string library_name) {
-  // leverage default resource config and default mapper
-  // TODO have the mapper configurable by users depending on their library
-  // workload
   return rt->create_library(library_name, legate::ResourceConfig{});
 }
 
 constexpr int MAX_UFI_SLOTS = 32;
 
-// TaskRequest — layout must match Julia's TaskRequest
+// TaskRequest — layout must match Julia's TaskRequest in ufi.jl
 struct TaskRequestData {
-  uint64_t work_seq; // Offset 0
-  int is_gpu;        // Offset 8
-  uint32_t task_id;  // Offset 12
-  void** inputs_ptr; // Offset 16
-  void** outputs_ptr; // Offset 24
-  void** scalars_ptr; // Offset 32
-  int* inputs_types; // Offset 40
-  int* outputs_types; // Offset 48
-  int* scalar_types; // Offset 56
-  size_t num_inputs; // Offset 64
-  size_t num_outputs; // Offset 72
-  size_t num_scalars; // Offset 80
-  int ndim;          // Offset 88
-  int64_t dims[3];   // Offset 96
+  int is_gpu;        // Offset 0
+  uint32_t task_id;  // Offset 4
+  void** inputs_ptr; // Offset 8
+  void** outputs_ptr; // Offset 16
+  void** scalars_ptr; // Offset 24
+  int* inputs_types; // Offset 32
+  int* outputs_types; // Offset 40
+  int* scalar_types; // Offset 48
+  size_t num_inputs; // Offset 56
+  size_t num_outputs; // Offset 64
+  size_t num_scalars; // Offset 72
+  int ndim;          // Offset 80
+  int64_t dims[3];   // Offset 88
 };
 
-static_assert(sizeof(TaskRequestData) == 120, "TaskRequestData size must be 120 bytes");
-static_assert(offsetof(TaskRequestData, dims) == 96, "TaskRequestData dims offset must be 96");
+static_assert(sizeof(TaskRequestData) == 112, "TaskRequestData size must be 112 bytes");
+static_assert(offsetof(TaskRequestData, dims) == 88, "TaskRequestData dims offset must be 88");
 
 struct UFISlot {
   TaskRequestData request;
   std::mutex mutex;
   std::condition_variable cv;
-  std::atomic<int32_t> work_available{0};
   std::atomic<bool> task_done{false};
   std::atomic<bool> in_use{false};
 
   UFISlot() {
-    work_available.store(0);
     task_done.store(false);
     in_use.store(false);
   }
 
   void reset() {
-    work_available.store(0);
     task_done.store(false);
     in_use.store(false);
     inputs.clear();
@@ -134,7 +127,6 @@ struct UFISlot {
     outputs_types.clear();
     scalar_types.clear();
     request.ndim = 0;
-    request.work_seq = 0;
   }
 
   // Vectors kept alive during task execution
@@ -146,7 +138,6 @@ struct UFISlot {
   std::vector<int> scalar_types;
 };
 
-
 static UFISlot g_ufi_slots[MAX_UFI_SLOTS];
 static std::mutex g_slot_mutex;          // Protects slot allocation
 static std::condition_variable g_slot_cv; // Signaled when a slot is released
@@ -155,8 +146,6 @@ static std::mutex g_pending_mutex;       // Protects g_pending_queue
 
 static std::atomic<int> g_active_calls{0};
 static std::atomic<int> g_max_task_id_seen{0};
-static std::atomic<int> g_work_sequence{1};
-static std::atomic<uint64_t> g_task_sequence{0};
 
 } // namespace ufi
 
@@ -166,13 +155,6 @@ struct ActiveCallGuard {
   ActiveCallGuard() { g_active_calls.fetch_add(1); }
   ~ActiveCallGuard() { g_active_calls.fetch_sub(1); }
 };
-
-
-
-JULIA_LEGATE_UFI_EXPORT int32_t* legate_get_slot_work_available_ptr(int slot_id) {
-  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return nullptr;
-  return reinterpret_cast<int32_t*>(&g_ufi_slots[slot_id].work_available);
-}
 
 JULIA_LEGATE_UFI_EXPORT void completion_callback_from_julia(int slot_id) {
   if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return;
@@ -248,7 +230,6 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
   std::vector<void*> inputs;
   std::vector<void*> outputs;
-
   std::vector<int> inputs_types;
   std::vector<int> outputs_types;
 
@@ -257,7 +238,7 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   const std::size_t num_scalars = (total_scalars > 1) ? total_scalars - 1 : 0;
   
   DEBUG_PRINT("Task %d: total_scalars=%zu, user_scalars=%zu\n", task_id, total_scalars, num_scalars);
-
+  
   std::vector<void*> scalar_values;
   std::vector<int> scalar_types;
 
@@ -312,7 +293,7 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   int slot_id = -1;
   {
     std::unique_lock<std::mutex> lock(g_slot_mutex);
-    g_slot_cv.wait(lock, [&slot_id, task_id] {
+    g_slot_cv.wait(lock, [&slot_id] {
       for (int i = 0; i < MAX_UFI_SLOTS; ++i) {
         if (!g_ufi_slots[i].in_use.load()) {
           g_ufi_slots[i].in_use.store(true);
@@ -363,21 +344,7 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
       slot.request.ndim = ndim;
       for (int i = 0; i < 3; ++i) slot.request.dims[i] = dims[i];
 
-      // Reset completion flag and signal work availability
       slot.task_done.store(false);
-      
-      // Signal with unique sequence ID (never 0)
-      uint64_t seq = g_work_sequence.fetch_add(1);
-      if (seq == 0) seq = g_work_sequence.fetch_add(1);
-      slot.request.work_seq = seq;
-      slot.work_available.store((int32_t)seq);
-
-      DEBUG_PRINT(
-          "[SEQ %llu] Task %u ready in slot %d (work_seq=%llu) work_available_addr=%p\n",
-          (unsigned long long)g_task_sequence++, (unsigned int)task_id, slot_id, (unsigned long long)seq,
-          (void*)&slot.work_available);
-
-      // Release lock before signaling Julia to prevent deadlock
       lock.unlock();
 
       // Push to the pending queue for Julia to pop
@@ -410,6 +377,7 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
       slot.request.inputs_ptr = nullptr;
       slot.request.outputs_ptr = nullptr;
       slot.request.scalars_ptr = nullptr;
+      slot.request.ndim = 0;
       slot.inputs.clear();
       slot.outputs.clear();
       slot.scalar_values.clear();
@@ -417,9 +385,6 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
       slot.outputs_types.clear();
       slot.scalar_types.clear();
 
-      // release slot state
-      DEBUG_PRINT("Releasing slot %d...\n", slot_id);
-      slot.work_available.store(0);
       slot.in_use.store(false);
       lock.unlock();
 
@@ -470,7 +435,6 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("_create_library", &ufi::create_library);
   mod.method("_initialize_async_system", &ufi::initialize_async_system);
 
-  mod.method("legate_get_slot_work_available_ptr", &ufi::legate_get_slot_work_available_ptr);
   mod.method("legate_get_max_slots", &ufi::legate_get_max_slots);
   mod.method("legate_get_slot_request_ptr", &ufi::legate_get_slot_request_ptr);
   mod.method("legate_pop_pending_slot", &ufi::legate_pop_pending_slot);

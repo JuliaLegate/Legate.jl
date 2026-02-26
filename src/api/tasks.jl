@@ -24,15 +24,39 @@ end
 Submit an manual/auto task to the runtime.
 """
 function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
-    # Update High Water Mark for UFI tracking
-    Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, Int(LAST_CREATED_TASK_ID[]))
+    # Update submission horizon
+    Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, Int(task.task_id))
 
-    @threadcall((:legate_submit_auto_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.impl.cpp_object)
+    # Precompile on main thread to avoid JIT on worker threads
+    # Order MUST match ufi.jl: (Inputs..., Outputs..., Scalars...)
+    if !isnothing(task.fun)
+        arg_types = (task.input_types..., task.output_types..., task.scalar_types...)
+        if !isempty(arg_types)
+            try
+                precompile(task.fun, arg_types)
+            catch e
+                @warn "Precompilation failed for task $(task.task_id)" exception=(e, catch_backtrace())
+            end
+        end
+    end
+
+    ccall((:legate_submit_auto_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.impl.cpp_object)
 end
 function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
-    Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, Int(LAST_CREATED_TASK_ID[]))
+    Threads.atomic_max!(MAX_SUBMITTED_TASK_ID, Int(task.task_id))
     
-    @threadcall((:legate_submit_manual_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.impl.cpp_object)
+    if !isnothing(task.fun)
+        arg_types = (task.input_types..., task.output_types..., task.scalar_types...)
+        if !isempty(arg_types)
+            try
+                precompile(task.fun, arg_types)
+            catch e
+                @warn "Precompilation failed for task $(task.task_id)" exception=(e, catch_backtrace())
+            end
+        end
+    end
+    
+    ccall((:legate_submit_manual_task, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt.cpp_object, task.impl.cpp_object)
 end
 
 """
@@ -87,7 +111,7 @@ function add_input(
     task::Union{AutoTask,ManualTask},
     item::LogicalArray{T, N},
 ) where {T, N}
-    push!(task.arg_types, Array{T, N})
+    push!(task.input_types, Array{T, N})
     LegateInternal.add_input(task.impl, item.handle)
 end
 
@@ -95,7 +119,7 @@ function add_output(
     task::Union{AutoTask,ManualTask},
     item::LogicalArray{T, N},
 ) where {T, N}
-    push!(task.arg_types, Array{T, N})
+    push!(task.output_types, Array{T, N})
     LegateInternal.add_output(task.impl, item.handle)
 end
 
@@ -108,6 +132,6 @@ end
 
 # Specialized add_scalar to capture type for precompile
 function add_scalar(task::Union{AutoTask,ManualTask}, x::T) where {T<:SUPPORTED_TYPES}
-    push!(task.arg_types, T)
+    push!(task.scalar_types, T)
     LegateInternal.add_scalar(task.impl, Scalar(x))
 end

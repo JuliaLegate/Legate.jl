@@ -40,9 +40,12 @@ Represents an automatically scheduled task. Supports adding inputs, outputs, sca
 """
 mutable struct AutoTask
     impl::AutoTaskImpl
+    fun::Union{Nothing, Function}
     task_id::UInt32
-    arg_types::Vector{DataType}
-    AutoTask(impl) = new(impl, 0, DataType[])
+    input_types::Vector{DataType}
+    output_types::Vector{DataType}
+    scalar_types::Vector{DataType}
+    AutoTask(impl) = new(impl, nothing, 0, DataType[], DataType[], DataType[])
 end
 
 """
@@ -52,9 +55,12 @@ Represents a manually scheduled task. Supports adding inputs, outputs, and scala
 """
 mutable struct ManualTask
     impl::ManualTaskImpl
+    fun::Union{Nothing, Function}
     task_id::UInt32
-    arg_types::Vector{DataType}
-    ManualTask(impl) = new(impl, 0, DataType[])
+    input_types::Vector{DataType}
+    output_types::Vector{DataType}
+    scalar_types::Vector{DataType}
+    ManualTask(impl) = new(impl, nothing, 0, DataType[], DataType[], DataType[])
 end
 
 """

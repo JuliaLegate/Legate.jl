@@ -182,7 +182,6 @@ _is_precompiling() = ccall(:jl_generating_output, Cint, ()) != 0
 
 function __init__()
     LegatePreferences.check_unchanged()
-    UFI_EXEC_LOCK[] = ReentrantLock()
 
     _is_precompiling() && return nothing
     ensure_runtime!()
