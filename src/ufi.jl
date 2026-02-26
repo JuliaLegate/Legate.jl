@@ -63,7 +63,7 @@ end
 
 struct JuliaTaskRequest # abstracted handle for channel push! and take!
     req::TaskRequest
-    sig::Tuple
+    args::Vector{TaskArgument}
     slot_id::Int
 end
 
@@ -78,7 +78,6 @@ const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
 const MAX_SUBMITTED_TASK_ID = Threads.Atomic{Int}(0)
 
 const MAX_UFI_SLOTS = Ref{Int}(0)
-const SLOT_WORK_AVAILABLE_PTRS = Vector{Ptr{Int32}}()
 const SLOT_REQUEST_PTRS = Vector{Ptr{TaskRequest}}()
 const UFI_LAST_TASK_IDS = Vector{Threads.Atomic{Int32}}()
 const UFI_WORKER_TASKS = Vector{Task}()
@@ -114,30 +113,6 @@ function ufi_has_pending_work()
     submitted = MAX_SUBMITTED_TASK_ID[]
     seen = Int(get_max_task_id_seen())
     return submitted > seen || get_active_call_count() > 0 || get_active_slot_count() > 0
-end
-
-function _get_task_signature(req::TaskRequest)
-    num_args = req.num_inputs + req.num_outputs + req.num_scalars
-    arg_types = Vector{DataType}(undef, Int(num_args))
-    dims = ntuple(i -> Int(max(0, req.dims[i])), req.ndim)
-    
-    offset = 1
-    for i in 1:req.num_inputs
-        T = get_code_type(_get_type(req.inputs_types, i))
-        arg_types[offset] = Array{T, length(dims)}
-        offset += 1
-    end
-    for i in 1:req.num_outputs
-        T = get_code_type(_get_type(req.outputs_types, i))
-        arg_types[offset] = Array{T, length(dims)}
-        offset += 1
-    end
-    for i in 1:req.num_scalars
-        T = get_code_type(Int(_get_type(req.scalar_types, i)))
-        arg_types[offset] = T
-        offset += 1
-    end
-    return Tuple(arg_types)
 end
 
 const UFI_POLL_LOCK = ReentrantLock()
@@ -209,12 +184,13 @@ function ufi_poll_sync()
             end
             
             i = found_slot + 1 # Julia is 1-indexed
-            
             req = unsafe_load(SLOT_REQUEST_PTRS[i])
-            sig = _get_task_signature(req)
-            @debug "UFI: Found pending slot" thread=tid slot_id=found_slot req=req sig=sig
-            
-            put!(JOB_QUEUE[], JuliaTaskRequest(req, sig, found_slot))
+            dims = ntuple(i -> Int(max(0, req.dims[i])), req.ndim)
+            args = Vector{TaskArgument}(undef, Int(req.num_inputs + req.num_outputs + req.num_scalars))
+            _fill_args_core!(args, req, dims)
+
+            @debug "UFI: Found pending slot" thread=tid slot_id=found_slot req=req args=args
+            put!(JOB_QUEUE[], JuliaTaskRequest(req, args, found_slot))
             return
         end
     catch e
@@ -237,8 +213,7 @@ function _execute_julia_task_internal(job::JuliaTaskRequest)
     if job.req.is_gpu != 0
         error("Legate UFI: GPU execution not supported.")
     else
-        args = Vector{TaskArgument}(undef, Int(job.req.num_inputs + job.req.num_outputs + job.req.num_scalars))
-        Base.invokelatest(_execute_julia_task_cpu, job.req, task_fun, args)
+        Base.invokelatest(_execute_julia_task_cpu, task_fun, job.args)
         _completion_callback(job.slot_id)
     end
 end
@@ -263,10 +238,7 @@ end
 _get_type(x::Ptr{Cint}, i) = unsafe_load(x, i)
 _get_ptr(x::Ptr{Ptr{Cvoid}}, i) = unsafe_load(x, i)
 
-function _execute_julia_task_cpu(req::TaskRequest, task_fun::Function, args::Vector{TaskArgument})
-    dims = ntuple(i -> Int(max(0, req.dims[i])), req.ndim)
-    _fill_args_core!(args, req, dims)
-    # Always use invokelatest for workers and dynamic world ages.
+function _execute_julia_task_cpu(task_fun::Function, args::Vector{TaskArgument})
     Base.invokelatest(task_fun, args...)
 end
 
@@ -310,12 +282,9 @@ function init_ufi()
             UFI_LAST_TASK_IDS[i] = Threads.Atomic{Int32}(0)
         end
         
-        empty!(SLOT_WORK_AVAILABLE_PTRS)
         empty!(SLOT_REQUEST_PTRS)
         for i in 1:max_slots
-            ptr = ccall((:legate_get_slot_work_available_ptr, Legate.WRAPPER_LIB_PATH), Ptr{Int32}, (Cint,), i-1)
             req_ptr = ccall((:legate_get_slot_request_ptr, Legate.WRAPPER_LIB_PATH), Ptr{TaskRequest}, (Cint,), i-1)
-            push!(SLOT_WORK_AVAILABLE_PTRS, ptr)
             push!(SLOT_REQUEST_PTRS, req_ptr)
         end
 
@@ -326,7 +295,7 @@ function init_ufi()
             precompile(ufi_poll_sync, ())
             precompile(_completion_callback, (Int,))
             precompile(_execute_julia_task_internal, (JuliaTaskRequest,))
-            precompile(_execute_julia_task_cpu, (TaskRequest, Function, Vector{TaskArgument}))
+            precompile(_execute_julia_task_cpu, (Function, Vector{TaskArgument}))
             precompile(_fill_args_core!, (Vector{TaskArgument}, TaskRequest, NTuple{3, Int64}))
         catch e
             @warn "Precompilation failed" exception=(e, catch_backtrace())
