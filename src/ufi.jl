@@ -62,6 +62,13 @@ struct TaskRequest
     end
 end
 
+struct JuliaTaskRequest # abstracted handle for channel push! and take!
+    req::TaskRequest
+    sig::Tuple
+    slot_id::Int
+end
+
+
 const TASK_REGISTRY = Dict{UInt32,Union{CPUWrapType,Function}}()
 const REGISTRY_LOCK = ReentrantLock()
 const LAST_CREATED_TASK_ID = Threads.Atomic{Int}(0)
@@ -76,7 +83,9 @@ const SLOT_WORK_AVAILABLE_PTRS = Vector{Ptr{Int32}}()
 const SLOT_REQUEST_PTRS = Vector{Ptr{TaskRequest}}()
 const UFI_LAST_TASK_IDS = Vector{Threads.Atomic{Int32}}()
 const UFI_WORKER_TASKS = Vector{Task}()
-const JOB_QUEUE = Ref{Channel{Any}}()
+
+
+const JOB_QUEUE = Ref{Channel{JuliaTaskRequest}}()
 
 const UFI_SHUTDOWN = Threads.Atomic{Bool}(false)
 const UFI_INITIALIZED = Ref{Bool}(false)
@@ -135,6 +144,7 @@ end
 const UFI_POLL_LOCK = ReentrantLock()
 
 function wait_ufi()
+    @info "Waiting for UFI to complete"
     Legate.issue_execution_fence(blocking=false)
 
     while ufi_has_pending_work()
@@ -182,7 +192,9 @@ end
 
 function ufi_poll_sync()
     tid = Threads.threadid()
-    is_main = (tid == 1)
+    if !(tid == 1)
+        return
+    end
     
     try
         if UFI_SHUTDOWN[]
@@ -192,17 +204,19 @@ function ufi_poll_sync()
         # 2. Poll Slots
         # Popping from the C++ pending queue to avoid O(N) scanning
         while true
-            slot_id_0 = LegateInternal.legate_pop_pending_slot()
-            if slot_id_0 == -1
+            found_slot = LegateInternal.legate_pop_pending_slot()
+            if found_slot == -1
                 break
             end
             
-            i = slot_id_0 + 1 # Julia is 1-indexed
+            i = found_slot + 1 # Julia is 1-indexed
             
             req = unsafe_load(SLOT_REQUEST_PTRS[i])
             sig = _get_task_signature(req)
+            @info "UFI: Found pending slot" thread=tid slot_id=found_slot req=req sig=sig
             
-            put!(JOB_QUEUE[], (req, slot_id_0, sig))
+            put!(JOB_QUEUE[], JuliaTaskRequest(req, sig, found_slot))
+            return
         end
     catch e
         @error "UFI: Critical error in ufi_poll_sync" thread=Threads.threadid() exception=(e, catch_backtrace())
@@ -215,18 +229,18 @@ function _start_ufi_system()
     UFI_SHUTDOWN[] = false
 end
 
-function _execute_julia_task_internal(req::TaskRequest, slot_id::Integer, sig::Tuple)
+function _execute_julia_task_internal(job::JuliaTaskRequest)
     local task_fun
     lock(REGISTRY_LOCK) do
-        task_fun = TASK_REGISTRY[req.task_id]
+        task_fun = TASK_REGISTRY[job.req.task_id]
     end
     
-    if req.is_gpu != 0
+    if job.req.is_gpu != 0
         error("Legate UFI: GPU execution not supported.")
     else
-        args = Vector{TaskArgument}(undef, Int(req.num_inputs + req.num_outputs + req.num_scalars))
-        Base.invokelatest(_execute_julia_task_cpu, req, task_fun, args)
-        _completion_callback(slot_id)
+        args = Vector{TaskArgument}(undef, Int(job.req.num_inputs + job.req.num_outputs + job.req.num_scalars))
+        Base.invokelatest(_execute_julia_task_cpu, job.req, task_fun, args)
+        _completion_callback(job.slot_id)
     end
 end
 
@@ -235,9 +249,9 @@ function _ufi_worker_loop()
         try
             # take! blocks until a job is available
             job = take!(JOB_QUEUE[])
-            (req, slot_id, sig) = job
+            @info "UFI: executing task" thread=tid slot_id=job.slot_id req=job.req
             
-            _execute_julia_task_internal(req, slot_id, sig)
+            _execute_julia_task_internal(job)
         catch e
             if !UFI_SHUTDOWN[]
                 @error "UFI Worker: Unexpected error" exception=(e, catch_backtrace())
@@ -285,7 +299,7 @@ function init_ufi()
         UFI_INITIALIZED[] && return
         _is_precompiling() && return
         
-        JOB_QUEUE[] = Channel{Any}(10000)
+        JOB_QUEUE[] = Channel{JuliaTaskRequest}(10000)
 
         UFI_EXEC_LOCK[] = ReentrantLock()
 
@@ -312,7 +326,7 @@ function init_ufi()
         try
             precompile(ufi_poll_sync, ())
             precompile(_completion_callback, (Int,))
-            precompile(_execute_julia_task_internal, (TaskRequest, Int, Tuple))
+            precompile(_execute_julia_task_internal, (JuliaTaskRequest,))
             precompile(_execute_julia_task_cpu, (TaskRequest, Function, Vector{TaskArgument}))
             precompile(_fill_args_core!, (Vector{TaskArgument}, TaskRequest, NTuple{3, Int64}))
         catch e
