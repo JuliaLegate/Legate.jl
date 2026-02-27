@@ -247,6 +247,12 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   DEBUG_PRINT("Task %u: Claimed slot %d\n", task_id, slot_id);
 
   auto& slot = g_ufi_slots[slot_id];
+  // This prevents stale notifications from previous runs of the SAME slot.
+  {
+    std::lock_guard<std::mutex> lock(slot.mutex);
+    slot.task_done.store(false);
+  }
+
   slot.request.is_gpu = is_gpu ? 1 : 0;
   slot.request.task_id = task_id;
   slot.request.num_inputs = ni;

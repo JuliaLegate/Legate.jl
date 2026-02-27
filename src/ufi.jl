@@ -183,13 +183,13 @@ end
     end
 end
 
-const IN_POLL = Threads.Atomic{Bool}(false)
+const IN_POLL = Threads.Atomic{Int}(0)
 function ufi_poll_sync()
     if Threads.threadid() != 1
         return
     end
-    # Atomic re-entrancy guard: if another task yielded while in poll, skip.
-    if Threads.atomic_cas!(IN_POLL, false, true)
+    # Atomic re-entrancy guard: if already in poll, skip.
+    if Threads.atomic_cas!(IN_POLL, 0, 1) != 0
         return
     end
     try
@@ -202,7 +202,12 @@ function ufi_poll_sync()
             fs == -1 && break
 
             req = unsafe_load(SLOT_REQUEST_PTRS[][fs + 1])
-            dims = ntuple(i -> Int(max(0, req.dims[i])), req.ndim)
+            # Dimension Validation: Support 0..3 dims
+            if req.ndim < 0 || req.ndim > 3
+                error("UFI: Unsupported ndim $(req.ndim). Must be between 0 and 3.")
+            end
+            nd = Int(req.ndim)
+            dims = ntuple(i -> Int(max(0, req.dims[i])), nd)
             
             task_fun = lock(REGISTRY_LOCK) do
                 TASK_REGISTRY[req.task_id]
@@ -218,7 +223,7 @@ function ufi_poll_sync()
         @error "UFI: FATAL error in ufi_poll_sync" thread=Threads.threadid() exception=(e, catch_backtrace())
         exit(UFI_ERROR_CODE) # Fail Fast: Exit on any UFI logic corruption
     finally
-        IN_POLL[] = false
+        IN_POLL[] = 0
     end
 end
 
