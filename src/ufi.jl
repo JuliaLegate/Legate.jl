@@ -185,9 +185,6 @@ end
 
 const IN_POLL = Threads.Atomic{Int}(0)
 function ufi_poll_sync()
-    if Threads.threadid() != 1
-        return
-    end
     # Atomic re-entrancy guard: if already in poll, skip.
     if Threads.atomic_cas!(IN_POLL, 0, 1) != 0
         return
@@ -320,26 +317,31 @@ function init_ufi()
     end
 end
 
-const UFI_POLL_INTERVAL = 0.002
-const UFI_POLLER_TIMER = Ref{Base.Timer}()
+function _ufi_poller_loop()
+    # Guard against precompilation
+    (ccall(:jl_generating_output, Cint, ()) != 0) && return
+    
+    while !UFI_SHUTDOWN[]
+        ufi_poll_sync()
+        # High-frequency yield/sleep to drive C++ progress
+        yield()
+        sleep(0.001)
+    end
+end
+
+const UFI_POLLER_TASK = Ref{Task}()
 
 function _start_ufi_threads()
     # Guard against precompilation and multiple starts
     (ccall(:jl_generating_output, Cint, ()) != 0) && return
     UFI_INITIALIZED[] || return
     UFI_SHUTDOWN[] && return
-    isassigned(UFI_POLLER_TIMER) && return
+    isassigned(UFI_POLLER_TASK) && return
 
-    @debug "UFI System: Starting Main-Thread Poller and Workers"
+    @debug "UFI System: Starting Background Poller and Workers"
     
-    # 1. Main poller on Thread 1
-    UFI_POLLER_TIMER[] = Base.Timer(0.0; interval=UFI_POLL_INTERVAL) do timer
-        if !UFI_SHUTDOWN[]
-            ufi_poll_sync()
-        else
-            close(timer)
-        end
-    end
+    # 1. Background Poller Task
+    UFI_POLLER_TASK[] = errormonitor(Threads.@spawn _ufi_poller_loop())
 
     # 2. Worker threads
     n = Threads.nthreads()
