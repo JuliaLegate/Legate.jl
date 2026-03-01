@@ -205,8 +205,6 @@ function init_ufi()
 
         println(stderr, "[UFI] System Initialized (Concurrent Count-Sync Mode) with $(num_workers) workers\n")
     end
-
-    @debug "fuck"
 end
 
 function shutdown_ufi()
