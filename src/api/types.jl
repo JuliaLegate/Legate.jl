@@ -1,122 +1,91 @@
-"""
-    Library
+#= Copyright 2026 Northwestern University, 
+ *                   Carnegie Mellon University University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author(s): David Krasowska <krasow@u.northwestern.edu>
+ *            Ethan Meitz <emeitz@andrew.cmu.edu>
+=#
 
-Represents a computational or data library. Serves as a container for tasks, arrays, and stores.
-"""
-Library
-
-"""
-    Variable
-
-Represents a variable in the task system, typically produced or consumed by tasks.
-"""
-Variable
-
-"""
-    Constraint
-
-Represents a dependency or restriction for a task, such as ordering or memory constraints.
-"""
-Constraint
-
-"""
-    LocalTaskID
-
-A unique identifier for a task within a single process or node.
-"""
-LocalTaskID
-
-"""
-    GlobalTaskID
-
-A globally unique identifier for a task across processes or nodes.
-"""
-GlobalTaskID
-
-"""
-    AutoTask
-
-Represents an automatically scheduled task. Supports adding inputs, outputs, scalars, and constraints.
-"""
-mutable struct AutoTask
-    impl::AutoTaskImpl
-    fun::Union{Nothing, Function}
+struct JuliaCPUTask
+    fun::Function
     task_id::UInt32
+end
+
+struct JuliaGPUTask
+    fun::Function
+    task_id::UInt32
+end
+
+JuliaTask = Union{JuliaCPUTask, JuliaGPUTask}
+
+mutable struct LegateTask{I}
+    impl::I
     input_types::Vector{DataType}
     output_types::Vector{DataType}
     scalar_types::Vector{DataType}
-    AutoTask(impl) = new(impl, nothing, 0, DataType[], DataType[], DataType[])
+    arg_dims::Vector{Union{Nothing, NTuple}}
 end
 
-"""
-    ManualTask
+LegateTask(impl::I) where I = LegateTask{I}(impl, DataType[], DataType[], DataType[], Union{Nothing, NTuple}[])
 
-Represents a manually scheduled task. Supports adding inputs, outputs, and scalars.
-"""
-mutable struct ManualTask
-    impl::ManualTaskImpl
-    fun::Union{Nothing, Function}
-    task_id::UInt32
-    input_types::Vector{DataType}
-    output_types::Vector{DataType}
-    scalar_types::Vector{DataType}
-    ManualTask(impl) = new(impl, nothing, 0, DataType[], DataType[], DataType[])
+const AutoTask   = LegateTask{AutoTaskImpl}
+const ManualTask = LegateTask{ManualTaskImpl}
+
+function AutoTask(impl::LegateInternal.AutoTaskAllocated)
+    @debug "IMPL: Creating auto task $(impl)"
+    return LegateTask{AutoTaskImpl}(impl)
 end
 
-"""
-    StoreTarget
+function ManualTask(impl::LegateInternal.ManualTaskAllocated)
+    @debug "IMPL: Creating manual task $(impl)"
+    return LegateTask{ManualTaskImpl}(impl)
+end
 
-Represents the target storage type or location for a store in the mapping layer.
-"""
-StoreTarget
-
-"""
-    Shape
-
-Represents the dimensions of an array or store. Can be constructed from a vector of `UInt64`.
-"""
-Shape
 
 """
-    Scalar
+    UfiSignature{InT, OutT, ScT, Dims}
 
-Represents a scalar value used in tasks.
+A type-level representation of a task's full signature, including argument types
+and dimension values. Encoding dimensions as type parameters ensures perfect
+type stability and zero-allocation dispatch in background threads.
 """
+struct UfiSignature{InT, OutT, ScT, Dims} end
+
+"""
+    UfiMetadata
+
+Stores the task function and its static signature.
+"""
+struct UfiMetadata
+    fun::Function
+    sig::Any # UfiSignature{...}
+end
+
+
+struct Scalar{T}
+    impl::ScalarImpl
+end
+
 function Scalar(x::T) where {T<:SUPPORTED_TYPES}
     r = Ref(x)
-    GC.@preserve r begin
+    impl = GC.@preserve r begin
         ptr = Base.unsafe_convert(Ptr{Cvoid}, r)
-        return LegateInternal.make_scalar(ptr, to_legate_type(T))
+        LegateInternal.make_scalar(ptr, to_legate_type(T))
     end
+    return Scalar{T}(impl)
 end
 
-"""
-    Slice
-
-Represents a slice of an array or store. Can be constructed from optional start and stop indices.
-"""
-Slice
-
-"""
-    PhysicalStore
-
-Represents a physical storage container. Provides methods to query its dimensions, type, and accessibility.
-"""
-PhysicalStore
-
-"""
-    PhysicalArray
-
-A physical array container. Provides access to dimensions, type, and raw data pointer.
-"""
-PhysicalArray
-
-"""
-    LogicalStore{T,N}
-
-Represents a logical view over a physical store. Supports reinterpretation, promotion, slicing, and storage queries.
-Wraps the underlying C++ `LogicalStoreImpl`.
-"""
 struct LogicalStore{T,N}
     handle::LogicalStoreImpl
     dims::Union{Nothing,NTuple{N,Int}}
@@ -125,12 +94,6 @@ end
 Base.size(s::LogicalStore) = s.dims
 Base.size(s::LogicalStore, i::Integer) = size(s)[i]
 
-"""
-    LogicalArray{T,N}
-
-A logical view over a physical array. Supports unbound views and nullability checks.
-Wraps the underlying C++ `LogicalArrayImpl`.
-"""
 struct LogicalArray{T,N}
     handle::LogicalArrayImpl
     dims::Union{Nothing,NTuple{N,Int}}
@@ -138,10 +101,3 @@ end
 
 Base.size(a::LogicalArray) = a.dims
 Base.size(a::LogicalArray, i::Integer) = size(a)[i]
-
-"""
-    LegateType
-
-Datatype of object within Legate. See `Legate.supported_types()` to see supported types.
-"""
-LegateType

@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <deque>
+#include <future>
 #include <mutex>
 #include <vector>
 
@@ -53,22 +55,9 @@ UFI(read, read_accessor);
 UFI(write, write_accessor);
 
 struct ufiFunctor {
-  int* ndim_ptr = nullptr;
-  int64_t* dims_ptr = nullptr;
-
-  ufiFunctor() = default;
-  ufiFunctor(int* ndim, int64_t* dims) : ndim_ptr(ndim), dims_ptr(dims) {}
-
   template <legate::Type::Code CODE, int DIM>
   void operator()(ufi::AccessMode mode, std::uintptr_t& p,
                   const legate::PhysicalArray& rf) {
-    if (ndim_ptr && *ndim_ptr == 0) {
-      *ndim_ptr = DIM;
-      auto shp = rf.shape<DIM>();
-      for (int i = 0; i < DIM && i < 3; ++i) {
-        dims_ptr[i] = shp.hi[i] - shp.lo[i] + 1;
-      }
-    }
 
     using CppT = typename legate_util::code_to_cxx<CODE>::type;
     if (mode == ufi::AccessMode::READ)
@@ -94,18 +83,9 @@ struct TaskRequestData {
   void** inputs_ptr; // Offset 8
   void** outputs_ptr; // Offset 16
   void** scalars_ptr; // Offset 24
-  int* inputs_types; // Offset 32
-  int* outputs_types; // Offset 40
-  int* scalar_types; // Offset 48
-  size_t num_inputs; // Offset 56
-  size_t num_outputs; // Offset 64
-  size_t num_scalars; // Offset 72
-  int ndim;          // Offset 80
-  int64_t dims[3];   // Offset 88
 };
 
-static_assert(sizeof(TaskRequestData) == 112, "TaskRequestData size must be 112 bytes");
-static_assert(offsetof(TaskRequestData, dims) == 88, "TaskRequestData dims offset must be 88");
+static_assert(sizeof(TaskRequestData) == 32, "TaskRequestData size must be 32 bytes");
 
 struct UFISlot {
   TaskRequestData request;
@@ -118,9 +98,6 @@ struct UFISlot {
   void* inputs[MAX_UFI_ARGS];
   void* outputs[MAX_UFI_ARGS];
   void* scalar_ptrs[MAX_UFI_ARGS];
-  int inputs_types[MAX_UFI_ARGS];
-  int outputs_types[MAX_UFI_ARGS];
-  int scalar_types[MAX_UFI_ARGS];
   char scalar_data[MAX_UFI_ARGS][MAX_SCALAR_SIZE];
 
   UFISlot() {
@@ -129,18 +106,11 @@ struct UFISlot {
     request.inputs_ptr = inputs;
     request.outputs_ptr = outputs;
     request.scalars_ptr = scalar_ptrs;
-    request.inputs_types = inputs_types;
-    request.outputs_types = outputs_types;
-    request.scalar_types = scalar_types;
   }
 
   void reset() {
     task_done.store(false);
     in_use.store(false);
-    request.ndim = 0;
-    request.num_inputs = 0;
-    request.num_outputs = 0;
-    request.num_scalars = 0;
   }
 };
 
@@ -149,9 +119,12 @@ static std::mutex g_slot_mutex;
 static std::condition_variable g_slot_cv;
 static std::deque<int> g_pending_queue;
 static std::mutex g_pending_mutex;
+static std::condition_variable g_pending_cv;
+static bool g_shutdown = false;
 
 static std::atomic<int> g_active_calls{0};
 static std::atomic<int> g_max_task_id_seen{0};
+static std::atomic<int> g_started_count{0};
 
 } // namespace ufi
 
@@ -180,10 +153,41 @@ JULIA_LEGATE_UFI_EXPORT void* legate_get_slot_request_ptr(int slot_id) {
 
 JULIA_LEGATE_UFI_EXPORT int legate_get_active_call_count() { return g_active_calls.load(); }
 JULIA_LEGATE_UFI_EXPORT int legate_get_max_task_id_seen() { return g_max_task_id_seen.load(); }
+JULIA_LEGATE_UFI_EXPORT int legate_get_started_count() { return g_started_count.load(); }
 
-JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot() {
+static char g_dummy_handle;
+
+JULIA_LEGATE_UFI_EXPORT void* legate_start_copy(void* dest_ptr, void* src_ptr) {
+  auto& dest = *reinterpret_cast<legate::LogicalStore*>(dest_ptr);
+  auto& src = *reinterpret_cast<const legate::LogicalStore*>(src_ptr);
+  legate::Runtime::get_runtime()->issue_copy(dest, src);
+  return &g_dummy_handle;
+}
+
+JULIA_LEGATE_UFI_EXPORT void* legate_start_detach(void* store_ptr) {
+  auto& store = *reinterpret_cast<legate::LogicalStore*>(store_ptr);
+  store.detach();
+  return &g_dummy_handle;
+}
+
+JULIA_LEGATE_UFI_EXPORT int legate_wait_handle(void* handle) { return 1; }
+JULIA_LEGATE_UFI_EXPORT int legate_is_handle_ready(void* handle) { return 1; }
+JULIA_LEGATE_UFI_EXPORT void legate_free_handle(void* handle) { }
+
+JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot_nonblocking() {
   std::lock_guard<std::mutex> lock(g_pending_mutex);
   if (g_pending_queue.empty()) return -1;
+  int slot_id = g_pending_queue.front();
+  g_pending_queue.pop_front();
+  return slot_id;
+}
+
+JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot() {
+  std::unique_lock<std::mutex> lock(g_pending_mutex);
+  while (g_pending_queue.empty() && !g_shutdown) {
+    g_pending_cv.wait(lock);
+  }
+  if (g_shutdown || g_pending_queue.empty()) return -1;
   int slot_id = g_pending_queue.front();
   g_pending_queue.pop_front();
   return slot_id;
@@ -198,23 +202,26 @@ JULIA_LEGATE_UFI_EXPORT int legate_get_active_slot_count() {
 }
 
 void initialize_async_system() {
+  g_shutdown = false;
   for (int i = 0; i < MAX_UFI_SLOTS; ++i) g_ufi_slots[i].reset();
 }
 
 inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   ActiveCallGuard guard;
   if (context.num_scalars() == 0) {
-    ERROR_PRINT("Task has no scalars! UFI variant requires at least 1 scalar for task_id.\n");
     abort();
   }
+
+  g_started_count.fetch_add(1);
   
   uint32_t task_id = context.scalar(0).value<uint32_t>();
+  DEBUG_PRINT("JuliaTaskInterface(task=%u): started=%d, active=%d\n", task_id, g_started_count.load(), g_active_calls.load());
   {
     int current = g_max_task_id_seen.load();
     while (task_id > current && !g_max_task_id_seen.compare_exchange_weak(current, task_id));
   }
 
-  DEBUG_PRINT("JuliaTaskInterface starting for task %u...\n", task_id);
+  DEBUG_PRINT("JuliaTaskInterface starting for task %u in slot search...\n", task_id);
 
   const size_t ni = std::min((size_t)context.num_inputs(), (size_t)MAX_UFI_ARGS);
   const size_t no = std::min((size_t)context.num_outputs(), (size_t)MAX_UFI_ARGS);
@@ -235,8 +242,8 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     std::unique_lock<std::mutex> lock(g_slot_mutex);
     g_slot_cv.wait(lock, [&slot_id] {
       for (int i = 0; i < MAX_UFI_SLOTS; ++i) {
-        if (!g_ufi_slots[i].in_use.load()) {
-          g_ufi_slots[i].in_use.store(true);
+        bool expected = false;
+        if (g_ufi_slots[i].in_use.compare_exchange_strong(expected, true)) {
           slot_id = i;
           return true;
         }
@@ -255,19 +262,14 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
   slot.request.is_gpu = is_gpu ? 1 : 0;
   slot.request.task_id = task_id;
-  slot.request.num_inputs = ni;
-  slot.request.num_outputs = no;
-  slot.request.num_scalars = ns;
-  slot.request.ndim = 0;
 
-  ufiFunctor functor{&slot.request.ndim, slot.request.dims};
+  ufiFunctor functor;
 
   for (size_t i = 0; i < ni; ++i) {
     auto ps = context.input(i);
     std::uintptr_t p = 0;
     legate::double_dispatch(ps.dim(), ps.type().code(), functor, ufi::AccessMode::READ, p, ps);
     slot.inputs[i] = reinterpret_cast<void*>(p);
-    slot.inputs_types[i] = (int)ps.type().code();
   }
 
   for (size_t i = 0; i < no; ++i) {
@@ -275,7 +277,6 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     std::uintptr_t p = 0;
     legate::double_dispatch(ps.dim(), ps.type().code(), functor, ufi::AccessMode::WRITE, p, ps);
     slot.outputs[i] = reinterpret_cast<void*>(p);
-    slot.outputs_types[i] = (int)ps.type().code();
   }
 
   for (size_t i = 0; i < ns; ++i) {
@@ -283,13 +284,13 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     size_t sz = std::min(scal.size(), (size_t)MAX_SCALAR_SIZE);
     std::memcpy(slot.scalar_data[i], scal.ptr(), sz);
     slot.scalar_ptrs[i] = slot.scalar_data[i];
-    slot.scalar_types[i] = (int)scal.type().code();
   }
 
   slot.task_done.store(false);
   {
     std::lock_guard<std::mutex> lock(g_pending_mutex);
     g_pending_queue.push_back(slot_id);
+    g_pending_cv.notify_all();
   }
 
   // Wait for completion
@@ -300,12 +301,13 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     
     if (!slot.task_done.load()) {
       fprintf(stderr, "ERROR: Julia task %u TIMED OUT in slot %d after 300s\n", task_id, slot_id);
-      abort(); // Timeouts are usually deadlocks, better to abort and get a trace
+      abort(); 
     } else {
       DEBUG_PRINT("Task %u done in slot %d\n", task_id, slot_id);
     }
     
     slot.in_use.store(false);
+    DEBUG_PRINT("Task %u: Released slot %d\n", task_id, slot_id);
   }
 
   {
@@ -334,10 +336,16 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("_initialize_async_system", &ufi::initialize_async_system);
   mod.method("legate_get_max_slots", &ufi::legate_get_max_slots);
   mod.method("legate_get_slot_request_ptr", &ufi::legate_get_slot_request_ptr);
+  mod.method("legate_pop_pending_slot_nonblocking", &ufi::legate_pop_pending_slot_nonblocking);
   mod.method("legate_pop_pending_slot", &ufi::legate_pop_pending_slot);
   mod.method("legate_get_active_call_count", &ufi::legate_get_active_call_count);
   mod.method("legate_get_max_task_id_seen", &ufi::legate_get_max_task_id_seen);
   mod.method("legate_get_active_slot_count", &ufi::legate_get_active_slot_count);
+  mod.method("legate_get_started_count", &ufi::legate_get_started_count);
+  mod.method("legate_start_copy", &ufi::legate_start_copy);
+  mod.method("legate_start_detach", &ufi::legate_start_detach);
+  mod.method("legate_wait_handle", &ufi::legate_wait_handle);
+  mod.method("legate_free_handle", &ufi::legate_free_handle);
   mod.set_const("JULIA_CUSTOM_TASK", legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
 #if LEGATE_DEFINED(LEGATE_USE_CUDA)
   mod.set_const("JULIA_CUSTOM_GPU_TASK", legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_GPU_TASK});

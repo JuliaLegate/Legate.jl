@@ -15,358 +15,204 @@
  *
  * Author(s): David Krasowska <krasow@u.northwestern.edu>
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
- =#
+=#
 
-export JuliaGPUTask, JuliaCPUTask, JuliaTask, TaskArgument, TaskRequest
-
-using StaticArrays
-
-const TaskArgument = Union{AbstractArray,SUPPORTED_TYPES}
-const CPUWrapType = Function
-
-struct JuliaCPUTask
-    fun::CPUWrapType
-    task_id::UInt32
-end
-
-struct JuliaGPUTask
-    fun::Function
-    task_id::UInt32
-end
-
-JuliaTask = Union{JuliaCPUTask,JuliaGPUTask}
-
-# Task Request — MUST match C++ layout in task.cpp
-struct TaskRequest
-    is_gpu::Cint        # Offset 0
-    task_id::UInt32     # Offset 4
-    inputs_ptr::Ptr{Ptr{Cvoid}} # Offset 8
-    outputs_ptr::Ptr{Ptr{Cvoid}} # Offset 16
-    scalars_ptr::Ptr{Ptr{Cvoid}} # Offset 24
-    inputs_types::Ptr{Cint} # Offset 32
-    outputs_types::Ptr{Cint} # Offset 40
-    scalar_types::Ptr{Cint} # Offset 48
-    num_inputs::Csize_t # Offset 56
-    num_outputs::Csize_t # Offset 64
-    num_scalars::Csize_t # Offset 72
-    ndim::Cint          # Offset 80
-    dims::NTuple{3,Int64} # Offset 88
-
-    function TaskRequest(is_gpu, task_id, args...)
-        if task_id == 0
-            @error "Task ID 0 is invalid."
-        end
-        new(is_gpu, task_id, args...)
-    end
-end
-
-# Monomorphic struct for arguments to prevent JIT contention in workers.
-# Using NTuple{16, Any} allows us to avoid parametric JuliaTaskRequest entirely.
-struct JuliaTaskRequest
-    task_fun::CPUWrapType
-    args::NTuple{16, Any}
-    num_args::Int
-    slot_id::Int
-end
-
-const UFI_ERROR_CODE = 123
-
-const TASK_REGISTRY = Dict{UInt32,Union{CPUWrapType,Function}}()
-const REGISTRY_LOCK = ReentrantLock()
-
-const UFI_INIT_LOCK = ReentrantLock()
-
-const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
-const MAX_SUBMITTED_TASK_ID = Threads.Atomic{Int}(0)
-
+# Realm-defined max dimension
+const REALM_MAX_DIM = 6
 const MAX_UFI_SLOTS_VAL = 32
-const MAX_UFI_SLOTS = Ref{Int}(MAX_UFI_SLOTS_VAL)
-# StaticArrays provide a cleaner high-level interface while keeping NTuple performance
-const SLOT_REQUEST_PTRS = Ref{SVector{MAX_UFI_SLOTS_VAL, Ptr{TaskRequest}}}()
-const UFI_WORKER_TASKS = Vector{Task}(undef, 64)
-const UFI_WORKER_COUNT = Threads.Atomic{Int}(0)
-
-const JOB_QUEUE = Ref{Channel{JuliaTaskRequest}}()
+const SLOT_REQUEST_PTRS = Vector{Ptr{Cvoid}}(undef, MAX_UFI_SLOTS_VAL)
 
 const UFI_SHUTDOWN = Threads.Atomic{Bool}(false)
 const UFI_INITIALIZED = Ref{Bool}(false)
-const UFI_SHUTDOWN_DONE = Threads.Atomic{Bool}(false)
+const UFI_SHUTDOWN_DONE = Ref{Bool}(false)
+const UFI_INIT_LOCK = ReentrantLock()
+const DISPATCH_LOCK = ReentrantLock()
 
-function get_pending_tasks()
-    return ccall((:legate_get_pending_tasks_count, Legate.WRAPPER_LIB_PATH), Cint, ())
+const IN_POLL = Threads.Atomic{Int}(0)
+
+struct TaskJob
+    slot_id::Int
+    in_p::Ptr{Ptr{Cvoid}}
+    out_p::Ptr{Ptr{Cvoid}}
+    scal_p::Ptr{Ptr{Cvoid}}
+    meta::UfiMetadata
 end
 
-function get_active_call_count()
-    return ccall((:legate_get_active_call_count, Legate.WRAPPER_LIB_PATH), Cint, ())
-end
+const JOB_QUEUE = Ref{Channel{TaskJob}}()
+const UFI_POLLER_TASK = Ref{Task}()
+const UFI_WORKER_TASKS = Vector{Task}()
 
-function get_active_slot_count()
-    return ccall((:legate_get_active_slot_count, Legate.WRAPPER_LIB_PATH), Cint, ())
-end
+"""
+    _extract_and_call(meta, in_p, out_p, scal_p, sig)
 
-function get_max_task_id_seen()
-    return ccall((:legate_get_max_task_id_seen, Legate.WRAPPER_LIB_PATH), Cint, ())
+The type-stable JIT engine. Reconstructs arguments from raw pointers using the 
+Signature's type parameters (including dimensions). Perfectly type-stable and 
+zero-allocation in the hot path.
+"""
+@generated function _extract_and_call(meta::UfiMetadata, in_p::Ptr{Ptr{Cvoid}}, out_p::Ptr{Ptr{Cvoid}}, scal_p::Ptr{Ptr{Cvoid}}, ::UfiSignature{InT, OutT, ScT, Dims}) where {InT, OutT, ScT, Dims}
+    exprs = []
+    cursor = 1
+
+    # Inputs
+    for (i, T) in enumerate(InT.parameters)
+        d = Dims[cursor]
+        push!(exprs, quote
+            ptr = unsafe_load(in_p, $i)
+            unsafe_wrap(Array, Ptr{eltype($T)}(ptr), $d)
+        end)
+        cursor += 1
+    end
+
+    # Outputs
+    for (i, T) in enumerate(OutT.parameters)
+        d = Dims[cursor]
+        push!(exprs, quote
+            ptr = unsafe_load(out_p, $i)
+            unsafe_wrap(Array, Ptr{eltype($T)}(ptr), $d)
+        end)
+        cursor += 1
+    end
+
+    # Scalars
+    for (i, T) in enumerate(ScT.parameters)
+        push!(exprs, quote
+            ptr = unsafe_load(scal_p, $i)
+            unsafe_load(Ptr{$T}(ptr))
+        end)
+    end
+
+    return quote
+        args = ($(exprs...),)
+        # Static argument reconstruction is now complete.
+        Base.invokelatest(meta.fun, args...)
+    end
 end
 
 function ufi_has_pending_work()
-    submitted = MAX_SUBMITTED_TASK_ID[]
-    seen = Int(get_max_task_id_seen())
-    return submitted > seen || isready(JOB_QUEUE[]) || get_active_call_count() > 0 || get_active_slot_count() > 0
+    # Robust synchronization using submitted/started counts
+    submitted = SUBMITTED_COUNT[]
+    started = Int(ccall((:legate_get_started_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
+    
+    active_calls = Int(ccall((:legate_get_active_call_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
+    active_slots = Int(ccall((:legate_get_active_slot_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
+    
+    # Optional stderr logging to track synchronization state
+    # if submitted > started
+    #     println(stderr, "[UFI Sync] Pending Start: sub=$submitted, start=$started, active=$active_calls, slots=$active_slots")
+    # end
+
+    return submitted > started || active_calls > 0 || active_slots > 0
 end
 
 function wait_ufi()
-    @debug "Waiting for UFI to complete"
-    Legate.issue_execution_fence(blocking=false)
-
+    # Legate.issue_execution_fence(blocking=false)
     while ufi_has_pending_work()
-        ufi_poll_sync() # Manual Poll: Drive progress on main thread
-        yield() # Yield for lower latency and better responsiveness
+        if Threads.threadid() == 1
+            ufi_poll()
+        end
+        yield()
+        sleep(0.001)
     end
 end
 
-function wrap_task(f; task_type=:cpu)
-    task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
-    if task_type == :gpu
-        return JuliaGPUTask(f, task_id)
-    else
-        return JuliaCPUTask(f, task_id)
-    end
-end
-
-function register_task_function(id::UInt32, fun::Union{CPUWrapType,Function})
-    lock(REGISTRY_LOCK) do
-        TASK_REGISTRY[id] = fun
-    end
-end
-
-function create_julia_task(rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaTask)
-    if task_obj isa JuliaCPUTask
-        id = LegateInternal.JULIA_CUSTOM_TASK
-        task_impl = LegateInternal.create_auto_task(rt, lib, id)
-    else
-        id = LegateInternal.JULIA_CUSTOM_GPU_TASK
-        task_impl = LegateInternal.create_auto_task(rt, lib, id)
-    end
-
-    task = AutoTask(task_impl)
-    task.task_id = task_obj.task_id
-    task.fun = task_obj.fun
-
-    add_scalar(task, Scalar(Int32(task_obj.task_id)))
-    register_task_function(task_obj.task_id, task_obj.fun)
-    return task
-end
-
-function _completion_callback(slot_id::Int)
-    ccall((:completion_callback_from_julia, Legate.WRAPPER_LIB_PATH), Cvoid, (Cint,), slot_id)
-end
-
-# Helper to get the i-th argument from TaskRequest as a concrete Julia type.
-@inline function _get_arg(req, i, dims)
-    if i <= req.num_inputs # Inputs
-        T = get_code_type(_get_type(req.inputs_types, i))
-        ptr_val = _get_ptr(req.inputs_ptr, i)
-        ptr_val == C_NULL && error("UFI: Input pointer is NULL for arg $i")
-        return unsafe_wrap(Array, Ptr{T}(ptr_val), dims)
-    elseif i <= req.num_inputs + req.num_outputs # Outputs
-        idx = i - req.num_inputs
-        T = get_code_type(_get_type(req.outputs_types, idx))
-        ptr_val = _get_ptr(req.outputs_ptr, idx)
-        ptr_val == C_NULL && error("UFI: Output pointer is NULL for arg $i")
-        return unsafe_wrap(Array, Ptr{T}(ptr_val), dims)
-    else # Scalars
-        idx = Int(i - req.num_inputs - req.num_outputs)
-        T = get_code_type(Int(_get_type(req.scalar_types, idx)))
-        val_ptr = _get_ptr(req.scalars_ptr, idx)
-        val_ptr == C_NULL && error("UFI: Scalar pointer is NULL for arg $i")
-        return unsafe_load(Ptr{T}(val_ptr))
-    end
-end
-
-const IN_POLL = Threads.Atomic{Int}(0)
-function ufi_poll_sync()
-    # Atomic re-entrancy guard: if already in poll, skip.
-    if Threads.atomic_cas!(IN_POLL, 0, 1) != 0
-        return
-    end
+function ufi_poll()
+    if !UFI_INITIALIZED[]; return false; end
+    if Threads.atomic_cas!(IN_POLL, 0, 1) != 0; return false; end
+    
     try
-        if UFI_SHUTDOWN[]
-            return
-        end
-
-        while true
-            fs = Int(LegateInternal.legate_pop_pending_slot())
-            fs == -1 && break
-
-            req = unsafe_load(SLOT_REQUEST_PTRS[][fs + 1])
-            # Dimension Validation: Support 0..3 dims
-            if req.ndim < 0 || req.ndim > 3
-                error("UFI: Unsupported ndim $(req.ndim). Must be between 0 and 3.")
-            end
-            nd = Int(req.ndim)
-            dims = ntuple(i -> Int(max(0, req.dims[i])), nd)
+        slot_id = Int(ccall((:legate_pop_pending_slot_nonblocking, Legate.WRAPPER_LIB_PATH), Cint, ()))
+        if slot_id != -1
+            base_ptr = SLOT_REQUEST_PTRS[slot_id + 1]
+            task_id = unsafe_load(Ptr{UInt32}(base_ptr + 4))
             
-            task_fun = lock(REGISTRY_LOCK) do
-                TASK_REGISTRY[req.task_id]
+            meta = lock(REGISTRY_LOCK) do
+                get(GLOBAL_TASK_REGISTRY, task_id, nothing)
+            end
+            
+            if isnothing(meta)
+                # This should NOT happen now with correct metadata alignment
+                println(stderr, "[UFI Error] Task ID $task_id not found in registry!")
+                ccall((:completion_callback_from_julia, Legate.WRAPPER_LIB_PATH), Cvoid, (Cint,), Cint(slot_id))
+                return true
             end
 
-            num_args = Int(req.num_inputs + req.num_outputs + req.num_scalars)
-            args = ntuple(i -> (i <= num_args ? _get_arg(req, i, dims) : nothing), Val(16))
-            
-            job = JuliaTaskRequest(task_fun, args, num_args, fs)
-            put!(JOB_QUEUE[], job)
+            # void** extraction with fixed indirection
+            in_p    = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
+            out_p   = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
+            scal_p  = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
+
+            put!(JOB_QUEUE[], TaskJob(slot_id, in_p, out_p, scal_p, meta))
+            return true
         end
-    catch e
-        @error "UFI: FATAL error in ufi_poll_sync" thread=Threads.threadid() exception=(e, catch_backtrace())
-        exit(UFI_ERROR_CODE) # Fail Fast: Exit on any UFI logic corruption
     finally
         IN_POLL[] = 0
     end
-end
-
-
-function _start_ufi_system()
-    UFI_SHUTDOWN[] = false
-end
-
-function _execute_julia_task_internal(@nospecialize(job::JuliaTaskRequest))
-    # Nospecialize + Manual Branches = Zero JIT churn in workers.
-    try
-        n = job.num_args
-        args = job.args
-        if n == 0
-            Base.invokelatest(job.task_fun)
-        elseif n == 1
-            Base.invokelatest(job.task_fun, args[1])
-        elseif n == 2
-            Base.invokelatest(job.task_fun, args[1], args[2])
-        elseif n == 3
-            Base.invokelatest(job.task_fun, args[1], args[2], args[3])
-        elseif n == 4
-            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4])
-        elseif n == 5
-            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4], args[5])
-        elseif n == 6
-            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4], args[5], args[6])
-        elseif n == 7
-            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4], args[5], args[6], args[7])
-        elseif n == 8
-            Base.invokelatest(job.task_fun, args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8])
-        else
-            Base.invokelatest(job.task_fun, args[1:n]...)
-        end
-    catch e
-        @error "UFI Execution Error" slot_id=job.slot_id exception=(e, catch_backtrace())
-        exit(UFI_ERROR_CODE) # Fail Fast: Any worker corruption is fatal
-    finally
-        _completion_callback(job.slot_id)
-    end
+    return false
 end
 
 function _ufi_worker_loop()
+    (ccall(:jl_generating_output, Cint, ()) != 0) && return
     while !UFI_SHUTDOWN[]
         try
-            # take! blocks until a job is available
             job = take!(JOB_QUEUE[])
-            _execute_julia_task_internal(job)
-        catch e
-            if !UFI_SHUTDOWN[]
-                @error "UFI Worker: FATAL error" exception=(e, catch_backtrace())
-                exit(UFI_ERROR_CODE) # Fail Fast: Any worker corruption is fatal
+            try
+                _extract_and_call(job.meta, job.in_p, job.out_p, job.scal_p, job.meta.sig)
+            catch e
+                println(stderr, "[UFI Worker Error] Slot $(job.slot_id): $e")
+                Base.display_error(stderr, e, catch_backtrace())
+            finally
+                ccall((:completion_callback_from_julia, Legate.WRAPPER_LIB_PATH), Cvoid, (Cint,), Cint(job.slot_id))
             end
-        end
+        catch e; end
     end
 end
 
-# Field access helpers for TaskRequest
-_get_type(x::Ptr{Cint}, i) = unsafe_load(x, i)
-_get_ptr(x::Ptr{Ptr{Cvoid}}, i) = unsafe_load(x, i)
+function _ufi_poller_loop()
+    (ccall(:jl_generating_output, Cint, ()) != 0) && return
+    while !UFI_SHUTDOWN[]
+        if !ufi_poll()
+            yield()
+            # sleep(0.001)
+        end
+    end
+    UFI_SHUTDOWN_DONE[] = true
+end
+
 
 function init_ufi()
     lock(UFI_INIT_LOCK) do
         UFI_INITIALIZED[] && return
         _is_precompiling() && return
         
-        JOB_QUEUE[] = Channel{JuliaTaskRequest}(128)
-
-        max_slots = ccall((:legate_get_max_slots, Legate.WRAPPER_LIB_PATH), Cint, ())
-        MAX_UFI_SLOTS[] = max_slots
+        JOB_QUEUE[] = Channel{TaskJob}(1000)
         
-        # Initialize SLOT_REQUEST_PTRS as a fixed-size StaticArray
-        tmp_ptrs = Vector{Ptr{TaskRequest}}(undef, MAX_UFI_SLOTS_VAL)
-        fill!(tmp_ptrs, Ptr{TaskRequest}(C_NULL))
+        max_slots = ccall((:legate_get_max_slots, Legate.WRAPPER_LIB_PATH), Cint, ())
         for i in 1:max_slots
-            tmp_ptrs[i] = ccall((:legate_get_slot_request_ptr, Legate.WRAPPER_LIB_PATH), Ptr{TaskRequest}, (Cint,), i-1)
+            SLOT_REQUEST_PTRS[i] = ccall((:legate_get_slot_request_ptr, Legate.WRAPPER_LIB_PATH), Ptr{Cvoid}, (Cint,), Cint(i-1))
         end
-        SLOT_REQUEST_PTRS[] = SVector{MAX_UFI_SLOTS_VAL}(tmp_ptrs)
 
         LegateInternal._initialize_async_system()
-
-        # Precompile callbacks on main thread
-        try
-            precompile(ufi_poll_sync, ())
-            precompile(_completion_callback, (Int,))
-            precompile(_execute_julia_task_internal, (JuliaTaskRequest,))
-        catch e
-            @warn "Precompilation failed" exception=(e, catch_backtrace())
-        end
         UFI_INITIALIZED[] = true
         
-        # Start background system
-        _start_ufi_threads()
-    end
-end
+        precompile(_ufi_poller_loop, ())
+        precompile(_ufi_worker_loop, ())
 
-function _ufi_poller_loop()
-    # Guard against precompilation
-    (ccall(:jl_generating_output, Cint, ()) != 0) && return
-    
-    while !UFI_SHUTDOWN[]
-        ufi_poll_sync()
-        # High-frequency yield/sleep to drive C++ progress
-        yield()
-        sleep(0.001)
-    end
-end
+        UFI_POLLER_TASK[] = errormonitor(@async _ufi_poller_loop())
 
-const UFI_POLLER_TASK = Ref{Task}()
-
-function _start_ufi_threads()
-    # Guard against precompilation and multiple starts
-    (ccall(:jl_generating_output, Cint, ()) != 0) && return
-    UFI_INITIALIZED[] || return
-    UFI_SHUTDOWN[] && return
-    isassigned(UFI_POLLER_TASK) && return
-
-    @debug "UFI System: Starting Background Poller and Workers"
-    
-    # 1. Background Poller Task
-    UFI_POLLER_TASK[] = errormonitor(Threads.@spawn _ufi_poller_loop())
-
-    # 2. Worker threads
-    n = Threads.nthreads()
-    for i in 1:n
-        # In multi-threaded mode, keep Thread 1 free for the poller
-        if n > 1 && i == 1
-            continue
+        empty!(UFI_WORKER_TASKS)
+        for i in 1:Threads.nthreads()-1
+            push!(UFI_WORKER_TASKS, errormonitor(Threads.@spawn _ufi_worker_loop()))
         end
-        # Use standard @spawn for maximum compatibility
-        UFI_WORKER_TASKS[i] = errormonitor(Threads.@spawn _ufi_worker_loop())
+        yield()
+
+        println(stderr, "[UFI] System Initialized (Concurrent Count-Sync Mode)")
     end
-    UFI_WORKER_COUNT[] = n
 end
 
 function shutdown_ufi()
-    UFI_SHUTDOWN_DONE[] && return nothing
     UFI_SHUTDOWN[] = true
-
+    UFI_INITIALIZED[] = false
     if isassigned(JOB_QUEUE) && isopen(JOB_QUEUE[])
         close(JOB_QUEUE[])
     end
-    for i in 1:UFI_WORKER_COUNT[]
-        if isassigned(UFI_WORKER_TASKS, i)
-            try fetch(UFI_WORKER_TASKS[i]) catch end
-        end
-    end
-    UFI_SHUTDOWN_DONE[] = true
 end

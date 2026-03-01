@@ -1,3 +1,28 @@
+#= Copyright 2026 Northwestern University, 
+ *                   Carnegie Mellon University University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author(s): David Krasowska <krasow@u.northwestern.edu>
+ *            Ethan Meitz <emeitz@andrew.cmu.edu>
+=#
+
+"""
+    start_legate()
+
+Start the Legate runtime. This function is called automatically 
+when the module is loaded.
+"""
 function start_legate()
     LegateInternal.start_legate()
 end
@@ -99,5 +124,17 @@ function issue_execution_fence(; blocking::Bool=true)
         @threadcall((:legate_issue_execution_fence_blocking, Legate.WRAPPER_LIB_PATH), Cvoid, ())
     else
         LegateInternal.issue_execution_fence(false)
+    end
+end
+"""
+    wait_handle(handle::Ptr{Cvoid})
+
+Block the calling task until the Legate operation represented by the handle is complete.
+This function polls the UFI system while waiting to ensure background progress.
+"""
+function wait_handle(handle::Ptr{Cvoid})
+    handle == C_NULL && return
+    while ccall((:legate_is_handle_ready, Legate.WRAPPER_LIB_PATH), Cint, (Ptr{Cvoid},), handle) == 0
+        yield()
     end
 end

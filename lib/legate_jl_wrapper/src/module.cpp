@@ -26,19 +26,6 @@
 #include "types.h"
 #include "wrapper.inl"
 
-namespace jlcxx {
-  template<> struct Finalizer<legate::LogicalStore>
-  {
-    static void finalize(legate::LogicalStore* store)
-    {
-      // No-op finalizer to prevent crashes during GC.
-      // LogicalStore destructors call discard_fields() which can crash
-      // if the Legion runtime state is invalid or if called from a non-Legion thread.
-      // Cleanup is handled by _exit(0) at shutdown.
-    }
-  };
-}
-
 legate::Type type_from_code(legate::Type::Code type_id) {
   switch (type_id) {
     case legate::Type::Code::BOOL:
@@ -132,9 +119,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("is_readable", &PhysicalStore::is_readable)
       .method("is_writable", &PhysicalStore::is_writable)
       .method("is_reducible", &PhysicalStore::is_reducible)
-      .method("valid", &PhysicalStore::valid)
-      .method("get_obj_ptr",
-              [](PhysicalStore& s) { return static_cast<void*>(&s); });
+      .method("valid", &PhysicalStore::valid);
 
   mod.add_type<LogicalStore>("LogicalStoreImpl")
       .method("dim", &LogicalStore::dim)
@@ -144,9 +129,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("slice", &LogicalStore::slice)
       .method("get_physical_store", &LogicalStore::get_physical_store)
       .method("equal_storage", &LogicalStore::equal_storage)
-      .method("detach", &LogicalStore::detach)
-      .method("get_obj_ptr",
-              [](LogicalStore& s) { return static_cast<void*>(&s); });
+      .method("detach", &LogicalStore::detach);
 
   mod.add_type<PhysicalArray>("PhysicalArray")
       .method("dim", &PhysicalArray::dim)
@@ -172,9 +155,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
                                 &AutoTask::add_scalar_arg))
       .method("add_constraint",
               static_cast<void (AutoTask::*)(const Constraint&)>(
-                  &AutoTask::add_constraint))
-      .method("get_obj_ptr",
-              [](AutoTask& t) { return static_cast<void*>(&t); });
+                  &AutoTask::add_constraint));
 
   mod.add_type<ManualTask>("ManualTask")
       .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(
@@ -182,13 +163,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(
                                 &ManualTask::add_output))
       .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(
-                                &ManualTask::add_scalar_arg))
-      .method("get_obj_ptr",
-              [](ManualTask& t) { return static_cast<void*>(&t); });
+                                &ManualTask::add_scalar_arg));
 
   /* runtime */
-  mod.add_type<Runtime>("Runtime").method(
-      "get_obj_ptr", [](Runtime& r) { return static_cast<void*>(&r); });
+  mod.add_type<Runtime>("Runtime");
 
   mod.method("start_legate", &legate_wrapper::runtime::start_legate);
   mod.method("legate_finish", &legate_wrapper::runtime::legate_finish);

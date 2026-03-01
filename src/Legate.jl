@@ -25,8 +25,6 @@ import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
 
-using FunctionWrappers
-import FunctionWrappers: FunctionWrapper
 using StaticArrays
 
 include(joinpath(@__DIR__, "../deps/version.jl"))
@@ -132,8 +130,8 @@ function _finish_runtime()
         _shutdown_done[] && return
         _shutdown_done[] = true
 
-        if !Legate.UFI_SHUTDOWN_DONE[]
-            Legate.shutdown_ufi()
+        if !UFI_SHUTDOWN_DONE[]
+            shutdown_ufi()
         end
 
         try
