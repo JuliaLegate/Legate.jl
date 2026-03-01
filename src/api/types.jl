@@ -17,21 +17,25 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
 
-struct JuliaCPUTask
-    fun::Function
+
+abstract type TaskBackend end
+struct CPUBackend <: TaskBackend end
+struct GPUBackend <: TaskBackend end
+
+struct JuliaTask{B<:TaskBackend, F}
+    fun::F
     task_id::UInt32
 end
 
-struct JuliaGPUTask
-    fun::Function
-    task_id::UInt32
-end
+wrap_task(f, ::Type{CPUBackend}) =
+    JuliaTask{CPUBackend, typeof(f)}(f, 0)
 
-JuliaTask = Union{JuliaCPUTask, JuliaGPUTask}
+wrap_task(f, ::Type{GPUBackend}) =
+    JuliaTask{GPUBackend, typeof(f)}(f, 0)
 
-mutable struct LegateTask{I}
+mutable struct LegateTask{I, F}
     impl::I
-    fun::Union{Nothing, Function}
+    fun::F
     task_id::UInt32
     input_types::Vector{DataType}
     output_types::Vector{DataType}
@@ -39,7 +43,8 @@ mutable struct LegateTask{I}
     arg_dims::Vector{Union{Nothing, NTuple}}
 end
 
-LegateTask(impl::I) where I = LegateTask{I}(impl, nothing, UInt32(0), DataType[], DataType[], DataType[], Union{Nothing, NTuple}[])
+LegateTask(impl::I, fun::F) where {I, F} = LegateTask{I, F}(impl, fun, UInt32(0), DataType[], DataType[], DataType[], Union{Nothing, NTuple}[])
+
 
 const AutoTask   = LegateTask{AutoTaskImpl}
 const ManualTask = LegateTask{ManualTaskImpl}
@@ -57,12 +62,11 @@ end
 
 struct UfiSignature{InT, OutT, ScT} end
 
-struct UfiMetadata
-    fun::Function
-    sig::Any 
-    dims::Tuple
+struct UfiMetadata{F,S,D}
+    fun::F
+    sig::S
+    dims::D
 end
-
 
 struct Scalar{T}
     impl::ScalarImpl

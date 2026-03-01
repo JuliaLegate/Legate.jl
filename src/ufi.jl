@@ -17,7 +17,6 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
 =#
 
-# Realm-defined max dimension
 const REALM_MAX_DIM = 6
 const MAX_UFI_SLOTS_VAL = 32
 const SLOT_REQUEST_PTRS = Vector{Ptr{Cvoid}}(undef, MAX_UFI_SLOTS_VAL)
@@ -30,6 +29,8 @@ const DISPATCH_LOCK = ReentrantLock()
 
 const IN_POLL = Threads.Atomic{Int}(0)
 const PENDING_JOBS = Threads.Atomic{Int}(0)
+
+const UFI_ERROR = 217
 
 struct TaskJob
     slot_id::Int
@@ -52,20 +53,20 @@ zero-allocation in the hot path.
 """
 @generated function _do_call(f, in_p_ptr::Ptr{Ptr{Cvoid}}, out_p_ptr::Ptr{Ptr{Cvoid}}, scal_p_ptr::Ptr{Ptr{Cvoid}}, dims::Tuple, ::UfiSignature{InT, OutT, ScT}) where {InT, OutT, ScT}
     exprs = []
-    cursor = 1
+    dim_cursor = 1
     
     # Inputs
     for (i, T) in enumerate(InT.parameters)
         E = eltype(T)
-        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(in_p_ptr, $i)), dims[$cursor])))
-        cursor += 1
+        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(in_p_ptr, $i)), dims[$dim_cursor])))
+        dim_cursor += 1
     end
     
     # Outputs
     for (i, T) in enumerate(OutT.parameters)
         E = eltype(T)
-        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(out_p_ptr, $i)), dims[$cursor])))
-        cursor += 1
+        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(out_p_ptr, $i)), dims[$dim_cursor])))
+        dim_cursor += 1
     end
     
     # Scalars
@@ -78,8 +79,10 @@ zero-allocation in the hot path.
     end
 end
 
-function _extract_and_call(meta::UfiMetadata, in_p_ptr::Ptr{Ptr{Cvoid}}, out_p_ptr::Ptr{Ptr{Cvoid}}, scal_p_ptr::Ptr{Ptr{Cvoid}}, sig::UfiSignature)
-    _do_call(meta.fun, in_p_ptr, out_p_ptr, scal_p_ptr, meta.dims, sig)
+function _extract_and_call(meta::UfiMetadata{F, S, D}, in_args::Vector{Ptr{Cvoid}}, out_args::Vector{Ptr{Cvoid}}, scal_args::Vector{Ptr{Cvoid}}, sig::S) where {F, S, D}
+    GC.@preserve in_args out_args scal_args begin
+        _do_call(meta.fun, pointer(in_args), pointer(out_args), pointer(scal_args), meta.dims, sig)
+    end
 end
 
 function ufi_has_pending_work()
@@ -107,66 +110,57 @@ function ufi_poll()
     if !UFI_INITIALIZED[]; return false; end
     if Threads.atomic_cas!(IN_POLL, 0, 1) != 0; return false; end
     
-    try
-        slot_id = Int(ccall((:legate_pop_pending_slot_nonblocking, Legate.WRAPPER_LIB_PATH), Cint, ()))
-        if slot_id != -1
-            base_ptr = SLOT_REQUEST_PTRS[slot_id + 1]
-            task_id = unsafe_load(Ptr{UInt32}(base_ptr + 4))
-            
-            meta = lock(REGISTRY_LOCK) do
-                get(GLOBAL_TASK_REGISTRY, task_id, nothing)
-            end
-            
-            if isnothing(meta)
-                # This should NOT happen now with correct metadata alignment
-                println(stderr, "[UFI Error] Task ID $task_id not found in registry!")
-                ccall((:completion_callback_from_julia, Legate.WRAPPER_LIB_PATH), Cvoid, (Cint,), Cint(slot_id))
-                return true
-            end
-
-            # Extract pointers immediately into stable vectors
-            sig_type = typeof(meta.sig)
-            in_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
-            out_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
-            scal_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
-
-            in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
-            out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
-            
-            # User scalars start at index 1 of scal_p_ptr (skipping task_id at index 0)
-            num_user_scars = length(sig_type.parameters[3].parameters)
-            scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:num_user_scars]
-
-            Threads.atomic_add!(PENDING_JOBS, 1)
-            put!(JOB_QUEUE[], TaskJob(slot_id, in_args, out_args, scal_args, meta))
-            return true
+    slot_id = Int(ccall((:legate_pop_pending_slot_nonblocking, Legate.WRAPPER_LIB_PATH), Cint, ()))
+    if slot_id != -1
+        base_ptr = SLOT_REQUEST_PTRS[slot_id + 1]
+        task_id = unsafe_load(Ptr{UInt32}(base_ptr + 4))
+        
+        meta = lock(REGISTRY_LOCK) do
+            get(GLOBAL_TASK_REGISTRY, task_id, nothing)
         end
-    finally
-        IN_POLL[] = 0
+        
+        if isnothing(meta)
+            println(stderr, "[UFI Error] Task ID $task_id not found in registry!")
+            exit(UFI_ERROR)
+        end
+
+        # Extract pointers immediately into stable vectors
+        sig_type = typeof(meta.sig)
+        in_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
+        out_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
+        scal_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
+
+        in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
+        out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
+        scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:length(sig_type.parameters[3].parameters)]
+
+        Threads.atomic_add!(PENDING_JOBS, 1)
+        put!(JOB_QUEUE[], TaskJob(slot_id, in_args, out_args, scal_args, meta))
+        return true
     end
+    IN_POLL[] = 0
     return false
 end
 
 function _ufi_worker_loop()
-    (ccall(:jl_generating_output, Cint, ()) != 0) && return
+    _is_precompiling && return
     while !UFI_SHUTDOWN[]
+        job = take!(JOB_QUEUE[])
         try
-            job = take!(JOB_QUEUE[])
-            try
-                _extract_and_call(job.meta, pointer(job.in_args), pointer(job.out_args), pointer(job.scal_args), job.meta.sig)
-            catch e
-                println(stderr, "[UFI Worker Error] Slot $(job.slot_id): $e")
-                Base.display_error(stderr, e, catch_backtrace())
-            finally
-                Threads.atomic_sub!(PENDING_JOBS, 1)
-                ccall((:completion_callback_from_julia, Legate.WRAPPER_LIB_PATH), Cvoid, (Cint,), Cint(job.slot_id))
-            end
-        catch e; end
+            _extract_and_call(job.meta, job.in_args, job.out_args, job.scal_args, job.meta.sig)
+        catch e
+            println(stderr, "[UFI Worker Error] Slot $(job.slot_id): $e")
+            Base.display_error(stderr, e, catch_backtrace())
+            exit(UFI_ERROR)
+        finally
+            Threads.atomic_sub!(PENDING_JOBS, 1)
+            ccall((:completion_callback_from_julia, Legate.WRAPPER_LIB_PATH), Cvoid, (Cint,), Cint(job.slot_id))
+        end
     end
 end
 
 function _ufi_poller_loop()
-    (ccall(:jl_generating_output, Cint, ()) != 0) && return
+    _is_precompiling && return
     while !UFI_SHUTDOWN[]
         if !ufi_poll()
             yield()
@@ -182,9 +176,13 @@ function init_ufi()
         UFI_INITIALIZED[] && return
         _is_precompiling() && return
         
-        JOB_QUEUE[] = Channel{TaskJob}(1000)
+        JOB_QUEUE[] = Channel{TaskJob}(128)
         
         max_slots = ccall((:legate_get_max_slots, Legate.WRAPPER_LIB_PATH), Cint, ())
+        if max_slots <= 0
+            exit(UFI_ERROR)
+        end
+
         for i in 1:max_slots
             SLOT_REQUEST_PTRS[i] = ccall((:legate_get_slot_request_ptr, Legate.WRAPPER_LIB_PATH), Ptr{Cvoid}, (Cint,), Cint(i-1))
         end
@@ -205,8 +203,10 @@ function init_ufi()
         end
         yield()
 
-        println(stderr, "[UFI] System Initialized (Concurrent Count-Sync Mode)")
+        println(stderr, "[UFI] System Initialized (Concurrent Count-Sync Mode) with $(num_workers) workers\n")
     end
+
+    @debug "fuck"
 end
 
 function shutdown_ufi()

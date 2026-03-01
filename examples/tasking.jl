@@ -32,7 +32,6 @@ function task_noop(a)
 end
 
 function test_driver()
-    Legate.ensure_runtime!()
     N = 1000
     rt = Legate.get_runtime()
     lib = Legate.create_library("test")

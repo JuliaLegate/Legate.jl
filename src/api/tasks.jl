@@ -25,14 +25,6 @@ const GLOBAL_TASK_REGISTRY = Dict{UInt32, UfiMetadata}()
 const SUBMITTED_COUNT = Threads.Atomic{Int}(0)
 const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
 
-function wrap_task(f::Function; is_gpu=false)
-    if is_gpu
-        return JuliaGPUTask(f, 0)
-    else
-        return JuliaCPUTask(f, 0)
-    end
-end
-
 function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID)
     impl = LegateInternal.create_auto_task(rt, lib, id)
     @debug "Creating auto task $(impl)"
@@ -90,20 +82,21 @@ function add_constraint(task::LegateTask, c::Constraint)
 end
 
 
-function create_julia_task(rt::Any, lib::Any, task_obj::JuliaTask)
-    is_cpu = (task_obj isa JuliaCPUTask)
-    
-    # bypass create_task to avoid recursion in JIT/Method lookup
-    impl_ptr = ccall((:legate_create_julia_task_wrapper, Legate.WRAPPER_LIB_PATH), Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Cint), rt.cpp_object, lib.cpp_object, is_cpu ? 0 : 1)
-    
-    # Wrap raw pointer directly into LegateTask
-    task = LegateTask(CxxWrap.CxxPtr{LegateInternal.AutoTask}(impl_ptr))
-    
-    task.fun = task_obj.fun
-    # ONLY Julia tasks get the task_id scalar and tracking
+function create_julia_task(rt, lib, task_obj::JuliaTask{CPUBackend})
+    create_julia_task_impl(rt, lib, task_obj, 0)
+end
+
+function create_julia_task(rt, lib, task_obj::JuliaTask{GPUBackend})
+    create_julia_task_impl(rt, lib, task_obj, 1)
+end
+
+
+function create_julia_task_impl(rt, lib, task_obj, backend_flag::Cint)
+    # returns an Legate AutoTask object ptr
+    impl_ptr = ccall((:legate_create_julia_task_wrapper, Legate.WRAPPER_LIB_PATH), Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Cint), rt.cpp_object, lib.cpp_object, backend_flag)
+    task = LegateTask(CxxWrap.CxxPtr{LegateInternal.AutoTask}(impl_ptr), task_obj.fun)
     task.task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
-    
-    # Prepend internal task_id as scalar 0 on cpp side
+    # Prepend internal task_id as scalar 0 on cpp Legate side
     LegateInternal.add_scalar(task.impl, Scalar(UInt32(task.task_id)).impl)
     return task
 end
@@ -136,7 +129,8 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
         
         # Principled warmup: Force JIT compilation safely on submission thread
         # 1. Precompile the internal statically-typed dispatcher
-        precompile(_do_call, (typeof(task.fun), Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, typeof(meta.dims), typeof(sig)))
+        precompile(Legate._do_call, (typeof(task.fun), Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, typeof(meta.dims), typeof(sig)))
+        precompile(Legate._extract_and_call, (typeof(meta), Vector{Ptr{Cvoid}}, Vector{Ptr{Cvoid}}, Vector{Ptr{Cvoid}}, typeof(sig)))
         
         # 2. Precompile the user-provided function with exact types
         user_arg_types = Any[]
