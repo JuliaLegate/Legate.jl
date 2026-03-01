@@ -117,8 +117,8 @@ struct UFISlot {
 static UFISlot g_ufi_slots[MAX_UFI_SLOTS];
 static std::mutex g_slot_mutex;
 static std::condition_variable g_slot_cv;
-static std::deque<int> g_pending_queue;
-static std::mutex g_pending_mutex;
+static std::mutex g_queue_mutex;
+static std::vector<int> g_pending_queue;
 static std::condition_variable g_pending_cv;
 static bool g_shutdown = false;
 
@@ -175,21 +175,21 @@ JULIA_LEGATE_UFI_EXPORT int legate_is_handle_ready(void* handle) { return 1; }
 JULIA_LEGATE_UFI_EXPORT void legate_free_handle(void* handle) { }
 
 JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot_nonblocking() {
-  std::lock_guard<std::mutex> lock(g_pending_mutex);
+  std::lock_guard<std::mutex> lock(g_queue_mutex);
   if (g_pending_queue.empty()) return -1;
   int slot_id = g_pending_queue.front();
-  g_pending_queue.pop_front();
+  g_pending_queue.erase(g_pending_queue.begin());
   return slot_id;
 }
 
 JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot() {
-  std::unique_lock<std::mutex> lock(g_pending_mutex);
+  std::unique_lock<std::mutex> lock(g_queue_mutex);
   while (g_pending_queue.empty() && !g_shutdown) {
     g_pending_cv.wait(lock);
   }
   if (g_shutdown || g_pending_queue.empty()) return -1;
   int slot_id = g_pending_queue.front();
-  g_pending_queue.pop_front();
+  g_pending_queue.erase(g_pending_queue.begin());
   return slot_id;
 }
 
@@ -288,10 +288,10 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
   slot.task_done.store(false);
   {
-    std::lock_guard<std::mutex> lock(g_pending_mutex);
+    std::lock_guard<std::mutex> qlock(g_queue_mutex);
     g_pending_queue.push_back(slot_id);
-    g_pending_cv.notify_all();
   }
+  g_pending_cv.notify_all();
 
   // Wait for completion
   {
@@ -320,6 +320,18 @@ void JuliaCustomTask::cpu_variant(legate::TaskContext context) { JuliaTaskInterf
 #if LEGATE_DEFINED(LEGATE_USE_CUDA)
 void JuliaCustomGPUTask::gpu_variant(legate::TaskContext context) { JuliaTaskInterface(context, true); }
 #endif
+
+JULIA_LEGATE_UFI_EXPORT void* legate_create_julia_task_wrapper(void* rt_ptr, void* lib_ptr, int is_gpu) {
+  auto* rt = reinterpret_cast<legate::Runtime*>(rt_ptr);
+  auto* lib = reinterpret_cast<legate::Library*>(lib_ptr);
+#if LEGATE_DEFINED(LEGATE_USE_CUDA)
+  legate::LocalTaskID id = is_gpu ? static_cast<legate::LocalTaskID>(ufi::JULIA_CUSTOM_GPU_TASK) : static_cast<legate::LocalTaskID>(ufi::JULIA_CUSTOM_TASK);
+#else
+  legate::LocalTaskID id = static_cast<legate::LocalTaskID>(ufi::JULIA_CUSTOM_TASK);
+#endif
+  auto task = rt->create_task(*lib, id);
+  return new legate::AutoTask(std::move(task));
+}
 
 void ufi_interface_register(legate::Library& library) {
   ufi::JuliaCustomTask::register_variants(library);

@@ -29,12 +29,13 @@ const UFI_INIT_LOCK = ReentrantLock()
 const DISPATCH_LOCK = ReentrantLock()
 
 const IN_POLL = Threads.Atomic{Int}(0)
+const PENDING_JOBS = Threads.Atomic{Int}(0)
 
 struct TaskJob
     slot_id::Int
-    in_p::Ptr{Ptr{Cvoid}}
-    out_p::Ptr{Ptr{Cvoid}}
-    scal_p::Ptr{Ptr{Cvoid}}
+    in_args::Vector{Ptr{Cvoid}}
+    out_args::Vector{Ptr{Cvoid}}
+    scal_args::Vector{Ptr{Cvoid}}
     meta::UfiMetadata
 end
 
@@ -49,43 +50,36 @@ The type-stable JIT engine. Reconstructs arguments from raw pointers using the
 Signature's type parameters (including dimensions). Perfectly type-stable and 
 zero-allocation in the hot path.
 """
-@generated function _extract_and_call(meta::UfiMetadata, in_p::Ptr{Ptr{Cvoid}}, out_p::Ptr{Ptr{Cvoid}}, scal_p::Ptr{Ptr{Cvoid}}, ::UfiSignature{InT, OutT, ScT, Dims}) where {InT, OutT, ScT, Dims}
+@generated function _do_call(f, in_p_ptr::Ptr{Ptr{Cvoid}}, out_p_ptr::Ptr{Ptr{Cvoid}}, scal_p_ptr::Ptr{Ptr{Cvoid}}, dims::Tuple, ::UfiSignature{InT, OutT, ScT}) where {InT, OutT, ScT}
     exprs = []
     cursor = 1
-
+    
     # Inputs
     for (i, T) in enumerate(InT.parameters)
-        d = Dims[cursor]
-        push!(exprs, quote
-            ptr = unsafe_load(in_p, $i)
-            unsafe_wrap(Array, Ptr{eltype($T)}(ptr), $d)
-        end)
+        E = eltype(T)
+        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(in_p_ptr, $i)), dims[$cursor])))
         cursor += 1
     end
-
+    
     # Outputs
     for (i, T) in enumerate(OutT.parameters)
-        d = Dims[cursor]
-        push!(exprs, quote
-            ptr = unsafe_load(out_p, $i)
-            unsafe_wrap(Array, Ptr{eltype($T)}(ptr), $d)
-        end)
+        E = eltype(T)
+        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(out_p_ptr, $i)), dims[$cursor])))
         cursor += 1
     end
-
+    
     # Scalars
     for (i, T) in enumerate(ScT.parameters)
-        push!(exprs, quote
-            ptr = unsafe_load(scal_p, $i)
-            unsafe_load(Ptr{$T}(ptr))
-        end)
+        push!(exprs, :(unsafe_load(Ptr{$T}(unsafe_load(scal_p_ptr, $i)))))
     end
-
+    
     return quote
-        args = ($(exprs...),)
-        # Static argument reconstruction is now complete.
-        Base.invokelatest(meta.fun, args...)
+        f($(exprs...))
     end
+end
+
+function _extract_and_call(meta::UfiMetadata, in_p_ptr::Ptr{Ptr{Cvoid}}, out_p_ptr::Ptr{Ptr{Cvoid}}, scal_p_ptr::Ptr{Ptr{Cvoid}}, sig::UfiSignature)
+    _do_call(meta.fun, in_p_ptr, out_p_ptr, scal_p_ptr, meta.dims, sig)
 end
 
 function ufi_has_pending_work()
@@ -95,17 +89,11 @@ function ufi_has_pending_work()
     
     active_calls = Int(ccall((:legate_get_active_call_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
     active_slots = Int(ccall((:legate_get_active_slot_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
-    
-    # Optional stderr logging to track synchronization state
-    # if submitted > started
-    #     println(stderr, "[UFI Sync] Pending Start: sub=$submitted, start=$started, active=$active_calls, slots=$active_slots")
-    # end
 
-    return submitted > started || active_calls > 0 || active_slots > 0
+    return submitted > started || active_calls > 0 || active_slots > 0 || PENDING_JOBS[] > 0
 end
 
 function wait_ufi()
-    # Legate.issue_execution_fence(blocking=false)
     while ufi_has_pending_work()
         if Threads.threadid() == 1
             ufi_poll()
@@ -136,12 +124,21 @@ function ufi_poll()
                 return true
             end
 
-            # void** extraction with fixed indirection
-            in_p    = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
-            out_p   = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
-            scal_p  = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
+            # Extract pointers immediately into stable vectors
+            sig_type = typeof(meta.sig)
+            in_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
+            out_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
+            scal_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
 
-            put!(JOB_QUEUE[], TaskJob(slot_id, in_p, out_p, scal_p, meta))
+            in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
+            out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
+            
+            # User scalars start at index 1 of scal_p_ptr (skipping task_id at index 0)
+            num_user_scars = length(sig_type.parameters[3].parameters)
+            scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:num_user_scars]
+
+            Threads.atomic_add!(PENDING_JOBS, 1)
+            put!(JOB_QUEUE[], TaskJob(slot_id, in_args, out_args, scal_args, meta))
             return true
         end
     finally
@@ -156,11 +153,12 @@ function _ufi_worker_loop()
         try
             job = take!(JOB_QUEUE[])
             try
-                _extract_and_call(job.meta, job.in_p, job.out_p, job.scal_p, job.meta.sig)
+                _extract_and_call(job.meta, pointer(job.in_args), pointer(job.out_args), pointer(job.scal_args), job.meta.sig)
             catch e
                 println(stderr, "[UFI Worker Error] Slot $(job.slot_id): $e")
                 Base.display_error(stderr, e, catch_backtrace())
             finally
+                Threads.atomic_sub!(PENDING_JOBS, 1)
                 ccall((:completion_callback_from_julia, Legate.WRAPPER_LIB_PATH), Cvoid, (Cint,), Cint(job.slot_id))
             end
         catch e; end
@@ -200,7 +198,9 @@ function init_ufi()
         UFI_POLLER_TASK[] = errormonitor(@async _ufi_poller_loop())
 
         empty!(UFI_WORKER_TASKS)
-        for i in 1:Threads.nthreads()-1
+        # Ensure at least one worker loop is running, even in single-threaded mode.
+        num_workers = max(1, Threads.nthreads() - 1)
+        for i in 1:num_workers
             push!(UFI_WORKER_TASKS, errormonitor(Threads.@spawn _ufi_worker_loop()))
         end
         yield()

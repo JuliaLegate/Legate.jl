@@ -74,6 +74,7 @@ Creates a library in the runtime and registers the UFI interface
 with the C++ runtime.
 """
 function create_library(name::String)
+    # registers JuliaCustomTask::cpu_variant to legate runtime
     # Warn if Legate is configured for concurrency but Julia is single-threaded (for ufi usage)
     legion_config = get(ENV, "LEGION_CONFIG", "")
     m = match(r"(?:-ll:cpu|--cpus)\s+(\d+)", legion_config)

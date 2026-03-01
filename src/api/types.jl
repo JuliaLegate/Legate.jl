@@ -31,13 +31,15 @@ JuliaTask = Union{JuliaCPUTask, JuliaGPUTask}
 
 mutable struct LegateTask{I}
     impl::I
+    fun::Union{Nothing, Function}
+    task_id::UInt32
     input_types::Vector{DataType}
     output_types::Vector{DataType}
     scalar_types::Vector{DataType}
     arg_dims::Vector{Union{Nothing, NTuple}}
 end
 
-LegateTask(impl::I) where I = LegateTask{I}(impl, DataType[], DataType[], DataType[], Union{Nothing, NTuple}[])
+LegateTask(impl::I) where I = LegateTask{I}(impl, nothing, UInt32(0), DataType[], DataType[], DataType[], Union{Nothing, NTuple}[])
 
 const AutoTask   = LegateTask{AutoTaskImpl}
 const ManualTask = LegateTask{ManualTaskImpl}
@@ -53,23 +55,12 @@ function ManualTask(impl::LegateInternal.ManualTaskAllocated)
 end
 
 
-"""
-    UfiSignature{InT, OutT, ScT, Dims}
+struct UfiSignature{InT, OutT, ScT} end
 
-A type-level representation of a task's full signature, including argument types
-and dimension values. Encoding dimensions as type parameters ensures perfect
-type stability and zero-allocation dispatch in background threads.
-"""
-struct UfiSignature{InT, OutT, ScT, Dims} end
-
-"""
-    UfiMetadata
-
-Stores the task function and its static signature.
-"""
 struct UfiMetadata
     fun::Function
-    sig::Any # UfiSignature{...}
+    sig::Any 
+    dims::Tuple
 end
 
 

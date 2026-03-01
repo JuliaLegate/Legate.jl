@@ -48,18 +48,18 @@ function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain:
 end
 
 function add_input(task::LegateTask, array::LogicalArray{T, N}) where {T, N}
-    push!(task.input_types, Array{T, N})
-    push!(task.arg_dims, size(array))
-    return LegateInternal.add_input(task.impl, array.handle)
+    push!(task.input_types, T)
+    push!(task.arg_dims, array.dims)
+    LegateInternal.add_input(task.impl, array.handle)
 end
 
 function add_output(task::LegateTask, array::LogicalArray{T, N}) where {T, N}
-    push!(task.output_types, Array{T, N})
-    push!(task.arg_dims, size(array))
-    return LegateInternal.add_output(task.impl, array.handle)
+    push!(task.output_types, T)
+    push!(task.arg_dims, array.dims)
+    LegateInternal.add_output(task.impl, array.handle)
 end
 
-function add_scalar(task::LegateTask, scalar::Scalar{T}) where T
+function add_scalar(task::LegateTask, scalar::Scalar{T}) where {T}
     push!(task.scalar_types, T)
     LegateInternal.add_scalar(task.impl, scalar.impl)
 end
@@ -68,7 +68,7 @@ function align(a::Variable, b::Variable)
     LegateInternal.align(a, b)
 end
 
-function default_alignment(task::AutoTask, inputs::Vector{<:Variable}, outputs::Vector{<:Variable})
+function default_alignment(task::LegateTask, inputs::Vector{<:Variable}, outputs::Vector{<:Variable})
     for i in 2:length(inputs)
         add_constraint(task, align(inputs[i], inputs[1]))
     end
@@ -85,16 +85,21 @@ end
 
 Add a constraint to the task.
 """
-function add_constraint(task::AutoTask, c::Constraint)
+function add_constraint(task::LegateTask, c::Constraint)
     LegateInternal.add_constraint(task.impl, c)
 end
 
 
-function create_julia_task(rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaTask)
-    id = (task_obj isa JuliaCPUTask) ? LegateInternal.JULIA_CUSTOM_TASK : LegateInternal.JULIA_CUSTOM_GPU_TASK
-    task = create_task(rt, lib, id)
+function create_julia_task(rt::Any, lib::Any, task_obj::JuliaTask)
+    is_cpu = (task_obj isa JuliaCPUTask)
+    
+    # bypass create_task to avoid recursion in JIT/Method lookup
+    impl_ptr = ccall((:legate_create_julia_task_wrapper, Legate.WRAPPER_LIB_PATH), Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Cint), rt.cpp_object, lib.cpp_object, is_cpu ? 0 : 1)
+    
+    # Wrap raw pointer directly into LegateTask
+    task = LegateTask(CxxWrap.CxxPtr{LegateInternal.AutoTask}(impl_ptr))
+    
     task.fun = task_obj.fun
-
     # ONLY Julia tasks get the task_id scalar and tracking
     task.task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
     
@@ -103,8 +108,11 @@ function create_julia_task(rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaTas
     return task
 end
 
+function _submit_task(t::CxxPtr{Runtime}, task::LegateTask{<:CxxPtr{<:LegateInternal.AutoTask}})
+    LegateInternal.submit_auto_task(t, task.impl[])
+end
 
-function _submit_task(t::CxxPtr{Runtime}, task::AutoTask)
+function _submit_task(t::CxxPtr{Runtime}, task::LegateTask{<:LegateInternal.AutoTask})
     LegateInternal.submit_auto_task(t, task.impl)
 end
 
@@ -118,24 +126,32 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
         in_t = Tuple{task.input_types...}
         out_t = Tuple{task.output_types...}
         sc_t = Tuple{task.scalar_types...}
-        dims_val = Tuple(task.arg_dims)
         
-        sig = UfiSignature{in_t, out_t, sc_t, dims_val}()
-        meta = UfiMetadata(task.fun, sig)
+        sig = UfiSignature{in_t, out_t, sc_t}()
+        meta = UfiMetadata(task.fun, sig, Tuple(task.arg_dims))
         
         lock(REGISTRY_LOCK) do
             GLOBAL_TASK_REGISTRY[task.task_id] = meta
         end
-
-        # Track submitted count ONLY for Julia tasks
-        Threads.atomic_add!(SUBMITTED_COUNT, 1)
         
-        # Precompile the dispatch engine for this signature
-        try
-            precompile(Legate._extract_and_call, (UfiMetadata, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, typeof(sig)))
-        catch e; end
+        # Principled warmup: Force JIT compilation safely on submission thread
+        # 1. Precompile the internal statically-typed dispatcher
+        precompile(_do_call, (typeof(task.fun), Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, typeof(meta.dims), typeof(sig)))
+        
+        # 2. Precompile the user-provided function with exact types
+        user_arg_types = Any[]
+        for (T, d) in zip(task.input_types, task.arg_dims)
+            push!(user_arg_types, Array{T, length(d)})
+        end
+        for (T, d) in zip(task.output_types, task.arg_dims)
+            push!(user_arg_types, Array{T, length(d)})
+        end
+        for T in task.scalar_types
+            push!(user_arg_types, T)
+        end
+        precompile(task.fun, (user_arg_types...,))
+        
+        Threads.atomic_add!(SUBMITTED_COUNT, 1)
     end
-
-    @debug "Submitting task $(task.task_id)"
     _submit_task(rt, task)
 end
