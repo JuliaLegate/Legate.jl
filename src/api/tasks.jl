@@ -94,7 +94,7 @@ end
 function create_julia_task_impl(rt, lib, task_obj, backend_flag::Cint)
     # returns an Legate AutoTask object ptr
     impl_ptr = ccall((:legate_create_julia_task_wrapper, Legate.WRAPPER_LIB_PATH), Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Cint), rt.cpp_object, lib.cpp_object, backend_flag)
-    task = LegateTask(CxxWrap.CxxPtr{LegateInternal.AutoTask}(impl_ptr), task_obj.fun)
+    task = LegateTask(impl_ptr, task_obj.fun)
     task.task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
     # Prepend internal task_id as scalar 0 on cpp Legate side
     LegateInternal.add_scalar(task.impl, Scalar(UInt32(task.task_id)).impl)
