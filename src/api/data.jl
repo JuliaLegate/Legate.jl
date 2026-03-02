@@ -152,27 +152,17 @@ dim(x::PhysicalStore) = LegateInternal.dim(x.handle)
     
 Return the data type of elements stored in the array/store.
 """
-function type(x::LogicalArray)
-    LegateInternal.type(x.handle)
-end
-function type(x::LogicalStore)
-    LegateInternal.type(x.handle)
-end
-function type(x::PhysicalArray)
-    LegateInternal.type(x.handle)
-end
-function type(x::PhysicalStore)
-    LegateInternal.type(x.handle)
-end
+type(x::LogicalArray) = LegateInternal.type(x.handle)
+type(x::LogicalStore) = LegateInternal.type(x.handle)
+type(x::PhysicalArray) = LegateInternal.type(x.handle)
+type(x::PhysicalStore) = LegateInternal.type(x.handle)
 
 """
     code(ty::LegateType) -> Int
 
 Return the internal code representing the `LegateType`.
 """
-function code(ty::LegateType)
-    LegateInternal.code(ty)
-end
+code(ty::LegateType) = LegateInternal.code(ty)
 
 """
     is_readable(PhysicalStore) -> Bool
