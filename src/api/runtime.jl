@@ -23,9 +23,7 @@
 Start the Legate runtime. This function is called automatically 
 when the module is loaded.
 """
-function start_legate()
-    LegateInternal.start_legate()
-end
+start_legate() = LegateInternal.start_legate()
 
 """
     legate_finish() -> Nothing
