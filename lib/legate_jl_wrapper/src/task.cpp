@@ -123,7 +123,6 @@ static std::condition_variable g_pending_cv;
 static bool g_shutdown = false;
 
 static std::atomic<int> g_active_calls{0};
-static std::atomic<int> g_max_task_id_seen{0};
 static std::atomic<int> g_started_count{0};
 
 } // namespace ufi
@@ -152,42 +151,22 @@ JULIA_LEGATE_UFI_EXPORT void* legate_get_slot_request_ptr(int slot_id) {
 }
 
 JULIA_LEGATE_UFI_EXPORT int legate_get_active_call_count() { return g_active_calls.load(); }
-JULIA_LEGATE_UFI_EXPORT int legate_get_max_task_id_seen() { return g_max_task_id_seen.load(); }
 JULIA_LEGATE_UFI_EXPORT int legate_get_started_count() { return g_started_count.load(); }
 
-static char g_dummy_handle;
-
-JULIA_LEGATE_UFI_EXPORT void* legate_start_copy(void* dest_ptr, void* src_ptr) {
+JULIA_LEGATE_UFI_EXPORT void legate_start_copy(void* dest_ptr, void* src_ptr) {
   auto& dest = *reinterpret_cast<legate::LogicalStore*>(dest_ptr);
   auto& src = *reinterpret_cast<const legate::LogicalStore*>(src_ptr);
   legate::Runtime::get_runtime()->issue_copy(dest, src);
-  return &g_dummy_handle;
 }
 
-JULIA_LEGATE_UFI_EXPORT void* legate_start_detach(void* store_ptr) {
+JULIA_LEGATE_UFI_EXPORT void legate_start_detach(void* store_ptr) {
   auto& store = *reinterpret_cast<legate::LogicalStore*>(store_ptr);
   store.detach();
-  return &g_dummy_handle;
 }
-
-JULIA_LEGATE_UFI_EXPORT int legate_wait_handle(void* handle) { return 1; }
-JULIA_LEGATE_UFI_EXPORT int legate_is_handle_ready(void* handle) { return 1; }
-JULIA_LEGATE_UFI_EXPORT void legate_free_handle(void* handle) { }
 
 JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot_nonblocking() {
   std::lock_guard<std::mutex> lock(g_queue_mutex);
   if (g_pending_queue.empty()) return -1;
-  int slot_id = g_pending_queue.front();
-  g_pending_queue.erase(g_pending_queue.begin());
-  return slot_id;
-}
-
-JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot() {
-  std::unique_lock<std::mutex> lock(g_queue_mutex);
-  while (g_pending_queue.empty() && !g_shutdown) {
-    g_pending_cv.wait(lock);
-  }
-  if (g_shutdown || g_pending_queue.empty()) return -1;
   int slot_id = g_pending_queue.front();
   g_pending_queue.erase(g_pending_queue.begin());
   return slot_id;
@@ -216,10 +195,6 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   
   uint32_t task_id = context.scalar(0).value<uint32_t>();
   DEBUG_PRINT("JuliaTaskInterface(task=%u): started=%d, active=%d\n", task_id, g_started_count.load(), g_active_calls.load());
-  {
-    int current = g_max_task_id_seen.load();
-    while (task_id > current && !g_max_task_id_seen.compare_exchange_weak(current, task_id));
-  }
 
   DEBUG_PRINT("JuliaTaskInterface starting for task %u in slot search...\n", task_id);
 
@@ -321,18 +296,6 @@ void JuliaCustomTask::cpu_variant(legate::TaskContext context) { JuliaTaskInterf
 void JuliaCustomGPUTask::gpu_variant(legate::TaskContext context) { JuliaTaskInterface(context, true); }
 #endif
 
-JULIA_LEGATE_UFI_EXPORT void* legate_create_julia_task_wrapper(void* rt_ptr, void* lib_ptr, int is_gpu) {
-  auto* rt = reinterpret_cast<legate::Runtime*>(rt_ptr);
-  auto* lib = reinterpret_cast<legate::Library*>(lib_ptr);
-#if LEGATE_DEFINED(LEGATE_USE_CUDA)
-  legate::LocalTaskID id = is_gpu ? static_cast<legate::LocalTaskID>(ufi::JULIA_CUSTOM_GPU_TASK) : static_cast<legate::LocalTaskID>(ufi::JULIA_CUSTOM_TASK);
-#else
-  legate::LocalTaskID id = static_cast<legate::LocalTaskID>(ufi::JULIA_CUSTOM_TASK);
-#endif
-  auto task = rt->create_task(*lib, id);
-  return new legate::AutoTask(std::move(task));
-}
-
 void ufi_interface_register(legate::Library& library) {
   ufi::JuliaCustomTask::register_variants(library);
 #if LEGATE_DEFINED(LEGATE_USE_CUDA)
@@ -349,15 +312,11 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("legate_get_max_slots", &ufi::legate_get_max_slots);
   mod.method("legate_get_slot_request_ptr", &ufi::legate_get_slot_request_ptr);
   mod.method("legate_pop_pending_slot_nonblocking", &ufi::legate_pop_pending_slot_nonblocking);
-  mod.method("legate_pop_pending_slot", &ufi::legate_pop_pending_slot);
   mod.method("legate_get_active_call_count", &ufi::legate_get_active_call_count);
-  mod.method("legate_get_max_task_id_seen", &ufi::legate_get_max_task_id_seen);
   mod.method("legate_get_active_slot_count", &ufi::legate_get_active_slot_count);
   mod.method("legate_get_started_count", &ufi::legate_get_started_count);
   mod.method("legate_start_copy", &ufi::legate_start_copy);
   mod.method("legate_start_detach", &ufi::legate_start_detach);
-  mod.method("legate_wait_handle", &ufi::legate_wait_handle);
-  mod.method("legate_free_handle", &ufi::legate_free_handle);
   mod.set_const("JULIA_CUSTOM_TASK", legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
 #if LEGATE_DEFINED(LEGATE_USE_CUDA)
   mod.set_const("JULIA_CUSTOM_GPU_TASK", legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_GPU_TASK});

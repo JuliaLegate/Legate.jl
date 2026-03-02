@@ -28,44 +28,32 @@ function start_legate()
 end
 
 """
-    legate_finish() -> Int32
+    legate_finish() -> Nothing
 
 Finalize the Legate runtime.
-
-Returns an integer status code from the runtime shutdown procedure.
 """
-function legate_finish()
-    LegateInternal.legate_finish()
-    return nothing
-end
-
+legate_finish() = LegateInternal.legate_finish()
 
 """
     get_runtime() -> CxxPtr{Runtime}
 
 Returns the Legate runtime.
 """
-function get_runtime()
-    LegateInternal.get_runtime()
-end
+get_runtime() = LegateInternal.get_runtime()
 
 """
     has_started() -> Bool
 
 Returns true if the Legate runtime has started.
 """
-function has_started()
-    LegateInternal.has_started()
-end
+has_started() = LegateInternal.has_started()
 
 """
     has_finished() -> Bool
 
 Returns true if the Legate runtime has finished.
 """
-function has_finished()
-    LegateInternal.has_finished()
-end
+has_finished() = LegateInternal.has_finished()
 
 """
     create_library(name::String) -> Library
@@ -99,18 +87,15 @@ end
 
 Returns the current time in microseconds.
 """
-function time_microseconds()
-    LegateInternal.time_microseconds()
-end
+time_microseconds() = LegateInternal.time_microseconds()
+
 
 """
     time_nanoseconds() -> Int64
 
 Returns the current time in nanoseconds.
 """
-function time_nanoseconds()
-    LegateInternal.time_nanoseconds()
-end
+time_nanoseconds() = LegateInternal.time_nanoseconds()
 
 """
     issue_execution_fence(; blocking::Bool=true)
@@ -125,17 +110,5 @@ function issue_execution_fence(; blocking::Bool=true)
         @threadcall((:legate_issue_execution_fence_blocking, Legate.WRAPPER_LIB_PATH), Cvoid, ())
     else
         LegateInternal.issue_execution_fence(false)
-    end
-end
-"""
-    wait_handle(handle::Ptr{Cvoid})
-
-Block the calling task until the Legate operation represented by the handle is complete.
-This function polls the UFI system while waiting to ensure background progress.
-"""
-function wait_handle(handle::Ptr{Cvoid})
-    handle == C_NULL && return
-    while ccall((:legate_is_handle_ready, Legate.WRAPPER_LIB_PATH), Cint, (Ptr{Cvoid},), handle) == 0
-        yield()
     end
 end

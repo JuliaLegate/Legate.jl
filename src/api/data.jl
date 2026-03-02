@@ -139,9 +139,10 @@ end
 
 Return the number of dimensions of the array/store.
 """
-function dim(x::Union{LogicalArray,LogicalStore,PhysicalArray,PhysicalStore})
-    LegateInternal.dim(x.handle)
-end
+dim(x::LogicalArray) = LegateInternal.dim(x.handle)
+dim(x::LogicalStore) = LegateInternal.dim(x.handle)
+dim(x::PhysicalArray) = LegateInternal.dim(x.handle)
+dim(x::PhysicalStore) = LegateInternal.dim(x.handle)
 
 """
     type(PhysicalStore) -> LegateType
@@ -151,7 +152,16 @@ end
     
 Return the data type of elements stored in the array/store.
 """
-function type(x::Union{LogicalArray,LogicalStore,PhysicalArray,PhysicalStore})
+function type(x::LogicalArray)
+    LegateInternal.type(x.handle)
+end
+function type(x::LogicalStore)
+    LegateInternal.type(x.handle)
+end
+function type(x::PhysicalArray)
+    LegateInternal.type(x.handle)
+end
+function type(x::PhysicalStore)
     LegateInternal.type(x.handle)
 end
 
@@ -169,36 +179,28 @@ end
 
 Check if the physical store can be read.
 """
-function is_readable(s::PhysicalStore)
-    LegateInternal.is_readable(s)
-end
+is_readable(s::PhysicalStore) = LegateInternal.is_readable(s)
 
 """
     is_writable(PhysicalStore) -> Bool
 
 Check if the physical store can be written to.
 """
-function is_writable(s::PhysicalStore)
-    LegateInternal.is_writable(s)
-end
+is_writable(s::PhysicalStore) = LegateInternal.is_writable(s)
 
 """
     is_reducible(PhysicalStore) -> Bool
 
 Check if the physical store supports reduction operations.
 """
-function is_reducible(s::PhysicalStore)
-    LegateInternal.is_reducible(s)
-end
+is_reducible(s::PhysicalStore) = LegateInternal.is_reducible(s)
 
 """
     valid(PhysicalStore) -> Bool
 
 Check if the physical store is in a valid state.
 """
-function valid(s::PhysicalStore)
-    LegateInternal.valid(s)
-end
+valid(s::PhysicalStore) = LegateInternal.valid(s)
 
 """
     reinterpret_as(LogicalStore, T) -> LogicalStore
@@ -256,49 +258,19 @@ function get_physical_array(x::LogicalArray, target::StoreTarget)
     LegateInternal.get_physical_array(x.handle, StoreTargetOptional{StoreTarget}(target))
 end
 
-function equal_storage(x::LogicalStore, y::LogicalStore)
-    LegateInternal.equal_storage(x.handle, y.handle)
-end
+equal_storage(x::LogicalStore, y::LogicalStore) = LegateInternal.equal_storage(x.handle, y.handle)
 
-function nullable(x::Union{LogicalArray,PhysicalArray})
-    LegateInternal.nullable(x.handle)
-end
+nullable(x::LogicalArray) = LegateInternal.nullable(x.handle)
+nullable(x::PhysicalArray) = LegateInternal.nullable(x.handle)
 
-function data(x::Union{LogicalArray,PhysicalArray})
-    LegateInternal.data(x.handle)
-end
+data(x::LogicalArray) = LegateInternal.data(x.handle)
+data(x::PhysicalArray) = LegateInternal.data(x.handle)
 
-function unbound(x::LogicalArray)
-    LegateInternal.unbound(x.handle)
-end
+unbound(x::LogicalArray) = LegateInternal.unbound(x.handle)
 
 # Delegation for wrappers
 Base.eltype(x::Union{LogicalArray{T},LogicalStore{T}}) where {T} = T
 
-# Conversion from LogicalArray to Base Julia array
-# Defined here to ensure precompilation and avoid generic conversion overhead.
-function (::Type{<:Array{A}})(arr::LogicalArray{B}) where {A,B}
-    Legate.wait_ufi()
-    dims = Base.size(arr)
-    out = Array{A}(undef, dims)
-    attached = attach_external(out; read_only=false)
-    copyto!(attached, arr)
-    _detach_nonblocking(attached.handle)
-    return out
-end
-
-(::Type{<:Array})(arr::LogicalArray{B}) where {B} = Array{B}(arr)
-
-function (::Type{<:LogicalArray{A}})(arr::Array{B}) where {A,B}
-    dims = Base.size(arr)
-    out = create_array(collect(dims), A)
-    attached = attach_external(arr)
-    copyto!(out, attached)
-    _detach_nonblocking(attached.handle)
-    return out
-end
-
-(::Type{<:LogicalArray})(arr::Array{B}) where {B} = LogicalArray{B}(arr)
 
 """
     get_ptr(LogicalStore) -> Ptr
@@ -308,26 +280,11 @@ end
 
 Return the pointer to the underlying data of the array/store.
 """
-function get_ptr(arr::LogicalStore)
-    return get_ptr(get_physical_store(arr))
-end
+get_ptr(arr::LogicalStore) = get_ptr(get_physical_store(arr))
+get_ptr(arr::LogicalStore, target::StoreTarget) = get_ptr(get_physical_store(arr, target))
 
-function get_ptr(arr::LogicalStore, target::StoreTarget)
-    return get_ptr(get_physical_store(arr, target))
-end
+get_ptr(arr::LogicalArray) = get_ptr(data(get_physical_array(arr)))
+get_ptr(arr::LogicalArray, target::StoreTarget) = get_ptr(data(get_physical_array(arr, target)))
 
-function get_ptr(arr::LogicalArray)
-    return get_ptr(data(get_physical_array(arr)))
-end
-
-function get_ptr(arr::LogicalArray, target::StoreTarget)
-    return get_ptr(data(get_physical_array(arr, target)))
-end
-
-function get_ptr(arr::PhysicalArray)
-    return get_ptr(data(arr))
-end
-
-function get_ptr(arr::PhysicalStore)
-    LegateInternal._get_ptr(CxxWrap.CxxPtr(arr))
-end
+get_ptr(arr::PhysicalArray) = get_ptr(data(arr))
+get_ptr(arr::PhysicalStore) = LegateInternal._get_ptr(CxxWrap.CxxPtr(arr))

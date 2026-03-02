@@ -25,24 +25,6 @@ function attach_external(arr::Array{T,N}; read_only::Bool=true) where {T,N}
     return LogicalStore{T,N}(impl, size(arr))
 end
 
-function Base.copyto!(
-    dest::Union{LogicalStore{T,N},LogicalArray{T,N}},
-    src::Union{LogicalStore{T,N},LogicalArray{T,N}},
-) where {T,N}
-    dest_handle = (dest isa LogicalArray) ? LegateInternal.data(dest.handle) : dest.handle
-    src_handle = (src isa LogicalArray) ? LegateInternal.data(src.handle) : src.handle
-
-    # Start copy in background C++ thread and poll UFI while waiting
-    handle = ccall(
-        (:legate_start_copy, Legate.WRAPPER_LIB_PATH),
-        Ptr{Cvoid},
-        (Ptr{Cvoid}, Ptr{Cvoid}),
-        dest_handle.cpp_object, src_handle.cpp_object
-    )
-    Legate.wait_handle(handle)
-    return dest
-end
-
 function Base.copyto!(dest::LogicalArray{T,N}, src::Array{T,N}) where {T,N}
     attached = attach_external(src)
     copyto!(dest, attached)
@@ -50,16 +32,64 @@ function Base.copyto!(dest::LogicalArray{T,N}, src::Array{T,N}) where {T,N}
     return dest
 end
 
-# Array and LogicalArray conversions moved to src/api/data.jl
+function Base.copyto!(dest::LogicalStore{T,N}, src::LogicalStore{T,N}) where {T,N}
+    _copyto_impl(dest.handle, src.handle)
+    return dest
+end
 
-# Detach without blocking Thread 1.
+function Base.copyto!(dest::LogicalStore{T,N}, src::LogicalArray{T,N}) where {T,N}
+    _copyto_impl(dest.handle, LegateInternal.data(src.handle))
+    return dest
+end
+
+function Base.copyto!(dest::LogicalArray{T,N}, src::LogicalStore{T,N}) where {T,N}
+    _copyto_impl(LegateInternal.data(dest.handle), src.handle)
+    return dest
+end
+
+function Base.copyto!(dest::LogicalArray{T,N}, src::LogicalArray{T,N}) where {T,N}
+    _copyto_impl(LegateInternal.data(dest.handle), LegateInternal.data(src.handle))
+    return dest
+end
+
+function _copyto_impl(dest_handle::LogicalStoreImpl, src_handle::LogicalStoreImpl)
+    ccall(
+        (:legate_start_copy, Legate.WRAPPER_LIB_PATH),
+        Cvoid,
+        (Ptr{Cvoid}, Ptr{Cvoid}),
+        dest_handle.cpp_object, src_handle.cpp_object
+    )
+end
+
 function _detach_nonblocking(store_handle::LogicalStoreImpl)
-    # Start detach in background C++ thread and poll UFI while waiting
-    handle = ccall(
+    ccall(
         (:legate_start_detach, Legate.WRAPPER_LIB_PATH),
-        Ptr{Cvoid},
+        Cvoid,
         (Ptr{Cvoid},),
         store_handle.cpp_object
     )
-    Legate.wait_handle(handle)
 end
+
+# Conversion from LogicalArray to Base Julia array
+function (::Type{<:Array{A}})(arr::LogicalArray{B}) where {A,B}
+    Legate.wait_ufi()
+    dims = Base.size(arr)
+    out = Array{A}(undef, dims)
+    attached = attach_external(out; read_only=false)
+    copyto!(attached, arr)
+    _detach_nonblocking(attached.handle)
+    return out
+end
+
+(::Type{<:Array})(arr::LogicalArray{B}) where {B} = Array{B}(arr)
+
+function (::Type{<:LogicalArray{A}})(arr::Array{B}) where {A,B}
+    dims = Base.size(arr)
+    out = create_array(collect(dims), A)
+    attached = attach_external(arr)
+    copyto!(out, attached)
+    _detach_nonblocking(attached.handle)
+    return out
+end
+
+(::Type{<:LogicalArray})(arr::Array{B}) where {B} = LogicalArray{B}(arr)
