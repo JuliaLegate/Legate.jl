@@ -24,8 +24,9 @@ using LegatePreferences
 import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
-
 using StaticArrays
+
+_is_precompiling() = (ccall(:jl_generating_output, Cint, ()) != 0)
 
 include(joinpath(@__DIR__, "../deps/version.jl"))
 include("utilities/preference.jl")
@@ -139,10 +140,6 @@ function _finish_runtime()
         catch e
             @error "legate_finish() failed" exception=(e, catch_backtrace())
         end
-
-        # Safety net: _exit bypasses GC finalizers that crash in
-        # LogicalStore::~LogicalStore() after the Legion runtime is gone.
-        ccall(:_exit, Cvoid, (Cint,), Cint(0))
     end
 end
 
@@ -177,7 +174,6 @@ function ensure_runtime!()
     end
 end
 
-_is_precompiling() = ccall(:jl_generating_output, Cint, ()) != 0
 
 function __init__()
     LegatePreferences.check_unchanged()

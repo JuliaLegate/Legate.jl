@@ -27,7 +27,6 @@ const UFI_SHUTDOWN_DONE = Ref{Bool}(false)
 const UFI_INIT_LOCK = ReentrantLock()
 const DISPATCH_LOCK = ReentrantLock()
 
-const IN_POLL = Threads.Atomic{Int}(0)
 const PENDING_JOBS = Threads.Atomic{Int}(0)
 
 const UFI_ERROR = 217
@@ -47,26 +46,26 @@ const UFI_WORKER_TASKS = Vector{Task}()
 @generated function _do_call(f, in_p_ptr::Ptr{Ptr{Cvoid}}, out_p_ptr::Ptr{Ptr{Cvoid}}, scal_p_ptr::Ptr{Ptr{Cvoid}}, dims::Tuple, ::UfiSignature{InT, OutT, ScT}) where {InT, OutT, ScT}
     exprs = []
     dim_cursor = 1
-    
+
     # Inputs
     for (i, T) in enumerate(InT.parameters)
         E = eltype(T)
         push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(in_p_ptr, $i)), dims[$dim_cursor])))
         dim_cursor += 1
     end
-    
+
     # Outputs
     for (i, T) in enumerate(OutT.parameters)
         E = eltype(T)
         push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(out_p_ptr, $i)), dims[$dim_cursor])))
         dim_cursor += 1
     end
-    
+
     # Scalars
     for (i, T) in enumerate(ScT.parameters)
         push!(exprs, :(unsafe_load(Ptr{$T}(unsafe_load(scal_p_ptr, $i)))))
     end
-    
+
     return quote
         f($(exprs...))
     end
@@ -82,7 +81,7 @@ function ufi_has_pending_work()
     # Robust synchronization using submitted/started counts
     submitted = SUBMITTED_COUNT[]
     started = Int(ccall((:legate_get_started_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
-    
+
     active_calls = Int(ccall((:legate_get_active_call_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
     active_slots = Int(ccall((:legate_get_active_slot_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
 
@@ -101,41 +100,46 @@ end
 
 function ufi_poll()
     if !UFI_INITIALIZED[]; return false; end
-    if Threads.atomic_cas!(IN_POLL, 0, 1) != 0; return false; end
-    
-    try
-        slot_id = Int(ccall((:legate_pop_pending_slot_nonblocking, Legate.WRAPPER_LIB_PATH), Cint, ()))
-        if slot_id != -1
-            base_ptr = SLOT_REQUEST_PTRS[slot_id + 1]
-            task_id = unsafe_load(Ptr{UInt32}(base_ptr + 4))
-            
-            meta = lock(REGISTRY_LOCK) do
-                get(GLOBAL_TASK_REGISTRY, task_id, nothing)
-            end
-            
-            if isnothing(meta)
-                println(stderr, "[UFI Error] Task ID $task_id not found in registry!")
-                exit(UFI_ERROR)
-            end
 
-            # Extract pointers immediately into stable vectors
-            sig_type = typeof(meta.sig)
-            in_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
-            out_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
-            scal_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
+    slot_id = Int(ccall((:legate_pop_pending_slot_nonblocking, Legate.WRAPPER_LIB_PATH), Cint, ()))
+    slot_id == -1 && return false
 
-            in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
-            out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
-            scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:length(sig_type.parameters[3].parameters)]
+    base_ptr = SLOT_REQUEST_PTRS[slot_id + 1]
+    task_id = unsafe_load(Ptr{UInt32}(base_ptr + 4))
 
-            Threads.atomic_add!(PENDING_JOBS, 1)
-            put!(JOB_QUEUE[], TaskJob(slot_id, in_args, out_args, scal_args, meta))
-            return true
+    meta = lock(REGISTRY_LOCK) do
+        get(GLOBAL_TASK_REGISTRY, task_id, nothing)
+    end
+
+    if isnothing(meta)
+        if !UFI_SHUTDOWN[]
+            println(stderr, "[UFI Error] Task ID $task_id not found in registry!")
+            exit(UFI_ERROR)
         end
         return false
-    finally
-        IN_POLL[] = 0
     end
+
+    # Extract pointers immediately into stable vectors
+    sig_type = typeof(meta.sig)
+    in_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
+    out_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
+    scal_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
+
+    in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
+    out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
+    scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:length(sig_type.parameters[3].parameters)]
+
+    Threads.atomic_add!(PENDING_JOBS, 1)
+    try
+        put!(JOB_QUEUE[], TaskJob(slot_id, in_args, out_args, scal_args, meta))
+    catch e
+        Threads.atomic_sub!(PENDING_JOBS, 1) # Decrement if put! fails
+        if e isa InvalidStateException && e.state == :closed
+            return false
+        end
+        rethrow(e)
+    end
+    return true
 end
 
 function _ufi_worker_loop()
@@ -143,11 +147,14 @@ function _ufi_worker_loop()
     while !UFI_SHUTDOWN[]
         job = try
             take!(JOB_QUEUE[])
-        catch e
-            e isa InvalidStateException && break
-            rethrow(e)
+        catch ex
+            if ex isa InvalidStateException && ex.state == :closed
+                return
+            end
+            @error "Error in UFI worker loop" exception=(ex, catch_backtrace())
+            break
         end
-        
+
         try
             # Use invokelatest to ensure MethodInstance visibility across threads
             Base.invokelatest(_extract_and_call, job.meta, job.in_args, job.out_args, job.scal_args, job.meta.sig)
@@ -213,6 +220,9 @@ end
 function shutdown_ufi()
     UFI_SHUTDOWN[] = true
     UFI_INITIALIZED[] = false
+
+    wait_ufi() # Wait for all tasks to complete
+
     if isassigned(JOB_QUEUE) && isopen(JOB_QUEUE[])
         close(JOB_QUEUE[])
     end
