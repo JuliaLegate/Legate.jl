@@ -71,9 +71,9 @@ expected_a = expected_c .* 2.5f0
     rt = Legate.get_runtime()
     lib = Legate.create_library("test_comparison")
 
-    my_task = Legate.wrap_task(task_test)
-    my_4arg_task = Legate.wrap_task(task_4arg)
-    my_scalar_task = Legate.wrap_task(task_scalar)
+    my_task = Legate.wrap_task(task_test, Legate.CPUBackend)
+    my_4arg_task = Legate.wrap_task(task_4arg, Legate.CPUBackend)
+    my_scalar_task = Legate.wrap_task(task_scalar, Legate.CPUBackend)
 
     @testset "Initialization" begin
         a = Legate.create_array([10, 10], Float32)

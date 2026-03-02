@@ -36,11 +36,11 @@ function test_driver()
     rt = Legate.get_runtime()
     lib = Legate.create_library("test")
 
-    my_task = Legate.wrap_task(task_test)
-    my_init_task = Legate.wrap_task(task_init)
-    my_4arg_task = Legate.wrap_task(task_4arg)
-    my_scalar_task = Legate.wrap_task(task_scalar)
-    my_noop_task = Legate.wrap_task(task_noop)
+    my_task = Legate.wrap_task(task_test, Legate.CPUBackend)
+    my_init_task = Legate.wrap_task(task_init, Legate.CPUBackend)
+    my_4arg_task = Legate.wrap_task(task_4arg, Legate.CPUBackend)
+    my_scalar_task = Legate.wrap_task(task_scalar, Legate.CPUBackend)
+    my_noop_task = Legate.wrap_task(task_noop, Legate.CPUBackend)
 
     # 0. NOOP Task
     a_noop = Legate.create_array([10], Float32)

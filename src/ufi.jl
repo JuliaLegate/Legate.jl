@@ -44,13 +44,6 @@ const JOB_QUEUE = Ref{Channel{TaskJob}}()
 const UFI_POLLER_TASK = Ref{Task}()
 const UFI_WORKER_TASKS = Vector{Task}()
 
-"""
-    _extract_and_call(meta, in_p, out_p, scal_p, sig)
-
-The type-stable JIT engine. Reconstructs arguments from raw pointers using the 
-Signature's type parameters (including dimensions). Perfectly type-stable and 
-zero-allocation in the hot path.
-"""
 @generated function _do_call(f, in_p_ptr::Ptr{Ptr{Cvoid}}, out_p_ptr::Ptr{Ptr{Cvoid}}, scal_p_ptr::Ptr{Ptr{Cvoid}}, dims::Tuple, ::UfiSignature{InT, OutT, ScT}) where {InT, OutT, ScT}
     exprs = []
     dim_cursor = 1
@@ -110,44 +103,54 @@ function ufi_poll()
     if !UFI_INITIALIZED[]; return false; end
     if Threads.atomic_cas!(IN_POLL, 0, 1) != 0; return false; end
     
-    slot_id = Int(ccall((:legate_pop_pending_slot_nonblocking, Legate.WRAPPER_LIB_PATH), Cint, ()))
-    if slot_id != -1
-        base_ptr = SLOT_REQUEST_PTRS[slot_id + 1]
-        task_id = unsafe_load(Ptr{UInt32}(base_ptr + 4))
-        
-        meta = lock(REGISTRY_LOCK) do
-            get(GLOBAL_TASK_REGISTRY, task_id, nothing)
+    try
+        slot_id = Int(ccall((:legate_pop_pending_slot_nonblocking, Legate.WRAPPER_LIB_PATH), Cint, ()))
+        if slot_id != -1
+            base_ptr = SLOT_REQUEST_PTRS[slot_id + 1]
+            task_id = unsafe_load(Ptr{UInt32}(base_ptr + 4))
+            
+            meta = lock(REGISTRY_LOCK) do
+                get(GLOBAL_TASK_REGISTRY, task_id, nothing)
+            end
+            
+            if isnothing(meta)
+                println(stderr, "[UFI Error] Task ID $task_id not found in registry!")
+                exit(UFI_ERROR)
+            end
+
+            # Extract pointers immediately into stable vectors
+            sig_type = typeof(meta.sig)
+            in_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
+            out_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
+            scal_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
+
+            in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
+            out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
+            scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:length(sig_type.parameters[3].parameters)]
+
+            Threads.atomic_add!(PENDING_JOBS, 1)
+            put!(JOB_QUEUE[], TaskJob(slot_id, in_args, out_args, scal_args, meta))
+            return true
         end
-        
-        if isnothing(meta)
-            println(stderr, "[UFI Error] Task ID $task_id not found in registry!")
-            exit(UFI_ERROR)
-        end
-
-        # Extract pointers immediately into stable vectors
-        sig_type = typeof(meta.sig)
-        in_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
-        out_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
-        scal_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
-
-        in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
-        out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
-        scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:length(sig_type.parameters[3].parameters)]
-
-        Threads.atomic_add!(PENDING_JOBS, 1)
-        put!(JOB_QUEUE[], TaskJob(slot_id, in_args, out_args, scal_args, meta))
-        return true
+        return false
+    finally
+        IN_POLL[] = 0
     end
-    IN_POLL[] = 0
-    return false
 end
 
 function _ufi_worker_loop()
-    _is_precompiling && return
+    _is_precompiling() && return
     while !UFI_SHUTDOWN[]
-        job = take!(JOB_QUEUE[])
+        job = try
+            take!(JOB_QUEUE[])
+        catch e
+            e isa InvalidStateException && break
+            rethrow(e)
+        end
+        
         try
-            _extract_and_call(job.meta, job.in_args, job.out_args, job.scal_args, job.meta.sig)
+            # Use invokelatest to ensure MethodInstance visibility across threads
+            Base.invokelatest(_extract_and_call, job.meta, job.in_args, job.out_args, job.scal_args, job.meta.sig)
         catch e
             println(stderr, "[UFI Worker Error] Slot $(job.slot_id): $e")
             Base.display_error(stderr, e, catch_backtrace())
@@ -160,7 +163,7 @@ function _ufi_worker_loop()
 end
 
 function _ufi_poller_loop()
-    _is_precompiling && return
+    _is_precompiling() && return
     while !UFI_SHUTDOWN[]
         if !ufi_poll()
             yield()

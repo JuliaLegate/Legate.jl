@@ -83,18 +83,19 @@ end
 
 
 function create_julia_task(rt, lib, task_obj::JuliaTask{CPUBackend})
-    create_julia_task_impl(rt, lib, task_obj, 0)
+    create_julia_task_impl(rt, lib, task_obj, Int32(0))
 end
 
 function create_julia_task(rt, lib, task_obj::JuliaTask{GPUBackend})
-    create_julia_task_impl(rt, lib, task_obj, 1)
+    create_julia_task_impl(rt, lib, task_obj, Int32(1))
 end
 
 
-function create_julia_task_impl(rt, lib, task_obj, backend_flag::Cint)
-    # returns an Legate AutoTask object ptr
-    impl_ptr = ccall((:legate_create_julia_task_wrapper, Legate.WRAPPER_LIB_PATH), Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Cint), rt.cpp_object, lib.cpp_object, backend_flag)
-    task = LegateTask(impl_ptr, task_obj.fun)
+function create_julia_task_impl(rt, lib, task_obj, backend_flag::Int32)
+    id = (backend_flag == 0) ? LegateInternal.JULIA_CUSTOM_TASK : LegateInternal.JULIA_CUSTOM_GPU_TASK
+    impl = LegateInternal.create_auto_task(rt, lib, id)
+    
+    task = LegateTask(impl, task_obj.fun)
     task.task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
     # Prepend internal task_id as scalar 0 on cpp Legate side
     LegateInternal.add_scalar(task.impl, Scalar(UInt32(task.task_id)).impl)
