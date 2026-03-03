@@ -19,6 +19,7 @@
 
 const REALM_MAX_DIM = 6
 const MAX_UFI_SLOTS_VAL = 32
+const PhysArrPtr = Ptr{Cvoid}
 const SLOT_REQUEST_PTRS = Vector{Ptr{Cvoid}}(undef, MAX_UFI_SLOTS_VAL)
 
 const UFI_SHUTDOWN = Threads.Atomic{Bool}(false)
@@ -26,15 +27,25 @@ const UFI_INITIALIZED = Ref{Bool}(false)
 const UFI_SHUTDOWN_DONE = Ref{Bool}(false)
 const UFI_INIT_LOCK = ReentrantLock()
 const DISPATCH_LOCK = ReentrantLock()
+const COMPILED_LOCK = ReentrantLock()
+const COMPILED_SPECIALIZATIONS = Set{Type}()
 
 const PENDING_JOBS = Threads.Atomic{Int}(0)
 
 const UFI_ERROR = 217
 
+struct TaskRequest
+    is_gpu::Int32
+    task_id::UInt32
+    inputs_ptr::Ptr{PhysArrPtr}
+    outputs_ptr::Ptr{PhysArrPtr}
+    scalars_ptr::Ptr{Ptr{Cvoid}}
+end
+
 struct TaskJob
     slot_id::Int
-    in_args::Vector{Ptr{Cvoid}}
-    out_args::Vector{Ptr{Cvoid}}
+    in_args::Vector{PhysArrPtr}
+    out_args::Vector{PhysArrPtr}
     scal_args::Vector{Ptr{Cvoid}}
     meta::UfiMetadata
 end
@@ -43,7 +54,7 @@ const JOB_QUEUE = Ref{Channel{TaskJob}}()
 const UFI_POLLER_TASK = Ref{Task}()
 const UFI_WORKER_TASKS = Vector{Task}()
 
-@generated function _do_call(f, in_p_ptr::Ptr{Ptr{Cvoid}}, out_p_ptr::Ptr{Ptr{Cvoid}}, scal_p_ptr::Ptr{Ptr{Cvoid}}, dims::Tuple, ::UfiSignature{InT, OutT, ScT}) where {InT, OutT, ScT}
+@generated function _do_call(f, in_p_ptr::Ptr{PhysArrPtr}, out_p_ptr::Ptr{PhysArrPtr}, scal_p_ptr::Ptr{Ptr{Cvoid}}, dims::Tuple, ::UfiSignature{InT, OutT, ScT}) where {InT, OutT, ScT}
     exprs = []
     dim_cursor = 1
 
@@ -71,7 +82,7 @@ const UFI_WORKER_TASKS = Vector{Task}()
     end
 end
 
-function _extract_and_call(meta::UfiMetadata{F, S, D}, in_args::Vector{Ptr{Cvoid}}, out_args::Vector{Ptr{Cvoid}}, scal_args::Vector{Ptr{Cvoid}}, sig::S) where {F, S, D}
+function _extract_and_call(meta::UfiMetadata{F, S, D}, in_args::Vector{PhysArrPtr}, out_args::Vector{PhysArrPtr}, scal_args::Vector{Ptr{Cvoid}}, sig::S) where {F, S, D}
     GC.@preserve in_args out_args scal_args begin
         _do_call(meta.fun, pointer(in_args), pointer(out_args), pointer(scal_args), meta.dims, sig)
     end
@@ -105,7 +116,8 @@ function ufi_poll()
     slot_id == -1 && return false
 
     base_ptr = SLOT_REQUEST_PTRS[slot_id + 1]
-    task_id = unsafe_load(Ptr{UInt32}(base_ptr + 4))
+    req = unsafe_load(Ptr{TaskRequest}(base_ptr))
+    task_id = req.task_id
 
     meta = lock(REGISTRY_LOCK) do
         get(GLOBAL_TASK_REGISTRY, task_id, nothing)
@@ -121,9 +133,21 @@ function ufi_poll()
 
     # Extract pointers immediately into stable vectors
     sig_type = typeof(meta.sig)
-    in_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 8))
-    out_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 16))
-    scal_p_ptr = unsafe_load(Ptr{Ptr{Ptr{Cvoid}}}(base_ptr + 24))
+
+    # Ensure this specialization is JIT-compiled on the main thread (Thread 1)
+    meta_type = typeof(meta)
+    if !(meta_type in COMPILED_SPECIALIZATIONS)
+        lock(COMPILED_LOCK) do
+            if !(meta_type in COMPILED_SPECIALIZATIONS)
+                precompile(_extract_and_call, (meta_type, Vector{PhysArrPtr}, Vector{PhysArrPtr}, Vector{Ptr{Cvoid}}, sig_type))
+                push!(COMPILED_SPECIALIZATIONS, meta_type)
+            end
+        end
+    end
+
+    in_p_ptr = req.inputs_ptr
+    out_p_ptr = req.outputs_ptr
+    scal_p_ptr = req.scalars_ptr
 
     in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
     out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
