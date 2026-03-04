@@ -55,9 +55,22 @@ UFI(read, read_accessor);
 UFI(write, write_accessor);
 
 struct ufiFunctor {
+  int* ndim_ptr = nullptr;
+  int64_t* dims_ptr = nullptr;
+
+  ufiFunctor() = default;
+  ufiFunctor(int* ndim, int64_t* dims) : ndim_ptr(ndim), dims_ptr(dims) {}
+
   template <legate::Type::Code CODE, int DIM>
   void operator()(ufi::AccessMode mode, std::uintptr_t& p,
                   const legate::PhysicalArray& rf) {
+    if (ndim_ptr && *ndim_ptr == 0) {
+      *ndim_ptr = DIM;
+      auto shp = rf.shape<DIM>();
+      for (int i = 0; i < DIM && i < 3; ++i) {
+        dims_ptr[i] = shp.hi[i] - shp.lo[i] + 1;
+      }
+    }
 
     using CppT = typename legate_util::code_to_cxx<CODE>::type;
     if (mode == ufi::AccessMode::READ)
@@ -83,9 +96,11 @@ struct TaskRequestData {
   void** inputs_ptr; // Offset 8
   void** outputs_ptr; // Offset 16
   void** scalars_ptr; // Offset 24
+  int ndim;          // Offset 32
+  int64_t dims[REALM_MAX_DIM]; // Offset 40 (Padding ensures 8-byte alignment)
 };
 
-static_assert(sizeof(TaskRequestData) == 32, "TaskRequestData size must be 32 bytes");
+static_assert(sizeof(TaskRequestData) == 40 + REALM_MAX_DIM * sizeof(int64_t), "TaskRequestData size must be 64 bytes");
 
 struct UFISlot {
   TaskRequestData request;
@@ -111,6 +126,7 @@ struct UFISlot {
   void reset() {
     task_done.store(false);
     in_use.store(false);
+    request.ndim = 0;
   }
 };
 
@@ -237,8 +253,9 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
 
   slot.request.is_gpu = is_gpu ? 1 : 0;
   slot.request.task_id = task_id;
+  slot.request.ndim = 0;
 
-  ufiFunctor functor;
+  ufiFunctor functor{&slot.request.ndim, slot.request.dims};
 
   for (size_t i = 0; i < ni; ++i) {
     auto ps = context.input(i);

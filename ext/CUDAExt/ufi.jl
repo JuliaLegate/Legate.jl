@@ -1,11 +1,11 @@
-const TaskArgumentGPU = Union{CUDA.CuArray,SUPPORTED_TYPES}
+# TaskArgumentGPU is imported from Legate
 
 function create_julia_task(
-    rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaGPUTask
+    rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaTask{GPUBackend}
 )
-    task = create_task(rt, lib, JULIA_CUSTOM_GPU_TASK)
+    task = create_task(rt, lib, JULIA_CUSTOM_GPU_TASK[])
     add_scalar(task, Scalar(task_obj.task_id))
-    register_task_function(task_obj.task_id, task_obj.fun)
+    # register_task_function(task_obj.task_id, task_obj.fun)
     return task
 end
 

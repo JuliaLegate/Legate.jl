@@ -131,7 +131,8 @@ function _finish_runtime()
         _shutdown_done[] && return
         _shutdown_done[] = true
 
-        if !UFI_SHUTDOWN_DONE[]
+        if !ufi_has_shutdown_done()
+            wait_ufi() # Drain all in-flight tasks before signaling shutdown
             shutdown_ufi()
         end
 

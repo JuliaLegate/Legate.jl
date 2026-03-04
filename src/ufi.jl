@@ -18,13 +18,11 @@
 =#
 
 const REALM_MAX_DIM = 6
+const UFI_VERBOSE = get(ENV, "VERBOSE", "1") != "0"
 const MAX_UFI_SLOTS_VAL = 32
 const PhysArrPtr = Ptr{Cvoid}
 const SLOT_REQUEST_PTRS = Vector{Ptr{Cvoid}}(undef, MAX_UFI_SLOTS_VAL)
 
-const UFI_SHUTDOWN = Threads.Atomic{Bool}(false)
-const UFI_INITIALIZED = Ref{Bool}(false)
-const UFI_SHUTDOWN_DONE = Ref{Bool}(false)
 const UFI_INIT_LOCK = ReentrantLock()
 const DISPATCH_LOCK = ReentrantLock()
 const COMPILED_LOCK = ReentrantLock()
@@ -40,6 +38,8 @@ struct TaskRequest
     inputs_ptr::Ptr{PhysArrPtr}
     outputs_ptr::Ptr{PhysArrPtr}
     scalars_ptr::Ptr{Ptr{Cvoid}}
+    ndim::Int32
+    dims::NTuple{REALM_MAX_DIM, Int64}
 end
 
 struct TaskJob
@@ -47,28 +47,57 @@ struct TaskJob
     in_args::Vector{PhysArrPtr}
     out_args::Vector{PhysArrPtr}
     scal_args::Vector{Ptr{Cvoid}}
+    local_dims::Tuple
     meta::UfiMetadata
 end
 
-const JOB_QUEUE = Ref{Channel{TaskJob}}()
-const UFI_POLLER_TASK = Ref{Task}()
-const UFI_WORKER_TASKS = Vector{Task}()
+mutable struct UfiManager
+    job_queue::Channel{TaskJob}
+    poller_task::Task
+    worker_tasks::Vector{Task}
+    shutdown::Threads.Atomic{Bool}
+    shutdown_done::Threads.Atomic{Bool}
 
-@generated function _do_call(f, in_p_ptr::Ptr{PhysArrPtr}, out_p_ptr::Ptr{PhysArrPtr}, scal_p_ptr::Ptr{Ptr{Cvoid}}, dims::Tuple, ::UfiSignature{InT, OutT, ScT}) where {InT, OutT, ScT}
+    function UfiManager(num_workers::Int)
+        mgr = new(
+            Channel{TaskJob}(128),
+            Task(() -> nothing), # poller_task placeholder
+            Vector{Task}(), # worker_tasks
+            Threads.Atomic{Bool}(false),
+            Threads.Atomic{Bool}(false)
+        )
+
+        mgr.poller_task = errormonitor(@async _ufi_poller_loop(mgr))
+
+        for _ in 1:num_workers
+            push!(mgr.worker_tasks, errormonitor(Threads.@spawn _ufi_worker_loop(mgr)))
+        end
+
+        return mgr
+    end
+end
+
+const UFI_MANAGER = Ref{Union{Nothing, UfiManager}}(nothing)
+
+function ufi_initialized()
+    return !isnothing(UFI_MANAGER[])
+end
+
+@generated function _do_call(f, in_p_ptr::Ptr{PhysArrPtr}, out_p_ptr::Ptr{PhysArrPtr}, scal_p_ptr::Ptr{Ptr{Cvoid}}, local_dims::Tuple, dims::Tuple, ::UfiSignature{InT, OutT, ScT}) where {InT, OutT, ScT}
     exprs = []
     dim_cursor = 1
 
     # Inputs
     for (i, T) in enumerate(InT.parameters)
         E = eltype(T)
-        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(in_p_ptr, $i)), dims[$dim_cursor])))
+        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(in_p_ptr, $i)), local_dims)))
         dim_cursor += 1
     end
 
     # Outputs
     for (i, T) in enumerate(OutT.parameters)
         E = eltype(T)
-        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(out_p_ptr, $i)), dims[$dim_cursor])))
+        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(out_p_ptr, $i)), local_dims)))
         dim_cursor += 1
     end
 
@@ -82,9 +111,9 @@ const UFI_WORKER_TASKS = Vector{Task}()
     end
 end
 
-function _extract_and_call(meta::UfiMetadata{F, S, D}, in_args::Vector{PhysArrPtr}, out_args::Vector{PhysArrPtr}, scal_args::Vector{Ptr{Cvoid}}, sig::S) where {F, S, D}
+function _extract_and_call(meta::UfiMetadata{F, S, D}, in_args::Vector{PhysArrPtr}, out_args::Vector{PhysArrPtr}, scal_args::Vector{Ptr{Cvoid}}, local_dims::Tuple, sig::S) where {F, S, D}
     GC.@preserve in_args out_args scal_args begin
-        _do_call(meta.fun, pointer(in_args), pointer(out_args), pointer(scal_args), meta.dims, sig)
+        _do_call(meta.fun, pointer(in_args), pointer(out_args), pointer(scal_args), local_dims, meta.dims, sig)
     end
 end
 
@@ -102,15 +131,16 @@ end
 function wait_ufi()
     while ufi_has_pending_work()
         if Threads.threadid() == 1
-            ufi_poll()
+            mgr = UFI_MANAGER[]
+            !isnothing(mgr) && ufi_poll(mgr)
         end
         yield()
         sleep(0.001)
     end
 end
 
-function ufi_poll()
-    if !UFI_INITIALIZED[]; return false; end
+function ufi_poll(mgr::UfiManager)
+    if mgr.shutdown[]; return false; end
 
     slot_id = Int(ccall((:legate_pop_pending_slot_nonblocking, Legate.WRAPPER_LIB_PATH), Cint, ()))
     slot_id == -1 && return false
@@ -124,12 +154,19 @@ function ufi_poll()
     end
 
     if isnothing(meta)
-        if !UFI_SHUTDOWN[]
+        if !mgr.shutdown[]
             println(stderr, "[UFI Error] Task ID $task_id not found in registry!")
             exit(UFI_ERROR)
         end
         return false
     end
+
+    # Dimension Extraction
+    if req.ndim < 0 || req.ndim > REALM_MAX_DIM
+        error("UFI: Unsupported ndim $(req.ndim). Must be between 0 and $REALM_MAX_DIM.")
+    end
+    nd = Int(req.ndim)
+    local_dims = ntuple(i -> Int(max(0, req.dims[i])), nd)
 
     # Extract pointers immediately into stable vectors
     sig_type = typeof(meta.sig)
@@ -139,7 +176,7 @@ function ufi_poll()
     if !(meta_type in COMPILED_SPECIALIZATIONS)
         lock(COMPILED_LOCK) do
             if !(meta_type in COMPILED_SPECIALIZATIONS)
-                precompile(_extract_and_call, (meta_type, Vector{PhysArrPtr}, Vector{PhysArrPtr}, Vector{Ptr{Cvoid}}, sig_type))
+                precompile(_extract_and_call, (meta_type, Vector{PhysArrPtr}, Vector{PhysArrPtr}, Vector{Ptr{Cvoid}}, typeof(local_dims), sig_type))
                 push!(COMPILED_SPECIALIZATIONS, meta_type)
             end
         end
@@ -154,8 +191,9 @@ function ufi_poll()
     scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:length(sig_type.parameters[3].parameters)]
 
     Threads.atomic_add!(PENDING_JOBS, 1)
+    UFI_VERBOSE && println(stderr, "[UFI] queuing task_id=$(task_id) sig=$(sig_type) local_dims=$(local_dims) global_dims=$(meta.dims)")
     try
-        put!(JOB_QUEUE[], TaskJob(slot_id, in_args, out_args, scal_args, meta))
+        put!(mgr.job_queue, TaskJob(slot_id, in_args, out_args, scal_args, local_dims, meta))
     catch e
         Threads.atomic_sub!(PENDING_JOBS, 1) # Decrement if put! fails
         if e isa InvalidStateException && e.state == :closed
@@ -166,11 +204,22 @@ function ufi_poll()
     return true
 end
 
-function _ufi_worker_loop()
+function _ufi_poller_loop(mgr::UfiManager)
     _is_precompiling() && return
-    while !UFI_SHUTDOWN[]
+    while !mgr.shutdown[]
+        if !ufi_poll(mgr)
+            yield()
+            # sleep(0.001)
+        end
+    end
+    mgr.shutdown_done[] = true
+end
+
+function _ufi_worker_loop(mgr::UfiManager)
+    _is_precompiling() && return
+    while !mgr.shutdown[]
         job = try
-            take!(JOB_QUEUE[])
+            take!(mgr.job_queue)
         catch ex
             if ex isa InvalidStateException && ex.state == :closed
                 return
@@ -181,7 +230,7 @@ function _ufi_worker_loop()
 
         try
             # Use invokelatest to ensure MethodInstance visibility across threads
-            Base.invokelatest(_extract_and_call, job.meta, job.in_args, job.out_args, job.scal_args, job.meta.sig)
+            Base.invokelatest(_extract_and_call, job.meta, job.in_args, job.out_args, job.scal_args, job.local_dims, job.meta.sig)
         catch e
             println(stderr, "[UFI Worker Error] Slot $(job.slot_id): $e")
             Base.display_error(stderr, e, catch_backtrace())
@@ -193,24 +242,10 @@ function _ufi_worker_loop()
     end
 end
 
-function _ufi_poller_loop()
-    _is_precompiling() && return
-    while !UFI_SHUTDOWN[]
-        if !ufi_poll()
-            yield()
-            # sleep(0.001)
-        end
-    end
-    UFI_SHUTDOWN_DONE[] = true
-end
-
-
 function init_ufi()
     lock(UFI_INIT_LOCK) do
-        UFI_INITIALIZED[] && return
+        ufi_initialized() && return
         _is_precompiling() && return
-        
-        JOB_QUEUE[] = Channel{TaskJob}(128)
         
         max_slots = ccall((:legate_get_max_slots, Legate.WRAPPER_LIB_PATH), Cint, ())
         if max_slots <= 0
@@ -222,32 +257,44 @@ function init_ufi()
         end
 
         LegateInternal._initialize_async_system()
-        UFI_INITIALIZED[] = true
+        if isdefined(LegateInternal, :JULIA_CUSTOM_GPU_TASK)
+            JULIA_CUSTOM_GPU_TASK[] = LegateInternal.JULIA_CUSTOM_GPU_TASK
+        end
         
-        precompile(_ufi_poller_loop, ())
-        precompile(_ufi_worker_loop, ())
+        precompile(_ufi_poller_loop, (UfiManager,))
+        precompile(_ufi_worker_loop, (UfiManager,))
 
-        UFI_POLLER_TASK[] = errormonitor(@async _ufi_poller_loop())
-
-        empty!(UFI_WORKER_TASKS)
         # Ensure at least one worker loop is running, even in single-threaded mode.
         num_workers = max(1, Threads.nthreads() - 1)
-        for i in 1:num_workers
-            push!(UFI_WORKER_TASKS, errormonitor(Threads.@spawn _ufi_worker_loop()))
-        end
+        UFI_MANAGER[] = UfiManager(num_workers)
+        
         yield()
 
         println(stderr, "[UFI] System Initialized (Concurrent Count-Sync Mode) with $(num_workers) workers\n")
     end
 end
 
-function shutdown_ufi()
-    UFI_SHUTDOWN[] = true
-    UFI_INITIALIZED[] = false
+# These are provided by the C++ wrapper when it is loaded.
+# We define stubs here that will be overwritten or used by the extension.
+const JULIA_CUSTOM_GPU_TASK = Ref{Any}(nothing)
+export JULIA_CUSTOM_GPU_TASK
 
-    wait_ufi() # Wait for all tasks to complete
+function shutdown_ufi(mgr::UfiManager = UFI_MANAGER[])
+    isnothing(mgr) && return
+    # Note: caller is responsible for draining work via wait_ufi() before shutdown.
+    mgr.shutdown[] = true
 
-    if isassigned(JOB_QUEUE) && isopen(JOB_QUEUE[])
-        close(JOB_QUEUE[])
+    if isopen(mgr.job_queue)
+        close(mgr.job_queue)
     end
+
+    if mgr === UFI_MANAGER[]
+        UFI_MANAGER[] = nothing
+    end
+end
+
+function ufi_has_shutdown_done()
+    mgr = UFI_MANAGER[]
+    isnothing(mgr) && return true
+    return mgr.shutdown_done[]
 end
