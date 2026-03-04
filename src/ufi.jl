@@ -118,22 +118,13 @@ function _extract_and_call(meta::UfiMetadata{F, S, D}, in_args::Vector{PhysArrPt
 end
 
 function ufi_has_pending_work()
-    # Robust synchronization using submitted/started counts
-    submitted = SUBMITTED_COUNT[]
-    started = Int(ccall((:legate_get_started_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
-
     active_calls = Int(ccall((:legate_get_active_call_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
     active_slots = Int(ccall((:legate_get_active_slot_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
-
-    return submitted > started || active_calls > 0 || active_slots > 0 || PENDING_JOBS[] > 0
+    return active_calls > 0 || active_slots > 0 || PENDING_JOBS[] > 0
 end
 
 function wait_ufi()
     while ufi_has_pending_work()
-        if Threads.threadid() == 1
-            mgr = UFI_MANAGER[]
-            !isnothing(mgr) && ufi_poll(mgr)
-        end
         yield()
         sleep(0.001)
     end

@@ -169,15 +169,37 @@ JULIA_LEGATE_UFI_EXPORT void* legate_get_slot_request_ptr(int slot_id) {
 JULIA_LEGATE_UFI_EXPORT int legate_get_active_call_count() { return g_active_calls.load(); }
 JULIA_LEGATE_UFI_EXPORT int legate_get_started_count() { return g_started_count.load(); }
 
-JULIA_LEGATE_UFI_EXPORT void legate_start_copy(void* dest_ptr, void* src_ptr) {
-  auto& dest = *reinterpret_cast<legate::LogicalStore*>(dest_ptr);
-  auto& src = *reinterpret_cast<const legate::LogicalStore*>(src_ptr);
-  legate::Runtime::get_runtime()->issue_copy(dest, src);
+JULIA_LEGATE_UFI_EXPORT void* legate_start_copy(void* dest_ptr, void* src_ptr) {
+  auto& dest_ref = *reinterpret_cast<legate::LogicalStore*>(dest_ptr);
+  auto& src_ref = *reinterpret_cast<const legate::LogicalStore*>(src_ptr);
+  
+  auto future = new std::future<void>(std::async(std::launch::async, [d = dest_ref, s = src_ref]() mutable {
+    legate::Runtime::get_runtime()->issue_copy(d, s);
+  }));
+  return static_cast<void*>(future);
 }
 
-JULIA_LEGATE_UFI_EXPORT void legate_start_detach(void* store_ptr) {
+JULIA_LEGATE_UFI_EXPORT void* legate_start_detach(void* store_ptr) {
   auto& store = *reinterpret_cast<legate::LogicalStore*>(store_ptr);
-  store.detach();
+  
+  auto future = new std::future<void>(std::async(std::launch::async, [store]() {
+    auto s = store; // Copy to avoid dangling ref
+    s.detach();
+  }));
+  return static_cast<void*>(future);
+}
+
+JULIA_LEGATE_UFI_EXPORT bool legate_is_future_ready(void* future_ptr) {
+  if (!future_ptr) return true;
+  auto* future = static_cast<std::future<void>*>(future_ptr);
+  return future->wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+}
+
+JULIA_LEGATE_UFI_EXPORT void legate_wait_and_destroy_future(void* future_ptr) {
+  if (!future_ptr) return;
+  auto* future = static_cast<std::future<void>*>(future_ptr);
+  future->wait();
+  delete future;
 }
 
 JULIA_LEGATE_UFI_EXPORT int legate_pop_pending_slot_nonblocking() {
@@ -334,6 +356,8 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("legate_get_started_count", &ufi::legate_get_started_count);
   mod.method("legate_start_copy", &ufi::legate_start_copy);
   mod.method("legate_start_detach", &ufi::legate_start_detach);
+  mod.method("legate_is_future_ready", &ufi::legate_is_future_ready);
+  mod.method("legate_wait_and_destroy_future", &ufi::legate_wait_and_destroy_future);
   mod.set_const("JULIA_CUSTOM_TASK", legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_TASK});
 #if LEGATE_DEFINED(LEGATE_USE_CUDA)
   mod.set_const("JULIA_CUSTOM_GPU_TASK", legate::LocalTaskID{ufi::TaskIDs::JULIA_CUSTOM_GPU_TASK});

@@ -102,6 +102,7 @@ expected_a = expected_c .* 2.5f0
     copyto!(c, zeros(Float32, 10, 10))
 
     @testset "3-Argument Task (c = a + b)" begin
+        println(stderr, "[DIAG] test tasking.jl: 3-Arg start")
         task2 = Legate.create_julia_task(rt, lib, my_task)
         input_vars = Vector{Legate.Variable}()
         output_vars = Vector{Legate.Variable}()
@@ -109,12 +110,16 @@ expected_a = expected_c .* 2.5f0
         push!(input_vars, Legate.add_input(task2, b))
         push!(output_vars, Legate.add_output(task2, c))
         Legate.default_alignment(task2, input_vars, output_vars)
+        println(stderr, "[DIAG] test tasking.jl: 3-Arg submit")
         Legate.submit_task(rt, task2)
+        println(stderr, "[DIAG] test tasking.jl: 3-Arg Array(c) fetch")
         val_c = Array(c)
+        println(stderr, "[DIAG] test tasking.jl: 3-Arg done")
         @test val_c ≈ expected_c
     end
 
     @testset "4-Argument Task (Mixing Inputs/Outputs)" begin
+        println(stderr, "[DIAG] test tasking.jl: 4-Arg start")
         task3 = Legate.create_julia_task(rt, lib, my_4arg_task)
         in_vars_4 = Vector{Legate.Variable}()
         out_vars_4 = Vector{Legate.Variable}()
@@ -123,14 +128,19 @@ expected_a = expected_c .* 2.5f0
         push!(out_vars_4, Legate.add_output(task3, b))
         push!(out_vars_4, Legate.add_output(task3, d))
         Legate.default_alignment(task3, in_vars_4, out_vars_4)
+        println(stderr, "[DIAG] test tasking.jl: 4-Arg submit")
         Legate.submit_task(rt, task3)
+        println(stderr, "[DIAG] test tasking.jl: 4-Arg Array(b) fetch")
         val_b = Array(b)
+        println(stderr, "[DIAG] test tasking.jl: 4-Arg Array(d) fetch")
         val_d = Array(d)
+        println(stderr, "[DIAG] test tasking.jl: 4-Arg done")
         @test val_b ≈ expected_b
         @test val_d ≈ expected_d
     end
 
     @testset "Scalar Task (Arg + Scalar)" begin
+        println(stderr, "[DIAG] test tasking.jl: Scalar start")
         task4 = Legate.create_julia_task(rt, lib, my_scalar_task)
         in_vars_s = Vector{Legate.Variable}()
         out_vars_s = Vector{Legate.Variable}()
@@ -138,8 +148,11 @@ expected_a = expected_c .* 2.5f0
         push!(out_vars_s, Legate.add_output(task4, a))
         Legate.add_scalar(task4, Legate.Scalar(2.5f0))
         Legate.default_alignment(task4, in_vars_s, out_vars_s)
+        println(stderr, "[DIAG] test tasking.jl: Scalar submit")
         Legate.submit_task(rt, task4)
+        println(stderr, "[DIAG] test tasking.jl: Scalar Array(a) fetch")
         val_a = Array(a)
+        println(stderr, "[DIAG] test tasking.jl: Scalar done")
         @test val_a ≈ expected_a
     end
 end
