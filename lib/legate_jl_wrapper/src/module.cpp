@@ -26,41 +26,6 @@
 #include "types.h"
 #include "wrapper.inl"
 
-legate::Type type_from_code(legate::Type::Code type_id) {
-  switch (type_id) {
-    case legate::Type::Code::BOOL:
-      return legate::bool_();
-    case legate::Type::Code::INT8:
-      return legate::int8();
-    case legate::Type::Code::INT16:
-      return legate::int16();
-    case legate::Type::Code::INT32:
-      return legate::int32();
-    case legate::Type::Code::INT64:
-      return legate::int64();
-    case legate::Type::Code::UINT8:
-      return legate::uint8();
-    case legate::Type::Code::UINT16:
-      return legate::uint16();
-    case legate::Type::Code::UINT32:
-      return legate::uint32();
-    case legate::Type::Code::UINT64:
-      return legate::uint64();
-    case legate::Type::Code::FLOAT16:
-      return legate::float16();
-    case legate::Type::Code::FLOAT32:
-      return legate::float32();
-    case legate::Type::Code::FLOAT64:
-      return legate::float64();
-    case legate::Type::Code::COMPLEX64:
-      return legate::complex64();
-    case legate::Type::Code::COMPLEX128:
-      return legate::complex128();
-    default:
-      throw std::invalid_argument("Unsupported legate::Type::Code enum value.");
-  }
-}
-
 struct WrapDefault {
   template <typename TypeWrapperT>
   void operator()(TypeWrapperT&& wrapped) {

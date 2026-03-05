@@ -7,9 +7,10 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <condition_variable>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
-#include <deque>
-#include <future>
 #include <mutex>
 #include <vector>
 
@@ -135,8 +136,6 @@ static std::mutex g_slot_mutex;
 static std::condition_variable g_slot_cv;
 static std::mutex g_queue_mutex;
 static std::vector<int> g_pending_queue;
-static std::condition_variable g_pending_cv;
-static bool g_shutdown = false;
 
 static std::atomic<int> g_active_calls{0};
 static std::atomic<int> g_started_count{0};
@@ -186,7 +185,6 @@ JULIA_LEGATE_UFI_EXPORT int legate_get_active_slot_count() {
 }
 
 void initialize_async_system() {
-  g_shutdown = false;
   for (int i = 0; i < MAX_UFI_SLOTS; ++i) g_ufi_slots[i].reset();
 }
 
@@ -272,7 +270,6 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     std::lock_guard<std::mutex> qlock(g_queue_mutex);
     g_pending_queue.push_back(slot_id);
   }
-  g_pending_cv.notify_all();
 
   // Wait for completion
   {
