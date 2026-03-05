@@ -117,14 +117,14 @@ function _extract_and_call(meta::UfiMetadata{F, S, D}, in_args::Vector{PhysArrPt
     end
 end
 
-function ufi_has_pending_work()
+function ufi_has_pending_work(drain_slots::Bool=true)
     active_calls = Int(ccall((:legate_get_active_call_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
-    active_slots = Int(ccall((:legate_get_active_slot_count, Legate.WRAPPER_LIB_PATH), Cint, ()))
+    active_slots = drain_slots ? Int(ccall((:legate_get_active_slot_count, Legate.WRAPPER_LIB_PATH), Cint, ())) : 0
     return active_calls > 0 || active_slots > 0 || PENDING_JOBS[] > 0
 end
 
-function wait_ufi()
-    while ufi_has_pending_work()
+function wait_ufi(drain_slots::Bool=true)
+    while ufi_has_pending_work(drain_slots)
         yield()
         sleep(0.001)
     end
@@ -140,8 +140,11 @@ function ufi_poll(mgr::UfiManager)
     req = unsafe_load(Ptr{TaskRequest}(base_ptr))
     task_id = req.task_id
 
-    meta = lock(REGISTRY_LOCK) do
+    lock(REGISTRY_LOCK)
+    meta = try
         get(GLOBAL_TASK_REGISTRY, task_id, nothing)
+    finally
+        unlock(REGISTRY_LOCK)
     end
 
     if isnothing(meta)
@@ -152,37 +155,42 @@ function ufi_poll(mgr::UfiManager)
         return false
     end
 
-    # Dimension Extraction
-    if req.ndim < 0 || req.ndim > REALM_MAX_DIM
-        error("UFI: Unsupported ndim $(req.ndim). Must be between 0 and $REALM_MAX_DIM.")
-    end
+    # Dimension Extraction: Use explicit loop to avoid closure JIT.
     nd = Int(req.ndim)
     local_dims = ntuple(i -> Int(max(0, req.dims[i])), nd)
 
-    # Extract pointers immediately into stable vectors
+    # Signature extraction for immediate use
     sig_type = typeof(meta.sig)
-
-    # Ensure this specialization is JIT-compiled on the main thread (Thread 1)
-    meta_type = typeof(meta)
-    if !(meta_type in COMPILED_SPECIALIZATIONS)
-        lock(COMPILED_LOCK) do
-            if !(meta_type in COMPILED_SPECIALIZATIONS)
-                precompile(_extract_and_call, (meta_type, Vector{PhysArrPtr}, Vector{PhysArrPtr}, Vector{Ptr{Cvoid}}, typeof(local_dims), sig_type))
-                push!(COMPILED_SPECIALIZATIONS, meta_type)
-            end
-        end
-    end
 
     in_p_ptr = req.inputs_ptr
     out_p_ptr = req.outputs_ptr
     scal_p_ptr = req.scalars_ptr
 
-    in_args = [unsafe_load(in_p_ptr, i) for i in 1:length(sig_type.parameters[1].parameters)]
-    out_args = [unsafe_load(out_p_ptr, i) for i in 1:length(sig_type.parameters[2].parameters)]
-    scal_args = [unsafe_load(scal_p_ptr, i) for i in 1:length(sig_type.parameters[3].parameters)]
+    in_p_ptr = req.inputs_ptr
+    out_p_ptr = req.outputs_ptr
+    scal_p_ptr = req.scalars_ptr
+
+    # Extract pointers immediately into stable vectors via explicit loops (JIT-safe)
+    in_len = length(sig_type.parameters[1].parameters)
+    in_args = Vector{PhysArrPtr}(undef, in_len)
+    for i in 1:in_len
+        in_args[i] = unsafe_load(in_p_ptr, i)
+    end
+    
+    out_len = length(sig_type.parameters[2].parameters)
+    out_args = Vector{PhysArrPtr}(undef, out_len)
+    for i in 1:out_len
+        out_args[i] = unsafe_load(out_p_ptr, i)
+    end
+    
+    scal_len = length(sig_type.parameters[3].parameters)
+    scal_args = Vector{Ptr{Cvoid}}(undef, scal_len)
+    for i in 1:scal_len
+        scal_args[i] = unsafe_load(scal_p_ptr, i)
+    end
 
     Threads.atomic_add!(PENDING_JOBS, 1)
-    UFI_VERBOSE && println(stderr, "[UFI] queuing task_id=$(task_id) sig=$(sig_type) local_dims=$(local_dims) global_dims=$(meta.dims)")
+    # UFI_VERBOSE && println(stderr, "[UFI] queuing task_id=$(task_id) sig=$(sig_type) local_dims=$(local_dims) global_dims=$(meta.dims)")
     try
         put!(mgr.job_queue, TaskJob(slot_id, in_args, out_args, scal_args, local_dims, meta))
     catch e

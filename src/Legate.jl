@@ -132,8 +132,13 @@ function _finish_runtime()
         _shutdown_done[] = true
 
         if !ufi_has_shutdown_done()
-            wait_ufi() # Drain all in-flight tasks before signaling shutdown
-            shutdown_ufi()
+            wait_ufi(false) # Drain active worker calls
+            shutdown_ufi()  # Signal poller to stop
+            # Wait for poller to actually exit to avoid race with legate_finish
+            while !ufi_has_shutdown_done()
+                yield()
+                sleep(0.001)
+            end
         end
 
         try

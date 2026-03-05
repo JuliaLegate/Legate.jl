@@ -25,10 +25,30 @@ function attach_external(arr::Array{T,N}; read_only::Bool=true) where {T,N}
     return LogicalStore{T,N}(impl, size(arr))
 end
 
+function _detach(store_handle::LogicalStoreImpl)
+    Base.@threadcall(
+        (:legate_logical_store_detach, Legate.WRAPPER_LIB_PATH),
+        Cvoid,
+        (Ptr{Cvoid},),
+        store_handle.cpp_object
+    )
+end
+
+function _copyto_impl(dest_handle::LogicalStoreImpl, src_handle::LogicalStoreImpl)
+    Base.@threadcall(
+        (:legate_issue_copy, Legate.WRAPPER_LIB_PATH),
+        Cvoid,
+        (Ptr{Cvoid}, Ptr{Cvoid}),
+        dest_handle.cpp_object, src_handle.cpp_object
+    )
+end
+
 function Base.copyto!(dest::LogicalArray{T,N}, src::Array{T,N}) where {T,N}
-    attached = attach_external(src)
-    copyto!(dest, attached)
-    _detach_nonblocking(attached.handle)
+    GC.@preserve src begin
+        attached = attach_external(src)
+        copyto!(dest, attached)
+        _detach(attached.handle)
+    end
     return dest
 end
 
@@ -52,41 +72,6 @@ function Base.copyto!(dest::LogicalArray{T,N}, src::LogicalArray{T,N}) where {T,
     return dest
 end
 
-function _await_legate_future(future_ptr::Ptr{Cvoid})
-    mgr = UFI_MANAGER[]
-    while true
-        ready = ccall((:legate_is_future_ready, Legate.WRAPPER_LIB_PATH), Bool, (Ptr{Cvoid},), future_ptr)
-        if ready
-            break
-        end
-        # Legate is waiting for something (probably Julia tasks). Keep the UFI poller going.
-        !isnothing(mgr) && ufi_poll(mgr)
-        yield()
-        sleep(0.001)
-    end
-    ccall((:legate_wait_and_destroy_future, Legate.WRAPPER_LIB_PATH), Cvoid, (Ptr{Cvoid},), future_ptr)
-end
-
-function _copyto_impl(dest_handle::LogicalStoreImpl, src_handle::LogicalStoreImpl)
-    future_ptr = ccall(
-        (:legate_start_copy, Legate.WRAPPER_LIB_PATH),
-        Ptr{Cvoid},
-        (Ptr{Cvoid}, Ptr{Cvoid}),
-        dest_handle.cpp_object, src_handle.cpp_object
-    )
-    _await_legate_future(future_ptr)
-end
-
-function _detach_nonblocking(store_handle::LogicalStoreImpl)
-    future_ptr = ccall(
-        (:legate_start_detach, Legate.WRAPPER_LIB_PATH),
-        Ptr{Cvoid},
-        (Ptr{Cvoid},),
-        store_handle.cpp_object
-    )
-    _await_legate_future(future_ptr)
-end
-
 # Conversion from LogicalArray to Base Julia array
 function (::Type{<:Array{A}})(arr::LogicalArray{B}) where {A,B}
     dims = Base.size(arr)
@@ -94,7 +79,7 @@ function (::Type{<:Array{A}})(arr::LogicalArray{B}) where {A,B}
     GC.@preserve out begin
         attached = attach_external(out; read_only=false)
         copyto!(attached, arr)
-        _detach_nonblocking(attached.handle)
+        _detach(attached.handle)
     end
     return out
 end
@@ -107,7 +92,7 @@ function (::Type{<:LogicalArray{A}})(arr::Array{B}) where {A,B}
     GC.@preserve arr begin
         attached = attach_external(arr)
         copyto!(out, attached)
-        _detach_nonblocking(attached.handle)
+        _detach(attached.handle)
     end
     return out
 end

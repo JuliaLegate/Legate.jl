@@ -174,7 +174,6 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("has_started", &legate_wrapper::runtime::has_started);
   mod.method("issue_execution_fence",
              &legate_wrapper::runtime::issue_execution_fence);
-// mod.method("is_store_ready", &legate_wrapper::runtime::is_store_ready);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
   mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
@@ -220,18 +219,4 @@ extern "C" void legate_issue_copy(void* dest_ptr, void* src_ptr) {
 
 extern "C" void legate_issue_execution_fence_blocking() {
   legate::Runtime::get_runtime()->issue_execution_fence(/*block=*/true);
-}
-
-extern "C" void legate_submit_auto_task(void* rt_ptr, void* task_ptr) {
-
-  auto* rt = reinterpret_cast<legate::Runtime*>(rt_ptr);
-  auto* task = reinterpret_cast<legate::AutoTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-
-extern "C" void legate_submit_manual_task(void* rt_ptr, void* task_ptr) {
-
-  auto* rt = reinterpret_cast<legate::Runtime*>(rt_ptr);
-  auto* task = reinterpret_cast<legate::ManualTask*>(task_ptr);
-  rt->submit(std::move(*task));
 }

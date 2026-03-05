@@ -55,7 +55,7 @@ Create an unbound array.
 - `dim`: Number of dimensions.
 - `nullable`: Whether the array can contain null values.
 """
-function create_array(ty::Type{T}; dim::Integer=1, nullable::Bool=false) where {T<:SUPPORTED_TYPES}
+function create_array(ty::Type{T}; dim::Integer=0, nullable::Bool=false) where {T<:SUPPORTED_TYPES}
     impl = LegateInternal.create_unbound_array(to_legate_type(ty), dim, nullable)
     return LogicalArray{T,dim}(impl, nothing)
 end

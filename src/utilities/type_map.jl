@@ -64,7 +64,6 @@ to_legate_type(T::Type) = type_map[T]()
 # TODO, check if anycode depends on LType calls.
 LType(T::Type) = to_legate_type(T)
 
-
 function get_code_type(type_code; throw=true)
     val = if haskey(code_type_map, type_code)
         code_type_map[type_code]

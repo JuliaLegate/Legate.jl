@@ -129,9 +129,12 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
         end
         
         # Principled warmup: Force JIT compilation safely on submission thread
+        # Use the rank of the first input/output argument for local_dims_type
+        nd = isempty(task.arg_dims) ? 0 : length(task.arg_dims[1])
+        local_dims_type = NTuple{nd, Int}
         # 1. Precompile the internal statically-typed dispatcher
-        precompile(Legate._do_call, (typeof(task.fun), Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, typeof(meta.dims), typeof(sig)))
-        precompile(Legate._extract_and_call, (typeof(meta), Vector{Ptr{Cvoid}}, Vector{Ptr{Cvoid}}, Vector{Ptr{Cvoid}}, typeof(sig)))
+        precompile(Legate._do_call, (typeof(task.fun), Ptr{Legate.PhysArrPtr}, Ptr{Legate.PhysArrPtr}, Ptr{Ptr{Cvoid}}, local_dims_type, typeof(meta.dims), typeof(sig)))
+        precompile(Legate._extract_and_call, (typeof(meta), Vector{Legate.PhysArrPtr}, Vector{Legate.PhysArrPtr}, Vector{Ptr{Cvoid}}, local_dims_type, typeof(sig)))
         
         # 2. Precompile the user-provided function with exact types
         user_arg_types = Any[]
