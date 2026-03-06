@@ -24,9 +24,9 @@ using LegatePreferences
 import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
+using StaticArrays
 
-using FunctionWrappers
-import FunctionWrappers: FunctionWrapper
+_is_precompiling() = (ccall(:jl_generating_output, Cint, ()) != 0)
 
 include(joinpath(@__DIR__, "../deps/version.jl"))
 include("utilities/preference.jl")
@@ -45,35 +45,27 @@ const SUPPORTED_TYPES = Union{
 
 # Sets the LEGATE_LIB_PATH and WRAPPER_LIB_PATH preferences based on mode
 # This will also include the relevant JLLs if necessary.
-@static if LegatePreferences.MODE == "jll"
+MODE = load_preference(LegatePreferences, "legate_mode", LegatePreferences.MODE_JLL)
+@static if MODE == LegatePreferences.MODE_JLL
     using legate_jll, legate_jl_wrapper_jll
     find_paths(
-        LegatePreferences.MODE;
+        MODE;
         legate_jll_module=legate_jll,
         legate_jll_wrapper_module=legate_jl_wrapper_jll,
     )
-elseif LegatePreferences.MODE == "developer"
+elseif MODE == LegatePreferences.MODE_DEVELOPER
     use_legate_jll = load_preference(LegatePreferences, "legate_use_jll", true)
     if use_legate_jll
         using legate_jll
-        find_paths(
-            LegatePreferences.MODE;
-            legate_jll_module=legate_jll,
-            legate_jll_wrapper_module=nothing,
-        )
+        find_paths(MODE; legate_jll_module=legate_jll)
     else
-        find_paths(LegatePreferences.MODE)
+        find_paths(MODE)
     end
-elseif LegatePreferences.MODE == "conda"
-    using legate_jl_wrapper_jll
-    find_paths(
-        LegatePreferences.MODE,
-        legate_jll_module=nothing,
-        legate_jll_wrapper_module=legate_jl_wrapper_jll,
-    )
+elseif MODE == LegatePreferences.MODE_CONDA
+    find_paths(MODE)
 else
     error(
-        "Legate.jl: Unknown mode $(LegatePreferences.MODE)." *
+        "Legate.jl: Unknown mode $(MODE)." *
         "Must be one of 'jll', 'developer', or 'conda'.",
     )
 end
@@ -95,58 +87,82 @@ if !isfile(WRAPPER_LIB_PATH)
     )
 end
 
-#! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
-@wrapmodule(() -> WRAPPER_LIB_PATH)
+module LegateInternal
+    using CxxWrap
+    import ..WRAPPER_LIB_PATH
+    @wrapmodule(() -> WRAPPER_LIB_PATH)
+    function init()
+        @initcxx
+    end
+end
+
+# Expose C++ types to the main Legate namespace for use in other files
+# Note: TaskRequest and TaskRequestPrivate are defined in ufi.jl, not C++
+using .LegateInternal: Library, Variable, Constraint, LocalTaskID, GlobalTaskID,
+                       AutoTask as AutoTaskImpl, ManualTask as ManualTaskImpl, StoreTarget, Shape, Scalar as ScalarImpl, Slice,
+                       PhysicalStore, PhysicalArray, LogicalStoreImpl, LogicalArrayImpl,
+                       LegateType, Domain, Runtime
 
 include("utilities/type_map.jl")
-include("ufi.jl")
-
 # api functions and documentation
 include("api/types.jl")
 include("api/runtime.jl")
 include("api/data.jl")
 include("api/tasks.jl")
+
+include("ufi.jl")
 include("utilities/attach.jl")
 
-### These functions guard against a user trying
-### to start multiple runtimes and also to allow
+## These functions guard against a user trying
+## to start multiple runtimes and also to allow
 ## package extensions which always try to re-load
 
-const RUNTIME_INACTIVE = -1
-const RUNTIME_ACTIVE = 0
-const _runtime_ref = Ref{Int}(RUNTIME_INACTIVE)
+const RUNTIME_INACTIVE = false
+const RUNTIME_ACTIVE = true
 const _start_lock = ReentrantLock()
+const _shutdown_lock = ReentrantLock()
+const _runtime_ref = Ref{Bool}(RUNTIME_INACTIVE)
 const _shutdown_done = Ref{Bool}(false)
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
 function _finish_runtime()
-    # Prevent double shutdown
-    _shutdown_done[] && return nothing
-    _shutdown_done[] = true
+    lock(_shutdown_lock) do
+        _shutdown_done[] && return
+        _shutdown_done[] = true
 
-    if !Legate.UFI_SHUTDOWN_DONE[]
-        Legate.wait_ufi() # make sure UFI is done
-        Legate.shutdown_ufi() # shutdown UFI
+        if !ufi_has_shutdown_done()
+            wait_ufi(false) # Drain active worker calls
+            shutdown_ufi()  # Signal poller to stop
+            # Wait for poller to actually exit to avoid race with legate_finish
+            while !ufi_has_shutdown_done()
+                yield()
+                sleep(0.001)
+            end
+        end
+
+        try
+            legate_finish()
+        catch e
+            @error "legate_finish() failed" exception=(e, catch_backtrace())
+        end
     end
-    # finish legate runtime
-    Legate.legate_finish()
 end
 
 function _start_runtime()
-    Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+    # Load libraries into global namespace for C++ symbol resolution
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
+    Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
-    Legate.start_legate()
-    LegatePreferences.maybe_warn_prerelease()
-    Legate.init_ufi()
+    LegateInternal.init()
+    start_legate()
+    init_ufi()
 
-    Base.atexit(Legate._finish_runtime)
+    Base.atexit(_finish_runtime)
     return RUNTIME_ACTIVE
 end
 
 function ensure_runtime!()
-    # fast path (no lock)
     rt = _runtime_ref[]
     (rt == RUNTIME_INACTIVE) || return rt
 
@@ -164,17 +180,11 @@ function ensure_runtime!()
     end
 end
 
-_is_precompiling() = ccall(:jl_generating_output, Cint, ()) != 0
 
 function __init__()
-    # @info "Legate __init__" pid=getpid() tid=Threads.threadid() precomp=_is_precompiling()
-
     LegatePreferences.check_unchanged()
 
-    @initcxx
-
     _is_precompiling() && return nothing
-
     ensure_runtime!()
 end
 end

@@ -26,63 +26,6 @@
 #include "types.h"
 #include "wrapper.inl"
 
-extern "C" {
-// Exposed for @threadcall
-// https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
-// Takes a raw C++ pointer to PhysicalStore (casted to void*)
-void* get_ptr(void* store_ptr) {
-  legate::PhysicalStore* store = static_cast<legate::PhysicalStore*>(store_ptr);
-  return legate_wrapper::data::get_ptr(store);
-}
-
-void submit_auto_task(void* rt_ptr, void* task_ptr) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  legate::AutoTask* task = static_cast<legate::AutoTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-
-void submit_manual_task(void* rt_ptr, void* task_ptr) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  legate::ManualTask* task = static_cast<legate::ManualTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-}
-
-legate::Type type_from_code(legate::Type::Code type_id) {
-  switch (type_id) {
-    case legate::Type::Code::BOOL:
-      return legate::bool_();
-    case legate::Type::Code::INT8:
-      return legate::int8();
-    case legate::Type::Code::INT16:
-      return legate::int16();
-    case legate::Type::Code::INT32:
-      return legate::int32();
-    case legate::Type::Code::INT64:
-      return legate::int64();
-    case legate::Type::Code::UINT8:
-      return legate::uint8();
-    case legate::Type::Code::UINT16:
-      return legate::uint16();
-    case legate::Type::Code::UINT32:
-      return legate::uint32();
-    case legate::Type::Code::UINT64:
-      return legate::uint64();
-    case legate::Type::Code::FLOAT16:
-      return legate::float16();
-    case legate::Type::Code::FLOAT32:
-      return legate::float32();
-    case legate::Type::Code::FLOAT64:
-      return legate::float64();
-    case legate::Type::Code::COMPLEX64:
-      return legate::complex64();
-    case legate::Type::Code::COMPLEX128:
-      return legate::complex128();
-    default:
-      throw std::invalid_argument("Unsupported legate::Type::Code enum value.");
-  }
-}
-
 struct WrapDefault {
   template <typename TypeWrapperT>
   void operator()(TypeWrapperT&& wrapped) {
@@ -123,12 +66,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
   mod.add_type<Domain>("Domain");
 
-  mod.add_type<Scalar>("Scalar")
-      .constructor<float>()
-      .constructor<double>()
-      .constructor<int32_t>()
-      .constructor<void*>();
-
+  mod.add_type<Scalar>("Scalar");
   mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
       .apply<std::optional<legate::Type>, std::optional<int64_t>>(
           WrapDefault());
@@ -146,9 +84,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("is_readable", &PhysicalStore::is_readable)
       .method("is_writable", &PhysicalStore::is_writable)
       .method("is_reducible", &PhysicalStore::is_reducible)
-      .method("valid", &PhysicalStore::valid)
-      .method("get_obj_ptr",
-              [](PhysicalStore& s) { return static_cast<void*>(&s); });
+      .method("valid", &PhysicalStore::valid);
 
   mod.add_type<LogicalStore>("LogicalStoreImpl")
       .method("dim", &LogicalStore::dim)
@@ -157,7 +93,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("promote", &LogicalStore::promote)
       .method("slice", &LogicalStore::slice)
       .method("get_physical_store", &LogicalStore::get_physical_store)
-      .method("equal_storage", &LogicalStore::equal_storage);
+      .method("equal_storage", &LogicalStore::equal_storage)
+      .method("detach", &LogicalStore::detach);
 
   mod.add_type<PhysicalArray>("PhysicalArray")
       .method("dim", &PhysicalArray::dim)
@@ -183,9 +120,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
                                 &AutoTask::add_scalar_arg))
       .method("add_constraint",
               static_cast<void (AutoTask::*)(const Constraint&)>(
-                  &AutoTask::add_constraint))
-      .method("get_obj_ptr",
-              [](AutoTask& t) { return static_cast<void*>(&t); });
+                  &AutoTask::add_constraint));
 
   mod.add_type<ManualTask>("ManualTask")
       .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(
@@ -193,19 +128,17 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(
                                 &ManualTask::add_output))
       .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(
-                                &ManualTask::add_scalar_arg))
-      .method("get_obj_ptr",
-              [](ManualTask& t) { return static_cast<void*>(&t); });
+                                &ManualTask::add_scalar_arg));
 
   /* runtime */
-  mod.add_type<Runtime>("Runtime").method(
-      "get_obj_ptr", [](Runtime& r) { return static_cast<void*>(&r); });
+  mod.add_type<Runtime>("Runtime");
 
   mod.method("start_legate", &legate_wrapper::runtime::start_legate);
   mod.method("legate_finish", &legate_wrapper::runtime::legate_finish);
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);
   mod.method("has_started", &legate_wrapper::runtime::has_started);
-  mod.method("has_finished", &legate_wrapper::runtime::has_finished);
+  mod.method("issue_execution_fence",
+             &legate_wrapper::runtime::issue_execution_fence);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
   mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
@@ -227,7 +160,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::data::attach_external_store_sysmem);
   mod.method("attach_external_store_fbmem",
              &legate_wrapper::data::attach_external_store_fbmem);
+  mod.method("issue_copy", &legate_wrapper::data::issue_copy);
   mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
+  mod.method("make_scalar", &legate_wrapper::data::make_scalar);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);
   /* timing */
@@ -235,4 +170,18 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("time_nanoseconds", &legate_wrapper::time::time_nanoseconds);
 
   wrap_ufi(mod);
+}
+
+extern "C" void legate_logical_store_detach(void* store_ptr) {
+  reinterpret_cast<legate::LogicalStore*>(store_ptr)->detach();
+}
+
+extern "C" void legate_issue_copy(void* dest_ptr, void* src_ptr) {
+  auto& dest = *reinterpret_cast<legate::LogicalStore*>(dest_ptr);
+  auto& src = *reinterpret_cast<const legate::LogicalStore*>(src_ptr);
+  legate::Runtime::get_runtime()->issue_copy(dest, src);
+}
+
+extern "C" void legate_issue_execution_fence_blocking() {
+  legate::Runtime::get_runtime()->issue_execution_fence(/*block=*/true);
 }

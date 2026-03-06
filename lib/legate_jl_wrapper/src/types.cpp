@@ -19,8 +19,7 @@
 
 #include "types.h"
 
-#include "legate.h"
-#include "legion/legion_config.h"
+#include <legate.h>
 
 // forced to return a std::int32_t instead of enum code
 inline std::int32_t code(legate::Type ty) { return (int32_t)ty.code(); }
