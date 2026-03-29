@@ -99,7 +99,7 @@ end
 @wrapmodule(() -> WRAPPER_LIB_PATH)
 
 include("utilities/type_map.jl")
-include("ufi.jl")
+#include("ufi.jl")
 
 # api functions and documentation
 include("api/types.jl")
@@ -125,10 +125,10 @@ function _finish_runtime()
     _shutdown_done[] && return nothing
     _shutdown_done[] = true
 
-    if !Legate.UFI_SHUTDOWN_DONE[]
-        Legate.wait_ufi() # make sure UFI is done
-        Legate.shutdown_ufi() # shutdown UFI
-    end
+    #if !Legate.UFI_SHUTDOWN_DONE[]
+        #Legate.wait_ufi() # make sure UFI is done
+        #Legate.shutdown_ufi() # shutdown UFI
+    #end
     # finish legate runtime
     Legate.legate_finish()
 end
@@ -139,7 +139,7 @@ function _start_runtime()
 
     Legate.start_legate()
     LegatePreferences.maybe_warn_prerelease()
-    Legate.init_ufi()
+    #Legate.init_ufi()
 
     Base.atexit(Legate._finish_runtime)
     return RUNTIME_ACTIVE
