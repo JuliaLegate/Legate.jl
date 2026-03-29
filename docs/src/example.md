@@ -21,8 +21,7 @@ Task arguments are passed as a single collection containing all inputs, outputs,
 using Legate
 
 # Element-wise operation: c[i] = a[i] * scalar + b[i]
-function cpu_task_kernel(args)
-    a, b, c, scalar = args
+function cpu_task_kernel(a, b, c, scalar)
     @inbounds @simd for i in eachindex(a)
         c[i] = a[i] * scalar + b[i]
     end
@@ -64,8 +63,7 @@ using Legate
 using CUDA
 
 # CUDA Kernel: c[i] = a[i] + b[i]
-function gpu_add_kernel(args)
-    a, b, c = args
+function gpu_add_kernel(a, b, c)
     idx = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     if idx <= length(a)
         @inbounds c[idx] = a[idx] + b[idx]
