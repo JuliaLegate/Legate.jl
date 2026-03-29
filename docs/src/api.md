@@ -35,7 +35,7 @@ Pages = ["api/data.jl"]
 ## Task Creation and Execution
 ```@autodocs
 Modules = [Legate]
-Pages = ["ufi.jl", "api/tasks.jl"]
+Pages = ["api/tasks.jl"]
 ```
 
 ## Core Types and Interfaces 
