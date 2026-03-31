@@ -175,6 +175,11 @@ function __init__()
 
     _is_precompiling() && return nothing
 
+    # Cannot set LEGATE_CONFIG on CI machines used
+    # to register packages. So we will just skip starting 
+    # legate when using registry CI machines.
+    JULIA_REGISTRYCI_AUTOMERGE && return nothing
+
     ensure_runtime!()
 end
 end
