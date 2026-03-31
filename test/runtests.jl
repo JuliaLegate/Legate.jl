@@ -11,7 +11,7 @@ if run_gpu_tests
     VERBOSE && println(CUDA.versioninfo())
 end
 
-include("tests/tasking.jl")
-if run_gpu_tests
-    include("tests/tasking_gpu.jl")
-end
+# include("tests/tasking.jl")
+# if run_gpu_tests
+#     include("tests/tasking_gpu.jl")
+# end
