@@ -178,7 +178,7 @@ function __init__()
     # Cannot set LEGATE_CONFIG on CI machines used
     # to register packages. So we will just skip starting 
     # legate when using registry CI machines.
-    JULIA_REGISTRYCI_AUTOMERGE && return nothing
+    get(ENV, "JULIA_REGISTRYCI_AUTOMERGE", false) && return nothing
 
     ensure_runtime!()
 end
