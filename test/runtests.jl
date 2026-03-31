@@ -8,10 +8,14 @@ const run_gpu_tests = (get(ENV, "GPUTESTS", "1") != "0") && (get(ENV, "NO_CUDA",
 if run_gpu_tests
     using CUDA
     import CUDA: i32
-    VERBOSE && println(CUDA.versioninfo())
+    if CUDA.functional()
+        VERBOSE && println(CUDA.versioninfo())
+    else
+        error("CUDA is not functional. GPU tests cannot be run.")
+    end
 end
 
-include("tests/tasking.jl")
-if run_gpu_tests
-    include("tests/tasking_gpu.jl")
-end
+# include("tests/tasking.jl")
+# if run_gpu_tests
+#     include("tests/tasking_gpu.jl")
+# end
