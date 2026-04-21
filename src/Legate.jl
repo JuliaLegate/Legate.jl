@@ -124,7 +124,8 @@ function _finish_runtime()
     # Prevent double shutdown
     _shutdown_done[] && return nothing
     _shutdown_done[] = true
-
+    println("Hi just in case.")
+    @info "Hi CI testbed. We are shutting down!"
     #if !Legate.UFI_SHUTDOWN_DONE[]
         #Legate.wait_ufi() # make sure UFI is done
         #Legate.shutdown_ufi() # shutdown UFI
