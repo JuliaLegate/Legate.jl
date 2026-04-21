@@ -59,6 +59,7 @@ jobs:
       
       - name: Run tests
         env:
+          LD_LIBRARY_PATH: ""
           LEGATE_SHOW_CONFIG: "1"
           LEGATE_AUTO_CONFIG: "0"
           GPUTESTS: "0" # parsed by runtests.jl
