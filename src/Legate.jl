@@ -121,7 +121,10 @@ const _shutdown_done = Ref{Bool}(false)
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
 function _finish_runtime()
-    Legate.has_finished() && return nothing
+    if (Legate.has_finished())
+        @info "Runtime isn't active."
+        return nothing
+    end
 
     # Prevent double shutdown
     _shutdown_done[] && return nothing
