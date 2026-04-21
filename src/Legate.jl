@@ -121,6 +121,8 @@ const _shutdown_done = Ref{Bool}(false)
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
 function _finish_runtime()
+    sleep(0.5) # runtime init data race? this is hacky
+    
     if (Legate.has_finished())
         @info "Runtime isn't active."
         return nothing
