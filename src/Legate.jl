@@ -122,12 +122,12 @@ runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
 function _finish_runtime()
     sleep(0.5) # runtime init data race? this is hacky
-    
+    println("AFTER SLEEP")
     if (Legate.has_finished())
         @info "Runtime isn't active."
         return nothing
     end
-
+    println("DID NOT EXIT EARLY (LEGATE HAS NOT FINISHED)")
     # Prevent double shutdown
     _shutdown_done[] && return nothing
     _shutdown_done[] = true
