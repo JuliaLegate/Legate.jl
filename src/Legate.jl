@@ -121,10 +121,10 @@ const _shutdown_done = Ref{Bool}(false)
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
 
 function _finish_runtime()
-    
+
     # runtime init data race? this is hacky
-    yield()
-    sleep(0.5) 
+    sleep(0.5)
+    GC.gc(true)
 
     println("AFTER SLEEP")
     if (Legate.has_finished())
@@ -135,10 +135,10 @@ function _finish_runtime()
     # Prevent double shutdown
     _shutdown_done[] && return nothing
     _shutdown_done[] = true
-    
+
     #if !Legate.UFI_SHUTDOWN_DONE[]
-        #Legate.wait_ufi() # make sure UFI is done
-        #Legate.shutdown_ufi() # shutdown UFI
+    #Legate.wait_ufi() # make sure UFI is done
+    #Legate.shutdown_ufi() # shutdown UFI
     #end
     # finish legate runtime
     Legate.legate_finish()
