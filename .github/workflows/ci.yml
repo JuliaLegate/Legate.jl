@@ -64,4 +64,10 @@ jobs:
           LEGATE_AUTO_CONFIG: "0"
           GPUTESTS: "0" # parsed by runtests.jl
           LEGATE_CONFIG: "--cpus 1 --utility 1 --sysmem 4000"
-        run: julia --project -t 1,0 -e 'using Pkg; Pkg.test(test_args=["--quickfail"])'
+        run: |
+          if julia -e 'exit(VERSION >= v"1.12" ? 0 : 1)'; then
+            export JULIA_NUM_THREADS=1,0
+          else
+            export JULIA_NUM_THREADS=1
+          fi
+          julia --project -e 'using Pkg; Pkg.test(test_args=["--quickfail"])'
