@@ -39,6 +39,9 @@ The `rev` option can be main or any tagged version.
 
 For more install instructions, please visit out install guide.
 
+> [!IMPORTANT]
+> Launching Legate programs with an interactive thread (Julia >= 1.12) can cause issues on-exit. It is best to disable that thread if not using the REPL: `julia -t 1,0`.
+
 ## 3. Contribution to Legate.jl
 
 To start, please [open an issue](https://github.com/JuliaLegate/Legate.jl/issues) that describes the problem or feature you plan to address.
