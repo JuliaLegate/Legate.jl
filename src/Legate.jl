@@ -126,9 +126,12 @@ function _finish_runtime()
     _shutdown_done[] = true
 
     #if !Legate.UFI_SHUTDOWN_DONE[]
-        #Legate.wait_ufi() # make sure UFI is done
-        #Legate.shutdown_ufi() # shutdown UFI
+    #Legate.wait_ufi() # make sure UFI is done
+    #Legate.shutdown_ufi() # shutdown UFI
     #end
+
+    Legate.has_finished() && return nothing
+    
     # finish legate runtime
     Legate.legate_finish()
 end
