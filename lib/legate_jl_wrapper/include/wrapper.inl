@@ -330,4 +330,18 @@ inline uint64_t time_nanoseconds() {
   return legate::timing::measure_nanoseconds().value();
 }
 }  // namespace time
+
+
+namespace hdf5 {
+inline LogicalArray read_h5(const std::filesystem::path& file_path, std::string_view dataset_name) { 
+  return legate::io::hdf5::from_file(file_path, dataset_name);
+}
+
+inline void write_h5(const LogicalArray& array, std::filesystem::path file_path, std::string_view dataset_name) {
+  legate::io::hdf5::to_file(array, file_path, dataset_name);
+}
+} // namespace hdf5s
+
 }  // namespace legate_wrapper
+
+
