@@ -294,9 +294,14 @@ Read a dataset from an HDF5 file into a LogicalArray.
 - `path`: Path to the HDF5 file.
 - `dataset`: Name of the dataset to read.
 """
-function read_h5(path::String, dataset::String)
-    return read_h5(path, dataset)
+function read_hdf5(path::String, dataset::String)
+    impl = read_h5(path, dataset)  # cxxwrap call
+    ndim = Int(dim(impl))
+    shp = Tuple(Int.(shape(impl)))
+    T = code_type_map[Int(code(type(impl)))]
+    return LogicalArray{T, ndim}(impl, shp)
 end
+
 
 """
     write_h5(array::LogicalArray, path::String, dataset::String)
@@ -308,6 +313,6 @@ Write a LogicalArray to a dataset in an HDF5 file.
 - `path`: Path to the HDF5 file.
 - `dataset`: Name of the dataset to write.
 """
-function write_h5(array::LogicalArray, path::String, dataset::String)
+function write_hdf5(array::LogicalArray, path::String, dataset::String)
     write_h5(array.handle, path, dataset)
 end

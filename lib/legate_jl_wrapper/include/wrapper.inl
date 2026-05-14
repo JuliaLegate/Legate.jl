@@ -334,14 +334,14 @@ inline uint64_t time_nanoseconds() {
 
 
 namespace hdf5 {
-inline LogicalArray read_h5(const std::filesystem::path& file_path, std::string_view dataset_name) { 
-  return legate::io::hdf5::from_file(file_path, dataset_name);
+inline LogicalArray read_h5(const std::string& file_path, const std::string& dataset_name) {
+    return legate::io::hdf5::from_file(std::filesystem::path(file_path), dataset_name);
 }
 
-inline void write_h5(const LogicalArray& array, std::filesystem::path file_path, std::string_view dataset_name) {
-  legate::io::hdf5::to_file(array, file_path, dataset_name);
+inline void write_h5(const LogicalArray& array, const std::string& file_path, const std::string& dataset_name) {
+    legate::io::hdf5::to_file(array, std::filesystem::path(file_path), dataset_name);
 }
-} // namespace hdf5s
+} // namespace hdf5
 
 }  // namespace legate_wrapper
 

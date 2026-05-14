@@ -172,7 +172,13 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("data", &LogicalArray::data)  // returns LogicalStore
       .method("get_physical_array",
               &LogicalArray::get_physical_array)  // return PhysicalArray
-      .method("unbound", &LogicalArray::unbound);
+      .method("unbound", &LogicalArray::unbound)
+      .method("shape", [](const LogicalArray& arr) {
+        auto s = arr.data().shape();
+        std::vector<uint64_t> result;
+        for (int i = 0; i < arr.dim(); i++) result.push_back(s[i]);
+        return result;
+    });
 
   mod.add_type<AutoTask>("AutoTask")
       .method("add_input", static_cast<Variable (AutoTask::*)(LogicalArray)>(
