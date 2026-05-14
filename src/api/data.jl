@@ -284,3 +284,30 @@ function get_ptr(arr::PhysicalStore)
     # PhysicalStore -> Ptr
     return _get_ptr(CxxWrap.CxxPtr(arr)) # cxxwrap call
 end
+
+"""
+    read_h5(path::String, dataset::String) -> LogicalArray
+
+Read a dataset from an HDF5 file into a LogicalArray.
+
+# Arguments
+- `path`: Path to the HDF5 file.
+- `dataset`: Name of the dataset to read.
+"""
+function read_h5(path::String, dataset::String)
+    return read_h5(path, dataset)
+end
+
+"""
+    write_h5(array::LogicalArray, path::String, dataset::String)
+
+Write a LogicalArray to a dataset in an HDF5 file.
+
+# Arguments
+- `array`: The array to write.
+- `path`: Path to the HDF5 file.
+- `dataset`: Name of the dataset to write.
+"""
+function write_h5(array::LogicalArray, path::String, dataset::String)
+    write_h5(array.handle, path, dataset)
+end
