@@ -234,5 +234,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("time_microseconds", &legate_wrapper::time::time_microseconds);
   mod.method("time_nanoseconds", &legate_wrapper::time::time_nanoseconds);
 
+  /* hdf5 */
+  mod.method("read_h5", &legate_wrapper::hdf5::read_h5);
+  mod.method("write_h5", &legate_wrapper::hdf5::write_h5);
+
   wrap_ufi(mod);
 }

@@ -21,6 +21,7 @@
 #include "legate/mapping/machine.h"
 #include "legate/runtime/runtime.h"
 #include "legate/timing/timing.h"
+#include "legate/io/hdf5/interface.h"
 #include "legion.h"
 #include "legion/legion_config.h"
 
