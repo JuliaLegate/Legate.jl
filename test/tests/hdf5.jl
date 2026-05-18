@@ -10,21 +10,21 @@ function test_hdf5_read(T::Type, shape::Tuple)
         write(f, dataset, original)
     end
 
-    legate_arr = Legate.read_hdf5(path, dataset)
+    legate_arr = Legate.h5read(path, dataset)
     result = Array(legate_arr)
 
     rm(path; force=true)
     return result == original
 end
 
-# Write a LogicalArray with Legate.write_hdf5, read it back with HDF5.jl, and compare.
+# Write a LogicalArray with Legate.h5write, read it back with HDF5.jl, and compare.
 function test_hdf5_write(T::Type, shape::Tuple)
     path = tempname() * ".h5"
     dataset = "data"
     original = rand(T, shape...)
 
     legate_arr = Legate.LogicalArray(original)
-    Legate.write_hdf5(legate_arr, path, dataset)
+    Legate.h5write(path, dataset, legate_arr)
     Legate.runtime_sync()
 
     result = h5open(path, "r") do f
@@ -42,10 +42,10 @@ function test_hdf5_roundtrip(T::Type, shape::Tuple)
     original = rand(T, shape...)
 
     legate_arr = Legate.LogicalArray(original)
-    Legate.write_hdf5(legate_arr, path, dataset)
+    Legate.h5write(path, dataset, legate_arr)
     Legate.runtime_sync()
 
-    result_arr = Legate.read_hdf5(path, dataset)
+    result_arr = Legate.h5read(path, dataset)
     result = Array(result_arr)
 
     rm(path; force=true)

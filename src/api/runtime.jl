@@ -45,7 +45,7 @@ has_finished
 
 Block until all pending Legate tasks have completed.
 
-Useful before reading files written by `write_hdf5` or other async operations.
+Useful before reading files written by `h5write` or other async operations.
 """
 runtime_sync
 

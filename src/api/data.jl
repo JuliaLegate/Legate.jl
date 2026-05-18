@@ -286,16 +286,16 @@ function get_ptr(arr::PhysicalStore)
 end
 
 """
-    read_h5(path::String, dataset::String) -> LogicalArray
+    h5read(path::String, name::String) -> LogicalArray
 
 Read a dataset from an HDF5 file into a LogicalArray.
 
 # Arguments
 - `path`: Path to the HDF5 file.
-- `dataset`: Name of the dataset to read.
+- `name`: Name of the dataset to read.
 """
-function read_hdf5(path::String, dataset::String)
-    impl = read_h5(path, dataset)  # cxxwrap call
+function h5read(path::String, name::String)
+    impl = read_h5(path, name)  # cxxwrap call
     ndim = Int(dim(impl))
     shp_h5 = Tuple(Int.(shape(impl)))
     # HDF5 stores in C (row-major) order; Julia is column-major.
@@ -306,25 +306,25 @@ function read_hdf5(path::String, dataset::String)
 end
 
 """
-    write_h5(array::LogicalArray, path::String, dataset::String)
+    h5write(path::String, name::String, array::LogicalArray)
 
 Write a LogicalArray to a dataset in an HDF5 file.
 
 # Arguments
-- `array`: The array to write.
 - `path`: Path to the HDF5 file.
-- `dataset`: Name of the dataset to write.
+- `name`: Name of the dataset to write.
+- `array`: The array to write.
 """
-function write_hdf5(array::LogicalArray{T,1}, path::String, dataset::String) where {T}
-    write_h5(array.handle, path, dataset)
+function h5write(path::String, name::String, array::LogicalArray{T,1}) where {T}
+    write_h5(array.handle, path, name)
 end
 
 # HDF5.jl bridges Julia's column-major and HDF5's C-order by reversing dimensions
 # while keeping the raw bytes unchanged.  We do the same: reshape the Julia array
 # to the reversed shape (same bytes, different interpretation) before handing it
 # to Legate's write_h5 so the on-disk shape matches what HDF5.jl expects.
-function write_hdf5(array::LogicalArray{T,N}, path::String, dataset::String) where {T,N}
+function h5write(path::String, name::String, array::LogicalArray{T,N}) where {T,N}
     arr = Array{T,N}(array)
     la_rev = LogicalArray(reshape(arr, reverse(size(arr))))
-    write_h5(la_rev.handle, path, dataset)
+    write_h5(la_rev.handle, path, name)
 end
