@@ -319,10 +319,8 @@ function h5write(path::String, name::String, array::LogicalArray{T,1}) where {T}
     write_h5(array.handle, path, name)
 end
 
-# HDF5.jl bridges Julia's column-major and HDF5's C-order by reversing dimensions
-# while keeping the raw bytes unchanged.  We do the same: reshape the Julia array
-# to the reversed shape (same bytes, different interpretation) before handing it
-# to Legate's write_h5 so the on-disk shape matches what HDF5.jl expects.
+# mimic HDF5.jl ordering. Julia -> column-major && HDF5 -> c-order
+# reshape Legate array keeping bytes same
 function h5write(path::String, name::String, array::LogicalArray{T,N}) where {T,N}
     arr = Array{T,N}(array)
     la_rev = LogicalArray(reshape(arr, reverse(size(arr))))
