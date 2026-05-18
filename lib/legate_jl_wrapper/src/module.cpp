@@ -158,7 +158,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("slice", &LogicalStore::slice)
       .method("get_physical_store", &LogicalStore::get_physical_store)
       .method("equal_storage", &LogicalStore::equal_storage)
-      .method("partition_by_tiling_", &LogicalStore::partition_by_tiling_);
+      .method("partition_by_tiling", &LogicalStore::partition_by_tiling);
 
   mod.add_type<LogicalStorePartition>("LogicalStorePartitionImpl");
 
