@@ -295,7 +295,7 @@ Read a dataset from an HDF5 file into a LogicalArray.
 - `name`: Name of the dataset to read.
 """
 function h5read(path::String, name::String)
-    impl = read_h5(path, name)  # cxxwrap call
+    impl = _read_h5(path, name)  # cxxwrap call
     ndim = Int(dim(impl))
     shp_h5 = Tuple(Int.(shape(impl)))
     # HDF5 stores in C (row-major) order; Julia is column-major.
@@ -316,7 +316,7 @@ Write a LogicalArray to a dataset in an HDF5 file.
 - `array`: The array to write.
 """
 function h5write(path::String, name::String, array::LogicalArray{T,1}) where {T}
-    write_h5(array.handle, path, name)
+    _write_h5(array.handle, path, name)
 end
 
 # mimic HDF5.jl ordering. Julia -> column-major && HDF5 -> c-order
@@ -324,5 +324,5 @@ end
 function h5write(path::String, name::String, array::LogicalArray{T,N}) where {T,N}
     arr = Array{T,N}(array)
     la_rev = LogicalArray(reshape(arr, reverse(size(arr))))
-    write_h5(la_rev.handle, path, name)
+    _write_h5(la_rev.handle, path, name)
 end
