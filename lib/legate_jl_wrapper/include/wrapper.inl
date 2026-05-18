@@ -310,6 +310,17 @@ inline void* get_ptr(legate::PhysicalStore* store) {
   return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
 }
 
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape) {
+  return std::make_shared<LogicalStorePartition>(
+      store.partition_by_tiling(tile_shape));
+}
+
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape, 
+  std::vector<uint64_t> color_shape) {
+  return std::make_shared<LogicalStorePartition>(
+      store.partition_by_tiling(tile_shape, color_shape));
+}
+
 }  // namespace data
 
 namespace time {
@@ -330,4 +341,5 @@ inline uint64_t time_nanoseconds() {
   return legate::timing::measure_nanoseconds().value();
 }
 }  // namespace time
+
 }  // namespace legate_wrapper

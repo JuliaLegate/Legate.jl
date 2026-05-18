@@ -131,5 +131,5 @@ Represents a tiled partition of a `LogicalStore`. Created via `partition_by_tili
 Wraps the underlying C++ `LogicalStorePartitionImpl`.
 """
 struct LogicalStorePartition{T,N}
-    handle::LogicalStorePartitionImpl
+    handle::CxxWrap.StdLib.SharedPtr{LogicalStorePartitionImpl}
 end
