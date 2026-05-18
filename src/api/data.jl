@@ -297,11 +297,13 @@ Read a dataset from an HDF5 file into a LogicalArray.
 function read_hdf5(path::String, dataset::String)
     impl = read_h5(path, dataset)  # cxxwrap call
     ndim = Int(dim(impl))
-    shp = Tuple(Int.(shape(impl)))
+    shp_h5 = Tuple(Int.(shape(impl)))
+    # HDF5 stores in C (row-major) order; Julia is column-major.
+    # HDF5.jl bridges this by reversing dimensions, so we do the same.
+    shp_jl = ndim > 1 ? reverse(shp_h5) : shp_h5
     T = code_type_map[Int(code(type(impl)))]
-    return LogicalArray{T, ndim}(impl, shp)
+    return LogicalArray{T,ndim}(impl, shp_jl)
 end
-
 
 """
     write_h5(array::LogicalArray, path::String, dataset::String)
@@ -313,6 +315,16 @@ Write a LogicalArray to a dataset in an HDF5 file.
 - `path`: Path to the HDF5 file.
 - `dataset`: Name of the dataset to write.
 """
-function write_hdf5(array::LogicalArray, path::String, dataset::String)
+function write_hdf5(array::LogicalArray{T,1}, path::String, dataset::String) where {T}
     write_h5(array.handle, path, dataset)
+end
+
+# HDF5.jl bridges Julia's column-major and HDF5's C-order by reversing dimensions
+# while keeping the raw bytes unchanged.  We do the same: reshape the Julia array
+# to the reversed shape (same bytes, different interpretation) before handing it
+# to Legate's write_h5 so the on-disk shape matches what HDF5.jl expects.
+function write_hdf5(array::LogicalArray{T,N}, path::String, dataset::String) where {T,N}
+    arr = Array{T,N}(array)
+    la_rev = LogicalArray(reshape(arr, reverse(size(arr))))
+    write_h5(la_rev.handle, path, dataset)
 end

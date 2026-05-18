@@ -78,7 +78,7 @@ end
 # conversion from Base Julia array to LogicalArray
 function (::Type{<:LogicalArray{A}})(arr::Array{B}) where {A,B}
     dims = Base.size(arr)
-    out = Legate.create_array(A, dims)
+    out = Legate.create_array(collect(Int64, dims), A)
     attached = Legate.attach_external(arr)
     copyto!(out, attached)
     return out
@@ -86,7 +86,7 @@ end
 
 function (::Type{<:LogicalArray})(arr::Array{B}) where {B}
     dims = Base.size(arr)
-    out = Legate.create_array(B, dims)
+    out = Legate.create_array(collect(Int64, dims), B)
     attached = Legate.attach_external(arr)
     copyto!(out, attached)
     return out

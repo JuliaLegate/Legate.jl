@@ -178,7 +178,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         std::vector<uint64_t> result;
         for (int i = 0; i < arr.dim(); i++) result.push_back(s[i]);
         return result;
-    });
+      });
 
   mod.add_type<AutoTask>("AutoTask")
       .method("add_input", static_cast<Variable (AutoTask::*)(LogicalArray)>(
@@ -212,6 +212,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);
   mod.method("has_started", &legate_wrapper::runtime::has_started);
   mod.method("has_finished", &legate_wrapper::runtime::has_finished);
+  mod.method("runtime_sync", &legate_wrapper::runtime::runtime_sync);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
   mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);

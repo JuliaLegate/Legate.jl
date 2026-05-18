@@ -18,10 +18,10 @@
  */
 
 #include "legate.h"
+#include "legate/io/hdf5/interface.h"
 #include "legate/mapping/machine.h"
 #include "legate/runtime/runtime.h"
 #include "legate/timing/timing.h"
-#include "legate/io/hdf5/interface.h"
 #include "legion.h"
 #include "legion/legion_config.h"
 
@@ -64,6 +64,14 @@ inline bool has_started() { return legate::has_started(); }
  * @brief Check whether the Legate runtime has finished.
  */
 inline bool has_finished() { return legate::has_finished(); }
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Block until all pending Legate tasks have completed.
+ */
+inline void runtime_sync() {
+  Runtime::get_runtime()->issue_execution_fence(true);
+}
 }  // namespace runtime
 
 namespace tasking {
@@ -332,17 +340,18 @@ inline uint64_t time_nanoseconds() {
 }
 }  // namespace time
 
-
 namespace hdf5 {
-inline LogicalArray read_h5(const std::string& file_path, const std::string& dataset_name) {
-    return legate::io::hdf5::from_file(std::filesystem::path(file_path), dataset_name);
+inline LogicalArray read_h5(const std::string& file_path,
+                            const std::string& dataset_name) {
+  return legate::io::hdf5::from_file(std::filesystem::path(file_path),
+                                     dataset_name);
 }
 
-inline void write_h5(const LogicalArray& array, const std::string& file_path, const std::string& dataset_name) {
-    legate::io::hdf5::to_file(array, std::filesystem::path(file_path), dataset_name);
+inline void write_h5(const LogicalArray& array, const std::string& file_path,
+                     const std::string& dataset_name) {
+  legate::io::hdf5::to_file(array, std::filesystem::path(file_path),
+                            dataset_name);
 }
-} // namespace hdf5
+}  // namespace hdf5
 
 }  // namespace legate_wrapper
-
-
