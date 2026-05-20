@@ -208,14 +208,16 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
               [](AutoTask& t) { return static_cast<void*>(&t); });
 
   mod.add_type<ManualTask>("ManualTask")
-      .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(
-                               &ManualTask::add_input))
-      .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(
-                                &ManualTask::add_output))
-      .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(
-                                &ManualTask::add_scalar_arg))
-      .method("get_obj_ptr",
-              [](ManualTask& t) { return static_cast<void*>(&t); });
+    .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_input))
+    .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_output))
+    .method("add_input", [](ManualTask& t, std::shared_ptr<LogicalStorePartition> p) {
+        t.add_input(*p);
+    })
+    .method("add_output", [](ManualTask& t, std::shared_ptr<LogicalStorePartition> p) {
+        t.add_output(*p);
+    })
+    .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(&ManualTask::add_scalar_arg))
+    .method("get_obj_ptr", [](ManualTask& t) { return static_cast<void*>(&t); });
 
   /* runtime */
   mod.add_type<Runtime>("Runtime").method(
@@ -254,6 +256,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   /* timing */
   mod.method("time_microseconds", &legate_wrapper::time::time_microseconds);
   mod.method("time_nanoseconds", &legate_wrapper::time::time_nanoseconds);
+
+  mod.method("num_procs", &legate_wrapper::runtime::num_procs);
 
   wrap_ufi(mod);
 }

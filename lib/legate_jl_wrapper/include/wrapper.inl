@@ -63,6 +63,11 @@ inline bool has_started() { return legate::has_started(); }
  * @brief Check whether the Legate runtime has finished.
  */
 inline bool has_finished() { return legate::has_finished(); }
+
+inline int32_t num_procs() {
+  return legate::Runtime::get_runtime()->get_machine().count();
+}
+
 }  // namespace runtime
 
 namespace tasking {
@@ -311,14 +316,12 @@ inline void* get_ptr(legate::PhysicalStore* store) {
 }
 
 inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape) {
-  return std::make_shared<LogicalStorePartition>(
-      store.partition_by_tiling(tile_shape));
+  return std::make_shared<LogicalStorePartition>(store.partition_by_tiling(tile_shape));
 }
 
-inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape, 
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape,
   std::vector<uint64_t> color_shape) {
-  return std::make_shared<LogicalStorePartition>(
-      store.partition_by_tiling(tile_shape, color_shape));
+  return std::make_shared<LogicalStorePartition>(store.partition_by_tiling(tile_shape, color_shape));
 }
 
 }  // namespace data
