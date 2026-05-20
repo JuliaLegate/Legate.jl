@@ -284,3 +284,13 @@ function get_ptr(arr::PhysicalStore)
     # PhysicalStore -> Ptr
     return _get_ptr(CxxWrap.CxxPtr(arr)) # cxxwrap call
 end
+
+function partition_by_tiling(store::LogicalStore{T,N}, tile_shape) where {T,N}
+    impl = partition_by_tiling(store.handle, to_cxx_vector(tile_shape)) # cxxwrap call
+    return LogicalStorePartition{T,N}(impl)
+end
+
+function partition_by_tiling(store::LogicalStore{T,N}, tile_shape, color_shape) where {T,N}
+    impl = partition_by_tiling(store.handle, to_cxx_vector(tile_shape), to_cxx_vector(color_shape)) # cxxwrap call
+    return LogicalStorePartition{T,N}(impl)
+end
