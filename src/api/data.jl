@@ -326,3 +326,12 @@ function h5write(path::String, name::String, array::LogicalArray{T,N}) where {T,
     la_rev = LogicalArray(reshape(arr, reverse(size(arr))))
     _write_h5(la_rev.handle, path, name)
 end
+function partition_by_tiling(store::LogicalStore{T,N}, tile_shape) where {T,N}
+    impl = partition_by_tiling(store.handle, to_cxx_vector(tile_shape)) # cxxwrap call
+    return LogicalStorePartition{T,N}(impl)
+end
+
+function partition_by_tiling(store::LogicalStore{T,N}, tile_shape, color_shape) where {T,N}
+    impl = partition_by_tiling(store.handle, to_cxx_vector(tile_shape), to_cxx_vector(color_shape)) # cxxwrap call
+    return LogicalStorePartition{T,N}(impl)
+end

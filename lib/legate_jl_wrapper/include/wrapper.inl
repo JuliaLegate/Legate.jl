@@ -72,6 +72,15 @@ inline bool has_finished() { return legate::has_finished(); }
 inline void runtime_sync() {
   Runtime::get_runtime()->issue_execution_fence(true);
 }
+  
+/**
+ * @ingroup legate_wrapper
+ * @brief Provide number of runtime processors.
+ */
+inline int32_t num_procs() {
+  return legate::Runtime::get_runtime()->get_machine().count();
+}
+
 }  // namespace runtime
 
 namespace tasking {
@@ -317,6 +326,15 @@ inline void* get_ptr(legate::PhysicalStore* store) {
   int dim = store->dim();
   legate::Type::Code code = store->type().code();
   return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
+}
+
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape) {
+  return std::make_shared<LogicalStorePartition>(store.partition_by_tiling(tile_shape));
+}
+
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape,
+  std::vector<uint64_t> color_shape) {
+  return std::make_shared<LogicalStorePartition>(store.partition_by_tiling(tile_shape, color_shape));
 }
 
 }  // namespace data

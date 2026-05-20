@@ -123,3 +123,13 @@ Base.size(a::LogicalArray, i::Integer) = size(a)[i]
 Datatype of object within Legate. See `Legate.supported_types()` to see supported types.
 """
 LegateType
+
+
+"""
+    LogicalStorePartition{T,N}
+Represents a tiled partition of a `LogicalStore`. Created via `partition_by_tiling`.
+Wraps the underlying C++ `LogicalStorePartitionImpl`.
+"""
+struct LogicalStorePartition{T,N}
+    handle::CxxWrap.StdLib.SharedPtr{LogicalStorePartitionImpl}
+end

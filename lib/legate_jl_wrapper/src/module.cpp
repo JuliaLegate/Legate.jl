@@ -150,14 +150,34 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("get_obj_ptr",
               [](PhysicalStore& s) { return static_cast<void*>(&s); });
 
-  mod.add_type<LogicalStore>("LogicalStoreImpl")
-      .method("dim", &LogicalStore::dim)
-      .method("type", &LogicalStore::type)
-      .method("reinterpret_as", &LogicalStore::reinterpret_as)
-      .method("promote", &LogicalStore::promote)
-      .method("slice", &LogicalStore::slice)
-      .method("get_physical_store", &LogicalStore::get_physical_store)
-      .method("equal_storage", &LogicalStore::equal_storage);
+  mod.add_type<LogicalStore>("LogicalStoreImpl");
+  mod.add_type<LogicalStorePartition>("LogicalStorePartitionImpl");
+
+  mod.method("dim", [](LogicalStore& s) { return s.dim(); });
+  mod.method("type", [](LogicalStore& s) { return s.type(); });
+  mod.method("reinterpret_as", [](LogicalStore& s, legate::Type t) { return s.reinterpret_as(t); });
+  mod.method("promote", [](LogicalStore& s, int32_t extra_dim, size_t dim_size) { return s.promote(extra_dim, dim_size); });
+  mod.method("slice", [](LogicalStore& s, int32_t dim, legate::Slice sl) { return s.slice(dim, sl); });
+  mod.method("get_physical_store", [](LogicalStore& s) { return s.get_physical_store(); });
+  mod.method("equal_storage", [](LogicalStore& s, LogicalStore& other) { return s.equal_storage(other); });
+  mod.method("partition_by_tiling",
+    [](LogicalStore& store, std::vector<uint64_t> tile_shape) {
+        return legate_wrapper::data::partition_by_tiling(store, tile_shape);
+  });
+
+  mod.method("partition_by_tiling",
+    [](LogicalStore& store, std::vector<uint64_t> tile_shape,
+                            std::vector<uint64_t> color_shape) {
+        return legate_wrapper::data::partition_by_tiling(store, tile_shape, color_shape);
+  });
+  mod.method("color_shape", [](std::shared_ptr<LogicalStorePartition> p) {
+    auto s = p->color_shape();
+    std::vector<uint64_t> result(s.begin(), s.end());
+    return result;
+  });
+  mod.method("store", [](std::shared_ptr<LogicalStorePartition> p) {
+    return p->store();
+  });
 
   mod.add_type<PhysicalArray>("PhysicalArray")
       .method("dim", &PhysicalArray::dim)
@@ -194,14 +214,16 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
               [](AutoTask& t) { return static_cast<void*>(&t); });
 
   mod.add_type<ManualTask>("ManualTask")
-      .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(
-                               &ManualTask::add_input))
-      .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(
-                                &ManualTask::add_output))
-      .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(
-                                &ManualTask::add_scalar_arg))
-      .method("get_obj_ptr",
-              [](ManualTask& t) { return static_cast<void*>(&t); });
+    .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_input))
+    .method("add_output", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_output))
+    .method("add_input", [](ManualTask& t, std::shared_ptr<LogicalStorePartition> p) {
+        t.add_input(*p);
+    })
+    .method("add_output", [](ManualTask& t, std::shared_ptr<LogicalStorePartition> p) {
+        t.add_output(*p);
+    })
+    .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(&ManualTask::add_scalar_arg))
+    .method("get_obj_ptr", [](ManualTask& t) { return static_cast<void*>(&t); });
 
   /* runtime */
   mod.add_type<Runtime>("Runtime").method(
@@ -222,6 +244,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("submit_auto_task", &legate_wrapper::tasking::submit_auto_task);
   mod.method("submit_manual_task",
              &legate_wrapper::tasking::submit_manual_task);
+
   /* array management */
   mod.method("create_unbound_array",
              &legate_wrapper::data::create_unbound_array);
@@ -244,6 +267,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   /* hdf5 */
   mod.method("_read_h5", &legate_wrapper::hdf5::read_h5);
   mod.method("_write_h5", &legate_wrapper::hdf5::write_h5);
+  mod.method("num_procs", &legate_wrapper::runtime::num_procs);
 
   wrap_ufi(mod);
 }

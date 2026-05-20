@@ -85,7 +85,7 @@ Add a logical array/store as an input to the task.
 """
 function add_input(
     task::Union{AutoTask,ManualTask},
-    item::Union{LogicalArray,LogicalStore},
+    item::Union{LogicalArray,LogicalStore,LogicalStorePartition},
 )
     add_input(task, item.handle)
 end
@@ -98,10 +98,11 @@ Add a logical array/store as an output of the task.
 """
 function add_output(
     task::Union{AutoTask,ManualTask},
-    item::Union{LogicalArray,LogicalStore},
+    item::Union{LogicalArray,LogicalStore,LogicalStorePartition},
 )
     add_output(task, item.handle)
 end
+
 
 """
     add_scalar(AutoTask, scalar::Scalar)
