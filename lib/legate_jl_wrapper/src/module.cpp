@@ -204,6 +204,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("add_constraint",
               static_cast<void (AutoTask::*)(const Constraint&)>(
                   &AutoTask::add_constraint))
+      .method("add_communicator", static_cast<void (AutoTask::*)(std::string_view)>(&AutoTask::add_communicator))
       .method("get_obj_ptr",
               [](AutoTask& t) { return static_cast<void*>(&t); });
 
@@ -217,6 +218,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         t.add_output(*p);
     })
     .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(&ManualTask::add_scalar_arg))
+    .method("add_communicator", static_cast<void (ManualTask::*)(std::string_view)>(&ManualTask::add_communicator))
     .method("get_obj_ptr", [](ManualTask& t) { return static_cast<void*>(&t); });
 
   /* runtime */
