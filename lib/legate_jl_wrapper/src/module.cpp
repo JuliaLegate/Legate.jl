@@ -204,8 +204,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("add_constraint",
               static_cast<void (AutoTask::*)(const Constraint&)>(
                   &AutoTask::add_constraint))
-      .method("get_obj_ptr",
-              [](AutoTask& t) { return static_cast<void*>(&t); });
+      .method("add_communicator", static_cast<void (AutoTask::*)(std::string_view)>(&AutoTask::add_communicator))
+      .method("get_obj_ptr", [](AutoTask& t) { return static_cast<void*>(&t); })
+      .method("find_or_declare_partition", static_cast<Variable (AutoTask::*)(const LogicalArray&)>(&AutoTask::find_or_declare_partition))
+      .method("declare_partition", static_cast<Variable (AutoTask::*)()>(&AutoTask::declare_partition));
 
   mod.add_type<ManualTask>("ManualTask")
     .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_input))
@@ -217,6 +219,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         t.add_output(*p);
     })
     .method("add_scalar", static_cast<void (ManualTask::*)(const Scalar&)>(&ManualTask::add_scalar_arg))
+    .method("add_communicator", static_cast<void (ManualTask::*)(std::string_view)>(&ManualTask::add_communicator))
     .method("get_obj_ptr", [](ManualTask& t) { return static_cast<void*>(&t); });
 
   /* runtime */
