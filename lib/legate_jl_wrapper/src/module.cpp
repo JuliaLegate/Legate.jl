@@ -205,8 +205,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
               static_cast<void (AutoTask::*)(const Constraint&)>(
                   &AutoTask::add_constraint))
       .method("add_communicator", static_cast<void (AutoTask::*)(std::string_view)>(&AutoTask::add_communicator))
-      .method("get_obj_ptr",
-              [](AutoTask& t) { return static_cast<void*>(&t); });
+      .method("get_obj_ptr", [](AutoTask& t) { return static_cast<void*>(&t); })
+      .method("find_or_declare_partition", static_cast<Variable (AutoTask::*)(const LogicalArray&)>(&AutoTask::find_or_declare_partition))
+      .method("declare_partition", static_cast<Variable (AutoTask::*)()>(&AutoTask::declare_partition));
 
   mod.add_type<ManualTask>("ManualTask")
     .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(&ManualTask::add_input))
