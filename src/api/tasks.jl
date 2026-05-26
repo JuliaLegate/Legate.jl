@@ -111,3 +111,11 @@ end
 Add a scalar argument to the task.
 """
 add_scalar
+
+function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore})
+    add_broadcast(task, item.handle)
+end
+
+function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore}, axes)
+    add_broadcast(task, item.handle, axes)
+end
