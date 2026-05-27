@@ -22,15 +22,15 @@ macro make_preferences(prefix, default_mode="jll",
 esc(quote
     abstract type Mode end
     struct JLL <: Mode end # default
-    struct Developer <: Mode end # will compile wrappers from src
+    # struct Developer <: Mode end # will compile wrappers from src
     struct Conda <: Mode end # not well tested, allows conda env install
 
     function to_mode(m::String)
         m_lower = lowercase(m)
         if m_lower == "jll"
             return JLL()
-        elseif m_lower == "developer"
-            return Developer()
+        # elseif m_lower == "developer"
+        #     return Developer()
         elseif m_lower == "conda"
             return Conda()
         else
@@ -121,42 +121,42 @@ esc(quote
         end
     end
 
-    """
-    LegatePreferences.use_developer_mode(; use_jll=true, path=nothing, export_prefs = false, force = true)
+    # """
+    # LegatePreferences.use_developer_mode(; use_jll=true, path=nothing, export_prefs = false, force = true)
 
-    Tells Legate.jl | cuNumeric.jl to enable developer mode. Developer mode allows you to build from source.
+    # Tells Legate.jl | cuNumeric.jl to enable developer mode. Developer mode allows you to build from source.
 
-    To disable using legate_jll or cupynumeric_jll: ```use_jll=false``` 
-    If you disable legate_jll or cupynumeric_jll, then you need to set a path to Legate|cuPyNumeric with ```path="/path/to/Legate|cuPyNumeric"```
-    """
-    function use_developer_mode(;use_jll=$default_use_jll,
-                                 path=$default_path,
-                                 export_prefs=false, force=true)
+    # To disable using legate_jll or cupynumeric_jll: ```use_jll=false``` 
+    # If you disable legate_jll or cupynumeric_jll, then you need to set a path to Legate|cuPyNumeric with ```path="/path/to/Legate|cuPyNumeric"```
+    # """
+    # function use_developer_mode(;use_jll=$default_use_jll,
+    #                              path=$default_path,
+    #                              export_prefs=false, force=true)
 
-        if !use_jll && isnothing(path)
-            error("Must provide path when not using JLL")
-        end
+    #     if !use_jll && isnothing(path)
+    #         error("Must provide path when not using JLL")
+    #     end
 
-        same_mode = MODE == MODE_DEVELOPER
-        same_jll_usage = use_jll == _use_jll
-        same_path = path == _path
+    #     same_mode = MODE == MODE_DEVELOPER
+    #     same_jll_usage = use_jll == _use_jll
+    #     same_path = path == _path
 
-        if same_mode && same_jll_usage && same_path
-            @info "Already using Developer mode with the same settings"
-            return
-        end
+    #     if same_mode && same_jll_usage && same_path
+    #         @info "Already using Developer mode with the same settings"
+    #         return
+    #     end
 
-        _PREFS_CHANGED[] = true
-        _set("mode" => MODE_DEVELOPER,
-             "use_jll" => use_jll,
-             "path" => path;
-             export_prefs, force)
+    #     _PREFS_CHANGED[] = true
+    #     _set("mode" => MODE_DEVELOPER,
+    #          "use_jll" => use_jll,
+    #          "path" => path;
+    #          export_prefs, force)
 
-        @info "Developer mode enabled"
-        if _DEPS_LOADED[]
-            error("Developer Mode: Restart Julia for changes to take effect. You will need to run Pkg.build().")
-        end
-    end
+    #     @info "Developer mode enabled"
+    #     if _DEPS_LOADED[]
+    #         error("Developer Mode: Restart Julia for changes to take effect. You will need to run Pkg.build().")
+    #     end
+    # end
 end)
 
 end

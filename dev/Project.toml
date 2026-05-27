@@ -1,0 +1,25 @@
+name = "LegateDev"
+uuid = "cc362a5e-39f6-414f-9052-7e8059a70023"
+authors = ["""David Krasowska <krasow@u.northwestern.edu\n>  and Ethan Meitz <emeitz@andrew.cmu.edu\n>"""]
+version = "0.1.0"
+
+[deps]
+CUDA_SDK_jll = "6cbf2f2e-7e60-5632-ac76-dca2274e0be0"
+Legate = "1238f2cf-6593-4d60-9aca-2f5364e49909"
+LegatePreferences = "8028f36a-2b64-49e9-aa04-2d0933fd2ed9"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+
+[sources]
+Legate = {path = ".."}
+
+[compat]
+CUDA_SDK_jll = "13.0"
+LegatePreferences = "0.1.6"
+Libdl = "1.11.0"
+Preferences = "1.5.2"
+Reexport = "1.2.2"
+
+[extras]
+LegatePreferences = "8028f36a-2b64-49e9-aa04-2d0933fd2ed9"

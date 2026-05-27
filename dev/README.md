@@ -1,0 +1,1 @@
+This contains a wrapper around Legate that facilitates re-building and testing the C++ wrappers. This package installed the CUDA SDK which is needed when rebuilding the wrapper. This must be the same CUDA SDK as when we build legate_jll so we install the JLL. By default CMake will just look on the system path. This avoids bugs caused by that.
