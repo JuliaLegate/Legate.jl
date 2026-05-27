@@ -37,10 +37,20 @@ if [[ ! -d "$INSTALL_DIR" ]]; then
     mkdir -p $INSTALL_DIR 
 fi
 
+NO_CUDA=${NO_CUDA:-OFF}
+CUDA_TOOLKIT_ROOT=${CUDA_TOOLKIT_ROOT:-}
+
+CUDA_ARGS=()
+if [[ -n "$CUDA_TOOLKIT_ROOT" ]]; then
+    CUDA_ARGS+=("-DCUDAToolkit_ROOT=${CUDA_TOOLKIT_ROOT}")
+fi
+
 cmake -S $LEGATE_WRAPPER_SOURCE -B $BUILD_DIR \
     -D CMAKE_INSTALL_PREFIX=$INSTALL_DIR \
     -D BINARYBUILDER=OFF \
+    -D NO_CUDA=$NO_CUDA \
     -D CMAKE_PREFIX_PATH="$LEGATE_CMAKE_DIR;$LEGION_CMAKE_DIR;$REALM_CMAKE_DIR" \
-    -D CMAKE_BUILD_TYPE=Release
+    -D CMAKE_BUILD_TYPE=Release \
+    "${CUDA_ARGS[@]}"
 
 cmake --build $BUILD_DIR  --parallel $NTHREADS --verbose

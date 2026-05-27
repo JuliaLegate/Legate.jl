@@ -10,7 +10,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
+option(NO_CUDA "Build without CUDA support (skip CUDAToolkit)" OFF)
 option(BINARYBUILDER "Building with binary builder" ON)
+
+if(NOT NO_CUDA)
+    find_package(CUDAToolkit 13.0 REQUIRED)
+    message(STATUS "CUDA enabled: CUDAToolkit found at ${CUDAToolkit_LIBRARY_ROOT}")
+else()
+    message(STATUS "NO_CUDA=ON: skipping CUDAToolkit")
+endif()
 
 find_package(legate REQUIRED)
 
