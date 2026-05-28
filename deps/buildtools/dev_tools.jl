@@ -13,10 +13,90 @@ function start_build(pkg_name::String, deps_dir::String)
     return pkg_root
 end
 
+struct package
+    name::String
+    uuid::String
+    compat::String
+end
+
+const LEGATE_JLL_DEP = package("legate_jll", "e95fb1d3-fb9e-51b5-bdb8-1a812408cac9", "")
+const CUDA_SDK_JLL_DEP = package("CUDA_SDK_jll", "6cbf2f2e-7e60-5632-ac76-dca2274e0be0", "")
+
+with_compat(dep::package, compat::String) = package(dep.name, dep.uuid, compat)
+
+# write dev/Project.toml from an ordered list of package entries.
+function write_dev_project(dev_dir::String, deps::Vector{package})
+    mkpath(dev_dir)
+    open(joinpath(dev_dir, "Project.toml"), "w") do io
+        println(io, "[deps]")
+        for d in deps
+            println(io, "$(d.name) = \"$(d.uuid)\"")
+        end
+        compat_deps = filter(d -> !isempty(d.compat), deps)
+        if !isempty(compat_deps)
+            println(io, "\n[compat]")
+            for d in compat_deps
+                println(io, "$(d.name) = \"$(d.compat)\"")
+            end
+        end
+    end
+end
+
+# Loads the primary JLL, writes dev/Project.toml, and instantiates the env.
+# Returns (artifact_dir, cuda_root) — cuda_root is nothing when CUDA is disabled.
+# Activates pkg_root on exit.
+function setup_jll_build_env(pkg_root::String, primary::package)
+    dev_dir = joinpath(pkg_root, "dev")
+    artifact_dir = find_jll_artifact_dir(Symbol(primary.name))
+    jll_mod = getfield(Main, Symbol(primary.name))
+
+    cuda_enabled = detect_jll_cuda_enabled(jll_mod)
+    v = pkgversion(jll_mod)
+    deps = package[with_compat(primary, "$(v.major).$(v.minor)")]
+
+    cuda_compat = nothing
+    if cuda_enabled
+        cuda_compat = string(VersionNumber(jll_mod.host_platform["cuda"]).major)
+        push!(deps, with_compat(CUDA_SDK_JLL_DEP, cuda_compat))
+    end
+
+    write_dev_project(dev_dir, deps)
+    Pkg.activate(dev_dir)
+    Pkg.resolve()
+    Pkg.instantiate()
+
+    cuda_root = cuda_enabled ? try_get_cuda_sdk_jll_dir() : nothing
+    Pkg.activate(pkg_root)
+
+    return artifact_dir, cuda_root
+end
+
 # calls using X_jll on core.main and grabs path of artifact dir
 function find_jll_artifact_dir(jll::Symbol)
     Core.eval(Main, :(using $(jll)))
     return getfield(Main, jll).artifact_dir
+end
+
+# point a JLL's override/ at a local build directory so `using X_jll` to the right thing
+function set_jll_artifact_override(jll::Symbol, artifact_dir::String)
+    jll_name = string(jll)
+    pkg_src = Base.find_package(jll_name)
+    isnothing(pkg_src) && error("Package $jll not found in load path")
+    pkg_dir = normpath(joinpath(dirname(pkg_src), ".."))
+
+    override_dir = joinpath(pkg_dir, "override")
+    # remove prior override dir
+    (islink(override_dir) || isdir(override_dir)) && rm(override_dir; recursive=true)
+    # symlink pkg_jll/build/ -> pkg_jll/override
+    symlink(artifact_dir, override_dir)
+
+    compiled_dir = joinpath(DEPOT_PATH[1], "compiled",
+        "v$(VERSION.major).$(VERSION.minor)", jll_name)
+    isdir(compiled_dir) && foreach(
+        f -> endswith(f, ".ji") && rm(f; force=true),
+        readdir(compiled_dir; join=true),
+    )
+    @info "$jll: override → $artifact_dir"
 end
 
 # wrapper to log stdout / stderr
@@ -64,11 +144,14 @@ end
 
 function check_cmake_version(min_version::VersionNumber)
     cmake = Sys.which("cmake")
-    isnothing(cmake) && error("cmake not found on PATH. Developer builds require cmake >= $(min_version).")
+    isnothing(cmake) &&
+        error("cmake not found on PATH. Developer builds require cmake >= $(min_version).")
 
     out = readchomp(`$cmake --version`)
     m = match(r"cmake version (\d+\.\d+\.\d+)", out)
-    isnothing(m) && error("Could not parse cmake version from `$cmake --version`. Developer builds require cmake >= $(min_version).")
+    isnothing(m) && error(
+        "Could not parse cmake version from `$cmake --version`. Developer builds require cmake >= $(min_version).",
+    )
 
     ver = VersionNumber(m.captures[1])
     ver < min_version && error(
@@ -80,9 +163,11 @@ function check_cmake_version(min_version::VersionNumber)
 end
 
 # constructs bash command to run based on env
-function run_build_wrapper_script(repo_root, bld_command; cuda_root=nothing, cuda_enabled=true, log_dir)
+function run_build_wrapper_script(
+    repo_root, bld_command; cuda_root=nothing, cuda_enabled=true, log_dir
+)
     env = build_cuda_env(cuda_enabled, cuda_root)
-    
+
     # generates build_wrapper.sh in repo_root with env vars and the build command — this is what gets executed
     write_build_script(joinpath(repo_root, "build_wrapper.sh"), bld_command; env)
 
@@ -90,7 +175,6 @@ function run_build_wrapper_script(repo_root, bld_command; cuda_root=nothing, cud
     @info "Running build command: $bash_cmd"
     run_sh(bash_cmd, "cpp_wrapper"; log_dir)
 end
-
 
 function write_build_script(path::String, cmd::Cmd; env::Dict{String,String}=Dict{String,String}())
     open(path, "w") do io

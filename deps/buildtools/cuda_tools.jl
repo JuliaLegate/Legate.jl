@@ -7,16 +7,6 @@ function resolve_custom_cuda(pkg_name::String)
     return cuda_enabled, nothing
 end
 
-function resolve_jll_cuda(jll_mod)
-    cuda_enabled = detect_jll_cuda_enabled(jll_mod)
-    cuda_root = try_get_cuda_sdk_jll_dir()
-    if isnothing(cuda_root) && cuda_enabled
-        @warn "CUDA_SDK_jll not found — cmake will search for system CUDA, which may " *
-            "not match the JLL. Add CUDA_SDK_jll to your environment for a reproducible build."
-    end
-    return cuda_enabled, cuda_root
-end
-
 function detect_jll_cuda_enabled(jll_mod)
     cuda_val = get(jll_mod.host_platform.tags, "cuda", nothing)
     return cuda_val !== nothing && cuda_val != "none"

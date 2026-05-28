@@ -61,6 +61,7 @@ function build_deps(pkg_root, legate_root; cuda_root=nothing, cuda_enabled=true)
         log_dir=@__DIR__, is_compatible=is_supported_version,
     )
     build_cpp_wrapper(pkg_root, legate_root, install_dir; cuda_root, cuda_enabled)
+    BuildTools.set_jll_artifact_override(:legate_jl_wrapper_jll, install_dir)
 end
 
 function build(::LegatePreferences.JLL)
@@ -87,23 +88,14 @@ function build(::LegatePreferences.Developer)
 
     legate_root = load_preference(LegatePreferences, "legate_path", nothing)
     if isnothing(legate_root)
-        legate_root = BuildTools.find_jll_artifact_dir(:legate_jll)
-
-        switch = false
-        dev_project = joinpath(pkg_root, "dev")
-        if isdir(dev_project) && BuildTools.detect_jll_cuda_enabled(legate_jll)
-            Pkg.activate(dev_project)
-            Pkg.instantiate()
-            switch = true
-        end
-
-        cuda_enabled, cuda_root = BuildTools.resolve_jll_cuda(legate_jll)
-        switch && Pkg.activate(pkg_root)
+        legate_root, cuda_root = BuildTools.setup_jll_build_env(pkg_root, BuildTools.LEGATE_JLL_DEP)
+        cuda_enabled = !isnothing(cuda_root) # cuda_root resolving to nothing means there is no cuda
     else
         is_legate_installed(legate_root; throw_errors=true)
         patch_legion(pkg_root, legate_root)
-        cuda_enabled, cuda_root = BuildTools.resolve_custom_cuda("legate")
+        cuda_enabled, cuda_root = BuildTools.resolve_custom_cuda("legate") # cuda_root is nothing.
     end
+
     build_deps(pkg_root, legate_root; cuda_root, cuda_enabled)
     set_preferences!(LegatePreferences, "LEGATE_LIBDIR" => joinpath(legate_root, "lib"); force=true)
 end
