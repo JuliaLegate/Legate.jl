@@ -20,6 +20,7 @@ struct package
 end
 
 const LEGATE_JLL_DEP = package("legate_jll", "e95fb1d3-fb9e-51b5-bdb8-1a812408cac9", "")
+const CUNUMERIC_JLL_DEP = package("cupynumeric_jll", "2862d674-414d-5b0b-a494-b21f8deca547", "")
 const CUDA_SDK_JLL_DEP = package("CUDA_SDK_jll", "6cbf2f2e-7e60-5632-ac76-dca2274e0be0", "")
 
 with_compat(dep::package, compat::String) = package(dep.name, dep.uuid, compat)
@@ -150,7 +151,7 @@ function check_cmake_version(min_version::VersionNumber)
     out = readchomp(`$cmake --version`)
     m = match(r"cmake version (\d+\.\d+\.\d+)", out)
     isnothing(m) && error(
-        "Could not parse cmake version from `$cmake --version`. Developer builds require cmake >= $(min_version).",
+        "Could not parse cmake version from `$cmake --version`. Developer builds require cmake >= $(min_version)."
     )
 
     ver = VersionNumber(m.captures[1])
