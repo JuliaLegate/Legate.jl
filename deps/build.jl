@@ -20,7 +20,7 @@ using Pkg
 using Preferences
 using LegatePreferences
 
-include("../src/utilities/dev_tools.jl")
+include("buildtools/dev_tools.jl")
 include("version.jl")
 
 # patch legion. The readme below talks about our compilation error
@@ -41,7 +41,9 @@ function build_cpp_wrapper(
     @info "liblegatewrapper: Building C++ Wrapper Library"
     isdir(install_root) && (rm(install_root; recursive=true); mkdir(install_root))
     bld_command = `$(joinpath(repo_root, "scripts/build_cpp_wrapper.sh")) $repo_root $legate_root $install_root $(Threads.nthreads())`
-    BuildTools.run_build_script(repo_root, bld_command; cuda_root, cuda_enabled, log_dir=@__DIR__)
+    BuildTools.run_build_wrapper_script(
+        repo_root, bld_command; cuda_root, cuda_enabled, log_dir=@__DIR__
+    )
 end
 
 function build_deps(pkg_root, legate_root; cuda_root=nothing, cuda_enabled=true)
@@ -89,8 +91,6 @@ function build(::LegatePreferences.Developer)
 
         switch = false
         dev_project = joinpath(pkg_root, "dev")
-        # this code will activate the dev enviroment that has CUDA_SDK_jll
-        # we should only activate / switch IF legate_jll has a host_platform that supports CUDA
         if isdir(dev_project) && BuildTools.detect_jll_cuda_enabled(legate_jll)
             Pkg.activate(dev_project)
             Pkg.instantiate()
@@ -98,16 +98,14 @@ function build(::LegatePreferences.Developer)
         end
 
         cuda_enabled, cuda_root = BuildTools.resolve_jll_cuda(legate_jll)
-
-        if (switch)
-            Pkg.activate(pkg_root)
-        end
+        switch && Pkg.activate(pkg_root)
     else
         is_legate_installed(legate_root; throw_errors=true)
         patch_legion(pkg_root, legate_root)
         cuda_enabled, cuda_root = BuildTools.resolve_custom_cuda("legate")
     end
     build_deps(pkg_root, legate_root; cuda_root, cuda_enabled)
+    set_preferences!(LegatePreferences, "LEGATE_LIBDIR" => joinpath(legate_root, "lib"); force=true)
 end
 
 const mode_str = load_preference(LegatePreferences, "legate_mode", LegatePreferences.MODE_JLL)

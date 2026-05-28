@@ -102,7 +102,7 @@ function _find_paths(
         check_legate_install(legate_path)
     else
         check_jll(legate_jll_module)
-        legate_path = legate_jll.artifact_dir
+        legate_path = legate_jll_module.artifact_dir
     end
 
     pkg_root = abspath(joinpath(@__DIR__, "../../"))

@@ -28,7 +28,7 @@ using CxxWrap
 using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
 
-include("utilities/dev_tools.jl")
+include(joinpath(@__DIR__, "../deps/buildtools/dev_tools.jl"))
 include(joinpath(@__DIR__, "../deps/version.jl"))
 include("utilities/preference.jl")
 

@@ -10,14 +10,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
-option(NO_CUDA "Build without CUDA support (skip CUDAToolkit)" OFF)
+option(LEGATE_WRAPPER_ENABLE_CUDA "Build legate_jl_wrapper with CUDA support" ON)
 option(BINARYBUILDER "Building with binary builder" ON)
 
-if(NOT NO_CUDA)
+if(LEGATE_WRAPPER_ENABLE_CUDA)
     find_package(CUDAToolkit 13.0 REQUIRED)
-    message(STATUS "CUDA enabled: CUDAToolkit found at ${CUDAToolkit_LIBRARY_ROOT}")
 else()
-    message(STATUS "NO_CUDA=ON: skipping CUDAToolkit")
+    # only disables find_package requirement for CUDAToolkit.
+    # if you have a CUDA enabled Legate install, this really won't do anything.
+    message(STATUS "LEGATE_WRAPPER_ENABLE_CUDA=OFF: skipping CUDAToolkit in legate_jl_wrapper.")
 endif()
 
 find_package(legate REQUIRED)

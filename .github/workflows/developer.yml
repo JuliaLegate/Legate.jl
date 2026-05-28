@@ -55,7 +55,7 @@ jobs:
         shell: bash
     env:
         LEGATE_AUTO_CONFIG: 0
-        NO_CUDA: ON
+        LEGATE_WRAPPER_ENABLE_CUDA: OFF
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
