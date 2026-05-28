@@ -78,26 +78,29 @@ function find_jll_artifact_dir(jll::Symbol)
     return getfield(Main, jll).artifact_dir
 end
 
-# point a JLL's override/ at a local build directory so `using X_jll` to the right thing
-function set_jll_artifact_override(jll::Symbol, artifact_dir::String)
+# Redirect a JLL package to a locally built artifact by symlinking its override/ directory.
+# Julia's JLL wrapper checks for override/ at precompile time; invalidating the .ji cache
+# forces a recompile so the new path takes effect on the next session.
+function set_jll_artifact_override(jll::Symbol, local_artifact::String)
     jll_name = string(jll)
-    pkg_src = Base.find_package(jll_name)
-    isnothing(pkg_src) && error("Package $jll not found in load path")
-    pkg_dir = normpath(joinpath(dirname(pkg_src), ".."))
+    jll_src = Base.find_package(jll_name)
+    if isnothing(jll_src)
+        @warn "$jll not found in load path — skipping override. Add it as a dependency to enable automatic path wiring."
+        return nothing
+    end
+    jll_pkg_dir = normpath(joinpath(dirname(jll_src), ".."))
+    jll_override = joinpath(jll_pkg_dir, "override")
 
-    override_dir = joinpath(pkg_dir, "override")
-    # remove prior override dir
-    (islink(override_dir) || isdir(override_dir)) && rm(override_dir; recursive=true)
-    # symlink pkg_jll/build/ -> pkg_jll/override
-    symlink(artifact_dir, override_dir)
+    (islink(jll_override) || isdir(jll_override)) && rm(jll_override; recursive=true)
+    symlink(local_artifact, jll_override)
 
-    compiled_dir = joinpath(DEPOT_PATH[1], "compiled",
+    jll_cache_dir = joinpath(DEPOT_PATH[1], "compiled",
         "v$(VERSION.major).$(VERSION.minor)", jll_name)
-    isdir(compiled_dir) && foreach(
+    isdir(jll_cache_dir) && foreach(
         f -> endswith(f, ".ji") && rm(f; force=true),
-        readdir(compiled_dir; join=true),
+        readdir(jll_cache_dir; join=true),
     )
-    @info "$jll: override → $artifact_dir"
+    @info "$jll: override → $local_artifact"
 end
 
 # wrapper to log stdout / stderr
