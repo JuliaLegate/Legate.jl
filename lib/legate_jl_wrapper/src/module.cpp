@@ -210,13 +210,11 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("get_obj_ptr", [](AutoTask& t) { return static_cast<void*>(&t); })
       .method("find_or_declare_partition", static_cast<Variable (AutoTask::*)(const LogicalArray&)>(&AutoTask::find_or_declare_partition))
       .method("declare_partition", static_cast<Variable (AutoTask::*)()>(&AutoTask::declare_partition))
-      .method("add_broadcast", [](AutoTask& t, LogicalArray arr) {
-        auto part = t.find_or_declare_partition(arr);
-        t.add_constraint(legate::broadcast(part));
+      .method("broadcast", [](Variable& v) {
+        return legate::broadcast(v);
       })
-      .method("add_broadcast", [](AutoTask& t, LogicalArray arr, std::vector<uint32_t> axes) {
-        auto part = t.find_or_declare_partition(arr);
-        t.add_constraint(legate::broadcast(part, legate::Span<const uint32_t>{axes.data(), axes.size()}));
+      .method("broadcast", [](Variable& v, std::vector<uint32_t> axes) {
+        return legate::broadcast(v, legate::Span<const uint32_t>{axes.data(), axes.size()});
       });
 
   mod.add_type<ManualTask>("ManualTask")

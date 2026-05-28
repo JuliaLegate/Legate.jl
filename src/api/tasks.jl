@@ -113,9 +113,11 @@ Add a scalar argument to the task.
 add_scalar
 
 function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore})
-    add_broadcast(task, item.handle)
+    part = find_or_declare_partition(task, item.handle)
+    add_constraint(task, broadcast(part))
 end
 
 function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore}, axes)
-    add_broadcast(task, item.handle, axes)
+    part = find_or_declare_partition(task, item.handle)
+    add_constraint(task, broadcast(part, axes))
 end
