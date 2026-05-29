@@ -153,8 +153,8 @@ function find_dependency_paths(::Type{LegatePreferences.JLL})
 end
 
 function find_dependency_paths(::Type{LegatePreferences.Developer})
-    base = isdefined(@__MODULE__, :legate_jll) ? legate_jll.LIBPATH_list : String[]
-    paths = _legate_lib_search_paths([LEGATE_LIBDIR; base])
+    isdefined(@__MODULE__, :legate_jll) || return Dict{String,String}()
+    paths = _legate_lib_search_paths(legate_jll.LIBPATH_list)
     return Dict(name => dirname(Libdl.find_library(lib, paths)) for (name, lib) in DEPS_MAP)
 end
 find_dependency_paths(::Type{LegatePreferences.Conda}) = Dict{String,String}()
