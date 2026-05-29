@@ -57,7 +57,8 @@ function setup_jll_build_env(pkg_root::String, primary::package)
 
     cuda_compat = nothing
     if cuda_enabled
-        cuda_compat = string(VersionNumber(jll_mod.host_platform["cuda"]).major)
+        cv = VersionNumber(jll_mod.host_platform["cuda"])
+        cuda_compat = "$(cv.major).$(cv.minor)"
         push!(deps, with_compat(CUDA_SDK_JLL_DEP, cuda_compat))
     end
 
