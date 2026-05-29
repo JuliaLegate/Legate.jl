@@ -2,7 +2,8 @@ using Legate
 using Test
 
 const VERBOSE = get(ENV, "VERBOSE", "1") != "0"
-const run_gpu_tests = (get(ENV, "GPUTESTS", "1") != "0") && (get(ENV, "NO_CUDA", "OFF") != "ON")
+const run_gpu_tests =
+    (get(ENV, "GPUTESTS", "1") != "0") && (get(ENV, "LEGATE_WRAPPER_ENABLE_CUDA", "ON") != "OFF")
 @info "Run GPU Tests: $(run_gpu_tests)"
 
 if run_gpu_tests
