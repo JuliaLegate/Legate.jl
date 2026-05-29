@@ -138,24 +138,23 @@ const DEPS_MAP = Dict(
     "CUDA_DRIVER" => "libcuda",
     "CUDA_RUNTIME" => "libcudart",
 )
-function find_dependency_paths(::Type{LegatePreferences.JLL})
-    results = Dict{String,String}()
-
-    paths_to_search = copy(legate_jll.LIBPATH_list)
-    # If we have CUDA support try to find some other paths
-    if isdefined(legate_jll, :NCCL_jll)
-        append!(paths_to_search, legate_jll.NCCL_jll.CUDA_Runtime_jll.LIBPATH_list)
-        push!(
-            paths_to_search,
-            joinpath(legate_jll.NCCL_jll.CUDA_Runtime_jll.CUDA_Driver_jll.artifact_dir, "lib"),
-        )
-    end
-
-    for (name, lib) in DEPS_MAP
-        results[name] = dirname(Libdl.find_library(lib, paths_to_search))
-    end
-    return results
+function _legate_lib_search_paths(base::Vector{String})
+    paths = copy(base)
+    isdefined(legate_jll, :NCCL_jll) || return paths
+    nccl = legate_jll.NCCL_jll
+    append!(paths, nccl.CUDA_Runtime_jll.LIBPATH_list)
+    push!(paths, joinpath(nccl.CUDA_Runtime_jll.CUDA_Driver_jll.artifact_dir, "lib"))
+    return paths
 end
 
-find_dependency_paths(::Type{LegatePreferences.Developer}) = Dict{String,String}()
+function find_dependency_paths(::Type{LegatePreferences.JLL})
+    paths = _legate_lib_search_paths(legate_jll.LIBPATH_list)
+    return Dict(name => dirname(Libdl.find_library(lib, paths)) for (name, lib) in DEPS_MAP)
+end
+
+function find_dependency_paths(::Type{LegatePreferences.Developer})
+    base = isdefined(@__MODULE__, :legate_jll) ? legate_jll.LIBPATH_list : String[]
+    paths = _legate_lib_search_paths([LEGATE_LIBDIR; base])
+    return Dict(name => dirname(Libdl.find_library(lib, paths)) for (name, lib) in DEPS_MAP)
+end
 find_dependency_paths(::Type{LegatePreferences.Conda}) = Dict{String,String}()
