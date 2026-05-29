@@ -34,8 +34,12 @@ on:
       - '.github/workflows/ci.yml'
       - 'Dockerfile' # container.yml depends on this
 jobs:
+  pkg_resolve:
+    uses: ./.github/workflows/pkg_resolve.yml
+
   test:
     name: Julia ${{ matrix.julia }} - ${{ matrix.os }}
+    needs: pkg_resolve
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
