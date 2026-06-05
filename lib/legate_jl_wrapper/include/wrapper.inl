@@ -68,6 +68,15 @@ inline int32_t num_procs() {
   return legate::Runtime::get_runtime()->get_machine().count();
 }
 
+inline int32_t num_gpus() {
+  return legate::Runtime::get_runtime()->get_machine().count(
+      legate::mapping::TaskTarget::GPU);
+}
+
+inline void issue_execution_fence() {
+  legate::Runtime::get_runtime()->issue_execution_fence();
+}
+
 }  // namespace runtime
 
 namespace tasking {
@@ -315,13 +324,17 @@ inline void* get_ptr(legate::PhysicalStore* store) {
   return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
 }
 
-inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape) {
-  return std::make_shared<LogicalStorePartition>(store.partition_by_tiling(tile_shape));
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(
+    LogicalStore& store, std::vector<uint64_t> tile_shape) {
+  return std::make_shared<LogicalStorePartition>(
+      store.partition_by_tiling(tile_shape));
 }
 
-inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape,
-  std::vector<uint64_t> color_shape) {
-  return std::make_shared<LogicalStorePartition>(store.partition_by_tiling(tile_shape, color_shape));
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(
+    LogicalStore& store, std::vector<uint64_t> tile_shape,
+    std::vector<uint64_t> color_shape) {
+  return std::make_shared<LogicalStorePartition>(
+      store.partition_by_tiling(tile_shape, color_shape));
 }
 
 }  // namespace data
