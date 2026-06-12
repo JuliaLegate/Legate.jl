@@ -38,6 +38,10 @@ function build_cuda_env(cuda_enabled::Bool, cuda_root)
 
     env = Dict{String,String}()
     !cuda_enabled && (env["LEGATE_WRAPPER_ENABLE_CUDA"] = "OFF")
-    cuda_root !== nothing && (env["CUDA_TOOLKIT_ROOT"] = cuda_root)
-    return env
+    if cuda_root !== nothing
+        env["CUDA_TOOLKIT_ROOT"] = cuda_root
+        # Prepend the SDK's bin dir so cmake detects the JLL's nvcc
+        env["PATH"] = "$(joinpath(cuda_root, "bin")):\$PATH"
+    end
+    return env. 
 end
