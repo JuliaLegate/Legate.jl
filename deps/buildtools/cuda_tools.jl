@@ -43,5 +43,5 @@ function build_cuda_env(cuda_enabled::Bool, cuda_root)
         # Prepend the SDK's bin dir so cmake detects the JLL's nvcc
         env["PATH"] = "$(joinpath(cuda_root, "bin")):\$PATH"
     end
-    return env. 
+    return env
 end
