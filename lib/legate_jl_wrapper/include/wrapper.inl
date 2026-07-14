@@ -77,6 +77,10 @@ inline void issue_execution_fence() {
   legate::Runtime::get_runtime()->issue_execution_fence();
 }
 
+inline void issue_mapping_fence() {
+  legate::Runtime::get_runtime()->issue_mapping_fence();
+}
+
 }  // namespace runtime
 
 namespace tasking {

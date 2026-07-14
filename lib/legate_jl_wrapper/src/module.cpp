@@ -295,6 +295,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("num_gpus", &legate_wrapper::runtime::num_gpus);
   mod.method("issue_execution_fence",
              &legate_wrapper::runtime::issue_execution_fence);
+  mod.method("issue_mapping_fence",
+             &legate_wrapper::runtime::issue_mapping_fence);
 
   wrap_ufi(mod);
 }
