@@ -73,8 +73,8 @@ inline int32_t num_gpus() {
       legate::mapping::TaskTarget::GPU);
 }
 
-inline void issue_execution_fence() {
-  legate::Runtime::get_runtime()->issue_execution_fence();
+inline void issue_execution_fence(bool block) {
+  legate::Runtime::get_runtime()->issue_execution_fence(block);
 }
 
 inline void issue_mapping_fence() {

@@ -293,6 +293,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
   mod.method("num_procs", &legate_wrapper::runtime::num_procs);
   mod.method("num_gpus", &legate_wrapper::runtime::num_gpus);
+  // `block` is required — do not default at the C++ binding layer.
   mod.method("issue_execution_fence",
              &legate_wrapper::runtime::issue_execution_fence);
   mod.method("issue_mapping_fence",
