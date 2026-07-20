@@ -226,10 +226,13 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("declare_partition", static_cast<Variable (AutoTask::*)()>(
                                        &AutoTask::declare_partition))
       .method("broadcast", [](Variable& v) { return legate::broadcast(v); })
-      .method("broadcast", [](Variable& v, std::vector<uint32_t> axes) {
-        return legate::broadcast(
-            v, legate::Span<const uint32_t>{axes.data(), axes.size()});
-      });
+      .method("broadcast",
+              [](Variable& v, std::vector<uint32_t> axes) {
+                return legate::broadcast(
+                    v, legate::Span<const uint32_t>{axes.data(), axes.size()});
+              })
+      .method("provenance",
+              [](AutoTask& t) { return std::string{t.provenance()}; });
 
   mod.add_type<ManualTask>("ManualTask")
       .method("add_input", static_cast<void (ManualTask::*)(LogicalStore)>(
@@ -271,6 +274,20 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("submit_auto_task", &legate_wrapper::tasking::submit_auto_task);
   mod.method("submit_manual_task",
              &legate_wrapper::tasking::submit_manual_task);
+
+  mod.add_type<Scope>("Scope")
+      .constructor<std::int32_t>()
+      .constructor<std::string>()
+      .method("set_priority", &Scope::set_priority)
+      .method("set_provenance",
+              [](Scope& s, std::string p) { s.set_provenance(std::move(p)); });
+
+  mod.method("scope_priority", []() { return Scope::priority(); });
+  mod.method("scope_provenance",
+             []() { return std::string{Scope::provenance()}; });
+  mod.method("destroy_scope", &legate_wrapper::tasking::destroy_scope);
+  mod.method("add_task_provenance",
+             &legate_wrapper::tasking::add_task_provenance);
 
   /* array management */
   mod.method("create_unbound_array",

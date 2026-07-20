@@ -10,7 +10,7 @@ Create an auto task in the runtime.
 """
 create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
 function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain)
-    create_manual_task(rt, lib, id, domain)
+    return create_manual_task(rt, lib, id, domain)
 end
 
 """
@@ -87,7 +87,7 @@ function add_input(
     task::Union{AutoTask,ManualTask},
     item::Union{LogicalArray,LogicalStore,LogicalStorePartition},
 )
-    add_input(task, item.handle)
+    return add_input(task, item.handle)
 end
 
 """
@@ -100,9 +100,8 @@ function add_output(
     task::Union{AutoTask,ManualTask},
     item::Union{LogicalArray,LogicalStore,LogicalStorePartition},
 )
-    add_output(task, item.handle)
+    return add_output(task, item.handle)
 end
-
 
 """
     add_scalar(AutoTask, scalar::Scalar)
@@ -114,10 +113,22 @@ add_scalar
 
 function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore})
     part = find_or_declare_partition(task, item.handle)
-    add_constraint(task, broadcast(part))
+    return add_constraint(task, broadcast(part))
 end
 
 function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore}, axes)
     part = find_or_declare_partition(task, item.handle)
-    add_constraint(task, broadcast(part, axes))
+    return add_constraint(task, broadcast(part, axes))
+end
+
+# with_scope("my_debug_label") do
+#     # create/submit Legate ops here
+# end
+function with_scope(f, provenance::String)
+    scope = Legate.Scope(provenance)  # pushes label
+    try
+        return f()
+    finally
+        Legate.destroy_scope(scope)
+    end
 end

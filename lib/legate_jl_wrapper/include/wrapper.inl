@@ -180,6 +180,13 @@ inline auto submit_manual_task(Runtime* rt, ManualTask& task) {
   return rt->submit(std::move(task));
 }
 
+inline void add_task_provenance(const std::string& provenance_name,
+                                Scope& scope) {
+  scope.set_provenance(provenance_name);
+}
+
+inline void destroy_scope(Scope& scope) { scope.~Scope(); }
+
 }  // namespace tasking
 
 namespace data {
