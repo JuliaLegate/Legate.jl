@@ -297,8 +297,16 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::data::create_unbound_store);
   mod.method("create_store", &legate_wrapper::data::create_store);
   mod.method("store_from_scalar", &legate_wrapper::data::store_from_scalar);
+  mod.method("attach_external_store_sysmem_row_major",
+             &legate_wrapper::data::attach_external_store_sysmem_row_major);
+  mod.method("attach_external_store_sysmem_col_major",
+             &legate_wrapper::data::attach_external_store_sysmem_col_major);
   mod.method("attach_external_store_sysmem",
              &legate_wrapper::data::attach_external_store_sysmem);
+  mod.method("attach_external_store_fbmem_row_major",
+             &legate_wrapper::data::attach_external_store_fbmem_row_major);
+  mod.method("attach_external_store_fbmem_col_major",
+             &legate_wrapper::data::attach_external_store_fbmem_col_major);
   mod.method("attach_external_store_fbmem",
              &legate_wrapper::data::attach_external_store_fbmem);
   mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
