@@ -1,7 +1,7 @@
 module CUDAExt
 
-using CUDA
-using Legate
+# using CUDA
+# using Legate
 
 # using CxxWrap: CxxWrap
 # import Legate: wrap_task, create_julia_task, SUPPORTED_TYPES, JuliaGPUTask, CxxPtr, Runtime,

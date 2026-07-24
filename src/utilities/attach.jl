@@ -75,13 +75,13 @@ function (::Type{<:Array})(arr::LogicalArray{B}) where {B}
     return Array{B}(arr)
 end
 
-# conversion from Base Julia array to LogicalArray
+# conversion from Base Julia array to LogicalArray (column-major buffer -> tagged `:col`)
 function (::Type{<:LogicalArray{A}})(arr::Array{B}) where {A,B}
     dims = Base.size(arr)
     out = Legate.create_array(collect(Int64, dims), A)
     attached = Legate.attach_external(arr)
     copyto!(out, attached)
-    return out
+    return LogicalArray{A,length(dims)}(out.handle, out.dims, :col)
 end
 
 function (::Type{<:LogicalArray})(arr::Array{B}) where {B}
@@ -89,5 +89,5 @@ function (::Type{<:LogicalArray})(arr::Array{B}) where {B}
     out = Legate.create_array(collect(Int64, dims), B)
     attached = Legate.attach_external(arr)
     copyto!(out, attached)
-    return out
+    return LogicalArray{B,length(dims)}(out.handle, out.dims, :col)
 end
