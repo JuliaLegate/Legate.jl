@@ -17,6 +17,8 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
  */
 
+#include <complex>
+#include <cstdint>
 #include <type_traits>
 #include <vector>
 
@@ -91,6 +93,20 @@ struct WrapDefault {
   }
 };
 
+// Register Scalar(StrictlyTypedNumber<T>) for each numeric element type.
+// apply_combination is for Parametric types; for_each_type walks a ParameterList
+// and adds constructors on a single non-parametric TypeWrapper.
+struct WrapScalarStrictCtors {
+  jlcxx::TypeWrapper<Scalar> wrapped;
+
+  template <typename T>
+  void operator()() {
+    wrapped.constructor([](jlcxx::StrictlyTypedNumber<T> v) {
+      return new Scalar(v.value);
+    });
+  }
+};
+
 JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   using jlcxx::ParameterList;
   using jlcxx::Parametric;
@@ -103,6 +119,11 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   using privilege_modes = ParameterList<
       std::integral_constant<legion_privilege_mode_t, LEGION_WRITE_DISCARD>,
       std::integral_constant<legion_privilege_mode_t, LEGION_READ_ONLY>>;
+
+  // Bool/int/uint/float Scalar element types (complex is special-cased below).
+  using scalar_strict_types =
+      ParameterList<bool, int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t,
+                    uint32_t, uint64_t, float, double>;
 
   mod.add_type<Library>("Library");
   mod.add_type<Variable>("Variable");
@@ -123,10 +144,14 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.add_type<Shape>("Shape").constructor<std::vector<std::uint64_t>>();
   mod.add_type<Domain>("Domain");
 
-  mod.add_type<Scalar>("Scalar")
-      .constructor<float>()
-      .constructor<double>()
-      .constructor<int32_t>()
+  // Scalar constructors for cuNumeric-style element types.
+  // StrictlyTypedNumber keeps each integer/float as its own Julia method
+  // (avoids collapse to Scalar(::Integer) / last-wins UInt64).
+  // Bool maps to Union{Bool,CxxBool}; std::complex is mirrored to Complex{T}.
+  auto scalar = mod.add_type<Scalar>("Scalar");
+  jlcxx::for_each_type<scalar_strict_types>(WrapScalarStrictCtors{scalar});
+  scalar.constructor([](std::complex<float> v) { return new Scalar(v); })
+      .constructor([](std::complex<double> v) { return new Scalar(v); })
       .constructor<void*>();
 
   mod.add_type<Parametric<TypeVar<1>>>("StdOptional")
