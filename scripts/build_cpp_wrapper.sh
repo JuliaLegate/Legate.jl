@@ -37,10 +37,24 @@ if [[ ! -d "$INSTALL_DIR" ]]; then
     mkdir -p $INSTALL_DIR 
 fi
 
+# Optional env vars. Example:
+#   LEGATE_WRAPPER_ENABLE_CUDA=ON \
+#   CUDA_TOOLKIT_ROOT=/usr/local/cuda-13.0 \
+#       julia --project=. -e 'using Pkg; Pkg.build("Legate")'
+LEGATE_WRAPPER_ENABLE_CUDA=${LEGATE_WRAPPER_ENABLE_CUDA:-ON}
+CUDA_TOOLKIT_ROOT=${CUDA_TOOLKIT_ROOT:-}
+
+CUDA_ARGS=("-DLEGATE_WRAPPER_ENABLE_CUDA=${LEGATE_WRAPPER_ENABLE_CUDA}")
+if [[ -n "$CUDA_TOOLKIT_ROOT" ]]; then
+    CUDA_ARGS+=("-DCUDAToolkit_ROOT=${CUDA_TOOLKIT_ROOT}")
+    CUDA_ARGS+=("-DCMAKE_LIBRARY_PATH=${CUDA_TOOLKIT_ROOT}/lib/stubs")
+fi
+
 cmake -S $LEGATE_WRAPPER_SOURCE -B $BUILD_DIR \
     -D CMAKE_INSTALL_PREFIX=$INSTALL_DIR \
     -D BINARYBUILDER=OFF \
     -D CMAKE_PREFIX_PATH="$LEGATE_CMAKE_DIR;$LEGION_CMAKE_DIR;$REALM_CMAKE_DIR" \
-    -D CMAKE_BUILD_TYPE=Debug
+    -D CMAKE_BUILD_TYPE=Release \
+    "${CUDA_ARGS[@]}"
 
 cmake --build $BUILD_DIR  --parallel $NTHREADS --verbose

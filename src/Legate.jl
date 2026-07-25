@@ -28,6 +28,7 @@ using CxxWrap
 using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
 
+include(joinpath(@__DIR__, "../deps/buildtools/dev_tools.jl"))
 include(joinpath(@__DIR__, "../deps/version.jl"))
 include("utilities/preference.jl")
 
@@ -131,7 +132,7 @@ function _finish_runtime()
     #end
 
     Legate.has_finished() && return nothing
-    
+
     # finish legate runtime
     Legate.legate_finish()
 end

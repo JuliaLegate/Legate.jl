@@ -64,7 +64,13 @@ Shape
 """
     Scalar
 
-Represents a scalar value used in tasks. Can be constructed from `Float32`, `Float64`, or `Int`.
+Represents a scalar value used in tasks. Can be constructed from `Bool`
+(also accepts `CxxWrap.CxxBool`), signed/unsigned integers (`Int8`/`UInt8`
+through `Int64`/`UInt64`), `Float32`, `Float64`, `ComplexF32`, `ComplexF64`,
+or a raw `Ptr{Cvoid}`.
+
+Integer/float overloads are bound with CxxWrap `StrictlyTypedNumber` so each
+Julia type dispatches to the matching C++ `legate::Scalar` constructor.
 """
 Scalar
 

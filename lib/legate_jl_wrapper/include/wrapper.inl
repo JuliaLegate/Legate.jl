@@ -81,6 +81,19 @@ inline int32_t num_procs() {
   return legate::Runtime::get_runtime()->get_machine().count();
 }
 
+inline int32_t num_gpus() {
+  return legate::Runtime::get_runtime()->get_machine().count(
+      legate::mapping::TaskTarget::GPU);
+}
+
+inline void issue_execution_fence(bool block) {
+  legate::Runtime::get_runtime()->issue_execution_fence(block);
+}
+
+inline void issue_mapping_fence() {
+  legate::Runtime::get_runtime()->issue_mapping_fence();
+}
+
 }  // namespace runtime
 
 namespace tasking {
@@ -180,6 +193,13 @@ inline auto submit_manual_task(Runtime* rt, ManualTask& task) {
   return rt->submit(std::move(task));
 }
 
+inline void add_task_provenance(const std::string& provenance_name,
+                                Scope& scope) {
+  scope.set_provenance(provenance_name);
+}
+
+inline void destroy_scope(Scope& scope) { scope.~Scope(); }
+
 }  // namespace tasking
 
 namespace data {
@@ -259,14 +279,28 @@ inline LogicalStore store_from_scalar(const Scalar& scalar,
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in system memory.
- *
- * @param ptr Pointer to the external memory.
- * @param shape The shape of the store.
- * @param ty The type of the store elements.
+ * @brief Attach an external store in system memory with row-major (C) ordering.
  */
-inline LogicalStore attach_external_store_sysmem(void* ptr, const Shape& shape,
-                                                 const Type& ty) {
+inline LogicalStore attach_external_store_sysmem_row_major(void* ptr,
+                                                          const Shape& shape,
+                                                          const Type& ty) {
+  legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
+      ptr, shape.volume() * ty.size());
+  legate::mapping::DimOrdering ordering =
+      legate::mapping::DimOrdering::c_order();
+
+  auto store =
+      legate::Runtime::get_runtime()->create_store(shape, ty, alloc, ordering);
+  return store;
+}
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Attach an external store in system memory with col-major (Fortran) ordering.
+ */
+inline LogicalStore attach_external_store_sysmem_col_major(void* ptr,
+                                                          const Shape& shape,
+                                                          const Type& ty) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
       ptr, shape.volume() * ty.size());
   legate::mapping::DimOrdering ordering =
@@ -279,17 +313,39 @@ inline LogicalStore attach_external_store_sysmem(void* ptr, const Shape& shape,
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in frame buffer memory.
- *
- * @param device_id The device ID.
- * @param ptr Pointer to the external memory.
- * @param shape The shape of the store.
- * @param ty The type of the store elements.
- * @param readonly Whether the store is read-only.
+ * @brief Attach an external store in system memory (defaults to row-major).
  */
-inline LogicalStore attach_external_store_fbmem(int device_id, void* ptr,
-                                                const Shape& shape,
-                                                const Type& ty, bool readonly) {
+inline LogicalStore attach_external_store_sysmem(void* ptr, const Shape& shape,
+                                                 const Type& ty) {
+  return attach_external_store_sysmem_row_major(ptr, shape, ty);
+}
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Attach an external store in frame buffer memory with row-major (C) ordering.
+ */
+inline LogicalStore attach_external_store_fbmem_row_major(int device_id, void* ptr,
+                                                         const Shape& shape,
+                                                         const Type& ty,
+                                                         bool readonly) {
+  legate::ExternalAllocation alloc = legate::ExternalAllocation::create_fbmem(
+      device_id, ptr, shape.volume() * ty.size(), readonly);
+  legate::mapping::DimOrdering ordering =
+      legate::mapping::DimOrdering::c_order();
+
+  auto store =
+      legate::Runtime::get_runtime()->create_store(shape, ty, alloc, ordering);
+  return store;
+}
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Attach an external store in frame buffer memory with col-major (Fortran) ordering.
+ */
+inline LogicalStore attach_external_store_fbmem_col_major(int device_id, void* ptr,
+                                                         const Shape& shape,
+                                                         const Type& ty,
+                                                         bool readonly) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_fbmem(
       device_id, ptr, shape.volume() * ty.size(), readonly);
   legate::mapping::DimOrdering ordering =
@@ -298,6 +354,17 @@ inline LogicalStore attach_external_store_fbmem(int device_id, void* ptr,
   auto store =
       legate::Runtime::get_runtime()->create_store(shape, ty, alloc, ordering);
   return store;
+}
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Attach an external store in frame buffer memory (defaults to row-major).
+ */
+inline LogicalStore attach_external_store_fbmem(int device_id, void* ptr,
+                                                const Shape& shape,
+                                                const Type& ty, bool readonly) {
+  return attach_external_store_fbmem_row_major(device_id, ptr, shape, ty,
+                                               readonly);
 }
 
 struct GetPtrFunctor {
@@ -328,13 +395,17 @@ inline void* get_ptr(legate::PhysicalStore* store) {
   return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
 }
 
-inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape) {
-  return std::make_shared<LogicalStorePartition>(store.partition_by_tiling(tile_shape));
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(
+    LogicalStore& store, std::vector<uint64_t> tile_shape) {
+  return std::make_shared<LogicalStorePartition>(
+      store.partition_by_tiling(tile_shape));
 }
 
-inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(LogicalStore& store, std::vector<uint64_t> tile_shape,
-  std::vector<uint64_t> color_shape) {
-  return std::make_shared<LogicalStorePartition>(store.partition_by_tiling(tile_shape, color_shape));
+inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(
+    LogicalStore& store, std::vector<uint64_t> tile_shape,
+    std::vector<uint64_t> color_shape) {
+  return std::make_shared<LogicalStorePartition>(
+      store.partition_by_tiling(tile_shape, color_shape));
 }
 
 }  // namespace data
