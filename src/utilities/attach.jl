@@ -22,9 +22,11 @@ function _attach_external_sysmem(
     shape::Dims{N},
     attach_fn,
 ) where {T,N}
-    prod(shape) == length(arr) || throw(DimensionMismatch(
-        "attach shape $(shape) volume $(prod(shape)) != array length $(length(arr))",
-    ))
+    prod(shape) == length(arr) || throw(
+        DimensionMismatch(
+            "attach shape $(shape) volume $(prod(shape)) != array length $(length(arr))"
+        ),
+    )
     ptr = Base.unsafe_convert(Ptr{Cvoid}, arr)
     lshape = Shape(to_cxx_vector(collect(UInt64, shape)))
     impl = attach_fn(ptr, lshape, to_legate_type(T))
@@ -124,50 +126,59 @@ function _row_major_buffer_to_julia(tmp::Array{T,N}, shape::Dims{N}) where {T,N}
     return collect(permutedims(tmp, reverse(ntuple(identity, Val(N)))))
 end
 
-# conversion from LogicalArray to Base Julia array
-function (::Type{<:Array{A}})(arr::LogicalArray{B,0}) where {A,B}
+# LogicalArray -> Array. Eltype must match; no implicit cast.
+function (::Type{<:Array{A}})(arr::LogicalArray{A,0}) where {A}
     out = Array{A}(undef, size(arr))
     attached = Legate.attach_external_row_major(out)
     copyto!(attached, arr)
     return out
 end
 
-function (::Type{<:Array{A}})(arr::LogicalArray{B,1}) where {A,B}
+function (::Type{<:Array{A}})(arr::LogicalArray{A,1}) where {A}
     out = Array{A}(undef, size(arr))
     attached = Legate.attach_external_row_major(out)
     copyto!(attached, arr)
     return out
 end
 
-function (::Type{<:Array{A}})(arr::LogicalArray{B,N}) where {A,B,N}
-    # Allocate F-order buffer whose bytes match C-order for `dims`, then permute back.
+function (::Type{<:Array{A}})(arr::LogicalArray{A,N}) where {A,N}
     dims = Base.size(arr)
+    if arr.order === :col
+        # :col buffer already holds col-major bytes for reverse(dims); copy straight.
+        out = Array{A}(undef, reverse(dims))
+        attached = Legate.attach_external_col_major(out; shape=dims)
+        copyto!(attached, arr)
+        return out
+    end
+    # :row: fill an F-order buffer matching C-order bytes, then permute back.
     tmp = Array{A}(undef, reverse(dims))
     attached = Legate.attach_external_row_major(tmp; shape=dims)
     copyto!(attached, arr)
     return _row_major_buffer_to_julia(tmp, dims)
 end
 
-function (::Type{<:Array})(arr::LogicalArray{B,N}) where {B,N}
+# Bare `Array(arr)` uses the store eltype; `Type{Array}` only so a typed mismatch errors.
+function (::Type{Array})(arr::LogicalArray{B,N}) where {B,N}
     return Array{B}(arr)
 end
 
-# conversion from Base Julia array to LogicalArray (column-major buffer -> tagged `:col`)
+# conversion from Base Julia array to LogicalArray. The Julia buffer is transposed to
+# row-major (C-order) before attaching, so the resulting store is row-major (`:row`).
 function (::Type{<:LogicalArray{A}})(arr::Array{B}) where {A,B}
     dims = Base.size(arr)
-    out = Legate.create_array(A, dims)
+    out = Legate.create_array(collect(Int64, dims), A)
     src = A === B ? arr : convert(Array{A}, arr)
     tmp, shape = _julia_to_row_major_buffer(src)
     attached = Legate.attach_external_row_major(tmp; shape)
     copyto!(out, attached)
-    return LogicalArray{A,length(dims)}(out.handle, out.dims, :col)
+    return LogicalArray{A,length(dims)}(out.handle, out.dims, :row)
 end
 
 function (::Type{<:LogicalArray})(arr::Array{B}) where {B}
     dims = Base.size(arr)
-    out = Legate.create_array(B, dims)
+    out = Legate.create_array(collect(Int64, dims), B)
     tmp, shape = _julia_to_row_major_buffer(arr)
     attached = Legate.attach_external_row_major(tmp; shape)
     copyto!(out, attached)
-    return LogicalArray{B,length(dims)}(out.handle, out.dims, :col)
+    return LogicalArray{B,length(dims)}(out.handle, out.dims, :row)
 end

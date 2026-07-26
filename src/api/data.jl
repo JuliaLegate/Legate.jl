@@ -286,36 +286,36 @@ function get_ptr(arr::PhysicalStore)
 end
 
 """
-    h5read(path::String, name::String; layout::Symbol=:C) -> LogicalArray
+    h5read(path::String, name::String; layout::Symbol=:row) -> LogicalArray
 
-Read a dataset from an HDF5 file into a LogicalArray. No data is copied.
+Read a dataset from an HDF5 file into a LogicalArray.
 
 # Arguments
 - `path`: Path to the HDF5 file.
 - `name`: Name of the dataset to read.
 
 # Keywords
-- `layout`: On-disk memory order. `:C` (default, row-major: HDF5.jl/numpy/cuNumeric)
-  reverses dimensions to present a column-major Julia array; `:F` (column-major) keeps
-  dimensions as-is (use to read back arrays written by `h5write`).
+- `layout`: On-disk memory order. `:row` (default) for row-major files (numpy/h5py,
+  cuNumeric, or `h5write`); `:col` for column-major files that stored reversed dimensions
+  (e.g. HDF5.jl). The layout tags the returned array's `order`, and `Array` uses it to
+  recover the original shape and values.
 """
-function h5read(path::String, name::String; layout::Symbol=:C)
-    layout in (:C, :F) ||
-        throw(ArgumentError("layout must be :C or :F, got :$(layout)"))
+function h5read(path::String, name::String; layout::Symbol=:row)
+    layout in (:row, :col) ||
+        throw(ArgumentError("layout must be :row or :col, got :$(layout)"))
     impl = _read_h5(path, name)  # cxxwrap call
     ndim = Int(dim(impl))
-    shp_h5 = Tuple(Int.(shape(impl)))
-    shp_jl = (layout === :C && ndim > 1) ? reverse(shp_h5) : shp_h5
+    shp = Tuple(Int.(shape(impl)))
     T = code_type_map[Int(code(type(impl)))]
-    return LogicalArray{T,ndim}(impl, shp_jl)
+    return LogicalArray{T,ndim}(impl, shp, layout)
 end
 
 """
     h5write(path::String, name::String, array::LogicalArray)
 
-Write a LogicalArray to a dataset in an HDF5 file, directly (no host copy, no dimension
-flip). A `:col` array reads back transposed to row-major readers, since cuNumeric can't
-flip header dimensions; a warning notes how to read it back (`layout=:F`).
+Write a LogicalArray to an HDF5 dataset directly (no host copy or dimension flip). A `:col`
+array reads back transposed to row-major readers; a warning gives the `layout=:col` to
+round-trip it.
 
 # Arguments
 - `path`: Path to the HDF5 file.
@@ -325,7 +325,7 @@ flip header dimensions; a warning notes how to read it back (`layout=:F`).
 function h5write(path::String, name::String, array::LogicalArray{T,N}) where {T,N}
     if array.order === :col && N > 1
         @warn "Writing a column-major array; read it back with " *
-            "`Legate.h5read($(repr(path)), $(repr(name)); layout=:F)`."
+            "`Legate.h5read($(repr(path)), $(repr(name)); layout=:col)`."
     end
     return _write_h5(array.handle, path, name)
 end

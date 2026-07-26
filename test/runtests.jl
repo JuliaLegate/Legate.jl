@@ -18,6 +18,7 @@ if run_gpu_tests
 end
 
 include("tests/hdf5.jl")
+include("tests/stability.jl")
 
 # include("tests/tasking.jl")
 # if run_gpu_tests

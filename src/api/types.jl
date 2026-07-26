@@ -113,8 +113,8 @@ Base.size(s::LogicalStore, i::Integer) = size(s)[i]
     LogicalArray{T,N}
 
 A logical view over a physical array. Supports unbound views and nullability checks.
-Wraps the underlying C++ `LogicalArrayImpl`. `order` is the buffer layout: `:row`
-(C, cuNumeric-native) or `:col` (Fortran, from a wrapped Julia `Array`).
+Wraps the underlying C++ `LogicalArrayImpl`. `order` is the store's buffer layout: `:row`
+(C, cuNumeric-native) or `:col` (Fortran); `Array` uses it to convert back to Julia.
 """
 struct LogicalArray{T,N}
     handle::LogicalArrayImpl
