@@ -113,11 +113,17 @@ Base.size(s::LogicalStore, i::Integer) = size(s)[i]
     LogicalArray{T,N}
 
 A logical view over a physical array. Supports unbound views and nullability checks.
-Wraps the underlying C++ `LogicalArrayImpl`.
+Wraps the underlying C++ `LogicalArrayImpl`. `order` is the store's buffer layout: `:row`
+(C, cuNumeric-native) or `:col` (Fortran); `Array` uses it to convert back to Julia.
 """
 struct LogicalArray{T,N}
     handle::LogicalArrayImpl
     dims::Union{Nothing,NTuple{N,Int}}
+    order::Symbol
+end
+
+function LogicalArray{T,N}(handle::LogicalArrayImpl, dims) where {T,N}
+    return LogicalArray{T,N}(handle, dims, :row)
 end
 
 Base.size(a::LogicalArray) = a.dims
@@ -129,7 +135,6 @@ Base.size(a::LogicalArray, i::Integer) = size(a)[i]
 Datatype of object within Legate. See `Legate.supported_types()` to see supported types.
 """
 LegateType
-
 
 """
     LogicalStorePartition{T,N}

@@ -18,6 +18,7 @@
  */
 
 #include "legate.h"
+#include "legate/io/hdf5/interface.h"
 #include "legate/mapping/machine.h"
 #include "legate/runtime/runtime.h"
 #include "legate/timing/timing.h"
@@ -64,6 +65,18 @@ inline bool has_started() { return legate::has_started(); }
  */
 inline bool has_finished() { return legate::has_finished(); }
 
+/**
+ * @ingroup legate_wrapper
+ * @brief Block until all pending Legate tasks have completed.
+ */
+inline void runtime_sync() {
+  Runtime::get_runtime()->issue_execution_fence(true);
+}
+  
+/**
+ * @ingroup legate_wrapper
+ * @brief Provide number of runtime processors.
+ */
 inline int32_t num_procs() {
   return legate::Runtime::get_runtime()->get_machine().count();
 }
@@ -415,5 +428,19 @@ inline uint64_t time_nanoseconds() {
   return legate::timing::measure_nanoseconds().value();
 }
 }  // namespace time
+
+namespace hdf5 {
+inline LogicalArray read_h5(const std::string& file_path,
+                            const std::string& dataset_name) {
+  return legate::io::hdf5::from_file(std::filesystem::path(file_path),
+                                     dataset_name);
+}
+
+inline void write_h5(const LogicalArray& array, const std::string& file_path,
+                     const std::string& dataset_name) {
+  legate::io::hdf5::to_file(array, std::filesystem::path(file_path),
+                            dataset_name);
+}
+}  // namespace hdf5
 
 }  // namespace legate_wrapper

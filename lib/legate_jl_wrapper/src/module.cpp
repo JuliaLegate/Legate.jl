@@ -190,8 +190,11 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("slice", [](LogicalStore& s, int32_t dim, legate::Slice sl) {
     return s.slice(dim, sl);
   });
-  mod.method("get_physical_store",
-             [](LogicalStore& s) { return s.get_physical_store(); });
+  mod.method(
+      "get_physical_store",
+      [](LogicalStore& s, std::optional<legate::mapping::StoreTarget> target) {
+        return s.get_physical_store(target);
+      });
   mod.method("equal_storage", [](LogicalStore& s, LogicalStore& other) {
     return s.equal_storage(other);
   });
@@ -228,7 +231,13 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("data", &LogicalArray::data)  // returns LogicalStore
       .method("get_physical_array",
               &LogicalArray::get_physical_array)  // return PhysicalArray
-      .method("unbound", &LogicalArray::unbound);
+      .method("unbound", &LogicalArray::unbound)
+      .method("shape", [](const LogicalArray& arr) {
+        auto s = arr.data().shape();
+        std::vector<uint64_t> result;
+        for (int i = 0; i < arr.dim(); i++) result.push_back(s[i]);
+        return result;
+      });
 
   mod.add_type<AutoTask>("AutoTask")
       .method("add_input", static_cast<Variable (AutoTask::*)(LogicalArray)>(
@@ -290,6 +299,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);
   mod.method("has_started", &legate_wrapper::runtime::has_started);
   mod.method("has_finished", &legate_wrapper::runtime::has_finished);
+  mod.method("runtime_sync", &legate_wrapper::runtime::runtime_sync);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
   mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
@@ -341,6 +351,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("time_microseconds", &legate_wrapper::time::time_microseconds);
   mod.method("time_nanoseconds", &legate_wrapper::time::time_nanoseconds);
 
+  /* hdf5 */
+  mod.method("_read_h5", &legate_wrapper::hdf5::read_h5);
+  mod.method("_write_h5", &legate_wrapper::hdf5::write_h5);
   mod.method("num_procs", &legate_wrapper::runtime::num_procs);
   mod.method("num_gpus", &legate_wrapper::runtime::num_gpus);
   // `block` is required — do not default at the C++ binding layer.

@@ -1,5 +1,6 @@
 using Legate
 using Test
+using HDF5
 
 const VERBOSE = get(ENV, "VERBOSE", "1") != "0"
 const run_gpu_tests =
@@ -15,6 +16,9 @@ if run_gpu_tests
         error("CUDA is not functional. GPU tests cannot be run.")
     end
 end
+
+include("tests/hdf5.jl")
+include("tests/stability.jl")
 
 # include("tests/tasking.jl")
 # if run_gpu_tests
