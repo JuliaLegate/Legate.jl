@@ -64,7 +64,13 @@ Shape
 """
     Scalar
 
-Represents a scalar value used in tasks. Can be constructed from `Float32`, `Float64`, or `Int`.
+Represents a scalar value used in tasks. Can be constructed from `Bool`
+(also accepts `CxxWrap.CxxBool`), signed/unsigned integers (`Int8`/`UInt8`
+through `Int64`/`UInt64`), `Float32`, `Float64`, `ComplexF32`, `ComplexF64`,
+or a raw `Ptr{Cvoid}`.
+
+Integer/float overloads are bound with CxxWrap `StrictlyTypedNumber` so each
+Julia type dispatches to the matching C++ `legate::Scalar` constructor.
 """
 Scalar
 
@@ -107,11 +113,17 @@ Base.size(s::LogicalStore, i::Integer) = size(s)[i]
     LogicalArray{T,N}
 
 A logical view over a physical array. Supports unbound views and nullability checks.
-Wraps the underlying C++ `LogicalArrayImpl`.
+Wraps the underlying C++ `LogicalArrayImpl`. `order` is the store's buffer layout: `:row`
+(C, cuNumeric-native) or `:col` (Fortran); `Array` uses it to convert back to Julia.
 """
 struct LogicalArray{T,N}
     handle::LogicalArrayImpl
     dims::Union{Nothing,NTuple{N,Int}}
+    order::Symbol
+end
+
+function LogicalArray{T,N}(handle::LogicalArrayImpl, dims) where {T,N}
+    return LogicalArray{T,N}(handle, dims, :row)
 end
 
 Base.size(a::LogicalArray) = a.dims
@@ -123,3 +135,12 @@ Base.size(a::LogicalArray, i::Integer) = size(a)[i]
 Datatype of object within Legate. See `Legate.supported_types()` to see supported types.
 """
 LegateType
+
+"""
+    LogicalStorePartition{T,N}
+Represents a tiled partition of a `LogicalStore`. Created via `partition_by_tiling`.
+Wraps the underlying C++ `LogicalStorePartitionImpl`.
+"""
+struct LogicalStorePartition{T,N}
+    handle::CxxWrap.StdLib.SharedPtr{LogicalStorePartitionImpl}
+end

@@ -41,6 +41,15 @@ Check whether the Legate runtime has finished.
 has_finished
 
 """
+    runtime_sync()
+
+Block until all pending Legate tasks have completed.
+
+Useful before reading files written by `h5write` or other async operations.
+"""
+runtime_sync
+
+"""
     create_library(name::String) -> Library
 
 Creates a library in the runtime and registers the UFI interface

@@ -18,6 +18,7 @@ on:
       - 'src/**'
       - 'scripts/**'
       - 'deps/build.jl'
+      - 'deps/buildtools/**'
       - 'Project.toml'
       - 'lib/legate_jl_wrapper/src/**'
       - 'lib/legate_jl_wrapper/include/**'
@@ -32,14 +33,19 @@ on:
       - 'src/**'
       - 'scripts/**'
       - 'deps/build.jl'
+      - 'deps/buildtools/**'
       - 'Project.toml'
       - 'lib/legate_jl_wrapper/src/**'
       - 'lib/legate_jl_wrapper/include/**'
       - 'lib/LegatePreferences/src/**'
       - '.github/workflows/developer.yml'
 jobs:
+  pkg_resolve:
+    uses: ./.github/workflows/pkg_resolve.yml
+
   docs:
-    name : Developer CI test
+    name: Developer CI test
+    needs: pkg_resolve
     permissions:
       contents: read
       packages: write
@@ -55,7 +61,7 @@ jobs:
         shell: bash
     env:
         LEGATE_AUTO_CONFIG: 0
-        NO_CUDA: ON
+        LEGATE_WRAPPER_ENABLE_CUDA: OFF
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4

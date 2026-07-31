@@ -2,11 +2,11 @@ to_cxx_vector(shape) = CxxWrap.StdVector([UInt64(d) for d in shape])
 to_string(ty::LegateType) = code_type_map[code(ty)]
 
 function Base.show(io::IO, ty::LegateType)
-    println(io, code_type_map[code(ty)])
+    return println(io, code_type_map[code(ty)])
 end
 
 function Base.print(ty::LegateType)
-    Base.show(stdout, ty)
+    return Base.show(stdout, ty)
 end
 
 """
@@ -203,17 +203,17 @@ slice
 Return the underlying physical store of this logical store or array.
 """
 function get_physical_store(x::LogicalStore)
-    get_physical_store(x.handle, StoreTargetOptional{StoreTarget}())
+    return get_physical_store(x.handle, StoreTargetOptional{StoreTarget}())
 end
 function get_physical_store(x::LogicalStore, target::StoreTarget)
-    get_physical_store(x.handle, StoreTargetOptional{StoreTarget}(target))
+    return get_physical_store(x.handle, StoreTargetOptional{StoreTarget}(target))
 end
 
 function get_physical_array(x::LogicalArray)
-    get_physical_array(x.handle, StoreTargetOptional{StoreTarget}())
+    return get_physical_array(x.handle, StoreTargetOptional{StoreTarget}())
 end
 function get_physical_array(x::LogicalArray, target::StoreTarget)
-    get_physical_array(x.handle, StoreTargetOptional{StoreTarget}(target))
+    return get_physical_array(x.handle, StoreTargetOptional{StoreTarget}(target))
 end
 
 """
@@ -283,4 +283,59 @@ end
 function get_ptr(arr::PhysicalStore)
     # PhysicalStore -> Ptr
     return _get_ptr(CxxWrap.CxxPtr(arr)) # cxxwrap call
+end
+
+"""
+    h5read(path::String, name::String; layout::Symbol=:row) -> LogicalArray
+
+Read a dataset from an HDF5 file into a LogicalArray.
+
+# Arguments
+- `path`: Path to the HDF5 file.
+- `name`: Name of the dataset to read.
+
+# Keywords
+- `layout`: On-disk memory order. `:row` (default) for row-major files (numpy/h5py,
+  cuNumeric, or `h5write`); `:col` for column-major files that stored reversed dimensions
+  (e.g. HDF5.jl). The layout tags the returned array's `order`, and `Array` uses it to
+  recover the original shape and values.
+"""
+function h5read(path::String, name::String; layout::Symbol=:row)
+    layout in (:row, :col) ||
+        throw(ArgumentError("layout must be :row or :col, got :$(layout)"))
+    impl = _read_h5(path, name)  # cxxwrap call
+    ndim = Int(dim(impl))
+    shp = Tuple(Int.(shape(impl)))
+    T = code_type_map[Int(code(type(impl)))]
+    return LogicalArray{T,ndim}(impl, shp, layout)
+end
+
+"""
+    h5write(path::String, name::String, array::LogicalArray)
+
+Write a LogicalArray to an HDF5 dataset directly (no host copy or dimension flip). A `:col`
+array reads back transposed to row-major readers; a warning gives the `layout=:col` to
+round-trip it.
+
+# Arguments
+- `path`: Path to the HDF5 file.
+- `name`: Name of the dataset to write.
+- `array`: The array to write.
+"""
+function h5write(path::String, name::String, array::LogicalArray{T,N}) where {T,N}
+    if array.order === :col && N > 1
+        @warn "Writing a column-major array; read it back with " *
+            "`Legate.h5read($(repr(path)), $(repr(name)); layout=:col)`."
+    end
+    return _write_h5(array.handle, path, name)
+end
+
+function partition_by_tiling(store::LogicalStore{T,N}, tile_shape) where {T,N}
+    impl = partition_by_tiling(store.handle, to_cxx_vector(tile_shape)) # cxxwrap call
+    return LogicalStorePartition{T,N}(impl)
+end
+
+function partition_by_tiling(store::LogicalStore{T,N}, tile_shape, color_shape) where {T,N}
+    impl = partition_by_tiling(store.handle, to_cxx_vector(tile_shape), to_cxx_vector(color_shape)) # cxxwrap call
+    return LogicalStorePartition{T,N}(impl)
 end
