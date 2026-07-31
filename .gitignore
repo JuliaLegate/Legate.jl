@@ -8,6 +8,7 @@ build/*
 build.log
 *.err
 *.log
+*.prof
 .envrc
 .vscode
 node_modules

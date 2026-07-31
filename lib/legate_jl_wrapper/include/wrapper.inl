@@ -23,7 +23,7 @@
 #include "legate/runtime/runtime.h"
 #include "legate/timing/timing.h"
 #include "legion.h"
-#include "legion/legion_config.h"
+#include "legion/api/config.h"
 
 using namespace legate;
 /**

@@ -78,23 +78,14 @@ function Base.copyto!(
     dest::Union{LogicalStore{T,N},LogicalArray{T,N}},
     src::Union{LogicalStore{T,N},LogicalArray{T,N}},
 ) where {T,N}
-    # https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
-    # Use @threadcall via our helper to avoid blocking the main thread
+    # PhysicalStore accessors must run on the Legate/Legion toplevel task thread.
+    # @threadcall uses a libuv worker thread, which 26.06+ rejects with:
+    # "Invalid request to wait until a physical region is valid outside of Toplevel Task".
     phys_dest = _get_physical_store(dest, Legate.SYSMEM)
     phys_src = _get_physical_store(src, Legate.SYSMEM)
 
-    # retrieve the raw C++ pointer (void*) to the PhysicalStore object
-    raw_dest = Legate.get_obj_ptr(phys_dest)
-    raw_src = Legate.get_obj_ptr(phys_src)
-
-    local dest_void, src_void
-    GC.@preserve phys_dest phys_src begin
-        dest_void = Base.@threadcall(:get_ptr, Ptr{Cvoid}, (Ptr{Cvoid},), raw_dest)
-        src_void = Base.@threadcall(:get_ptr, Ptr{Cvoid}, (Ptr{Cvoid},), raw_src)
-    end
-
-    dest_ptr = Ptr{T}(dest_void)
-    src_ptr = Ptr{T}(src_void)
+    dest_ptr = Ptr{T}(Legate.get_ptr(phys_dest))
+    src_ptr = Ptr{T}(Legate.get_ptr(phys_src))
 
     Base.unsafe_copyto!(dest_ptr, src_ptr, prod(size(dest)))
     return dest

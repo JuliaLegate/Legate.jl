@@ -19,19 +19,11 @@
 
 const MIN_CUDA_VERSION = v"13.0"
 const MAX_CUDA_VERSION = v"13.9.999"
-const MIN_LEGATE_VERSION = v"25.10.00"
-const MAX_LEGATE_VERSION = v"25.11.00"
+const MIN_LEGATE_VERSION = v"26.06.00"
+const MAX_LEGATE_VERSION = v"26.11.999"
 const MIN_CMAKE_VERSION = v"3.26.4"
 
 up_dir(dir::String) = abspath(joinpath(dir, ".."))
-
-function check_if_patch(legate_root::String)
-    patch = joinpath(legate_root, "include", "legate/legate", "patch")
-    if isfile(patch)
-        return true
-    end
-    return false
-end
 
 function get_legate_version(legate_root::String)
     version_file = joinpath(legate_root, "include", "legate/legate", "version.h")
