@@ -23,18 +23,6 @@ using LegatePreferences
 include("buildtools/dev_tools.jl")
 include("version.jl")
 
-# patch legion. The readme below talks about our compilation error
-# https://github.com/ejmeitz/cuNumeric.jl/blob/main/scripts/README.md
-function patch_legion(repo_root::String, legate_root::String)
-    if !check_if_patch(legate_root)
-        legion_patch = joinpath(repo_root, "scripts/patch_legion.sh")
-        @info "Legate.jl: Running legion patch script: $legion_patch"
-        BuildTools.run_sh(
-            `bash $legion_patch $repo_root $legate_root`, "legion_patch"; log_dir=@__DIR__
-        )
-    end
-end
-
 function build_cpp_wrapper(
     repo_root, legate_root, install_root; cuda_root=nothing, cuda_enabled=true
 )
@@ -79,7 +67,6 @@ function build(::LegatePreferences.Conda)
     end
 
     is_legate_installed(legate_root; throw_errors=true)
-    patch_legion(pkg_root, legate_root)
     build_deps(pkg_root, legate_root)
 end
 
@@ -92,7 +79,6 @@ function build(::LegatePreferences.Developer)
         cuda_enabled = !isnothing(cuda_root) # cuda_root resolving to nothing means there is no cuda
     else
         is_legate_installed(legate_root; throw_errors=true)
-        patch_legion(pkg_root, legate_root)
         cuda_enabled, cuda_root = BuildTools.resolve_custom_cuda("legate") # cuda_root is nothing.
     end
 

@@ -31,11 +31,6 @@ function check_legate_install(legate_root)
         )
     end
 
-    patch = check_if_patch(legate_root)
-    if patch == false
-        error("Legate.jl: legate does not have patch. Please run Pkg.build()")
-    end
-
     @info "Legate.jl: Found a valid install in: $(legate_root)"
     return true
 end
