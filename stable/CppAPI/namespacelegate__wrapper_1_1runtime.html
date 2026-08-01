@@ -104,6 +104,13 @@ Functions</h2></td></tr>
 <tr class="memdesc:a1a57d668a29205b6359bf0daa2a669b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether the Legate runtime has started.  <br /></td></tr>
 <tr class="memitem:a437ea6ff893ade42f8930d335217c105" id="r_a437ea6ff893ade42f8930d335217c105"><td class="memItemLeft">bool&#160;</td><td class="memItemRight"><a class="el" href="#a437ea6ff893ade42f8930d335217c105">has_finished</a> ()</td></tr>
 <tr class="memdesc:a437ea6ff893ade42f8930d335217c105"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether the Legate runtime has finished.  <br /></td></tr>
+<tr class="memitem:a81a5aee17d67f6f0817edf4ebdd262df" id="r_a81a5aee17d67f6f0817edf4ebdd262df"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a81a5aee17d67f6f0817edf4ebdd262df">runtime_sync</a> ()</td></tr>
+<tr class="memdesc:a81a5aee17d67f6f0817edf4ebdd262df"><td class="mdescLeft">&#160;</td><td class="mdescRight">Block until all pending Legate tasks have completed.  <br /></td></tr>
+<tr class="memitem:a43a6d312341bce8fa7d6d5f0aa3da6ea" id="r_a43a6d312341bce8fa7d6d5f0aa3da6ea"><td class="memItemLeft">int32_t&#160;</td><td class="memItemRight"><a class="el" href="#a43a6d312341bce8fa7d6d5f0aa3da6ea">num_procs</a> ()</td></tr>
+<tr class="memdesc:a43a6d312341bce8fa7d6d5f0aa3da6ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provide number of runtime processors.  <br /></td></tr>
+<tr class="memitem:af6f5d048123b3bcd8f17097ce94a773c" id="r_af6f5d048123b3bcd8f17097ce94a773c"><td class="memItemLeft">int32_t&#160;</td><td class="memItemRight"><a class="el" href="#af6f5d048123b3bcd8f17097ce94a773c">num_gpus</a> ()</td></tr>
+<tr class="memitem:a7a8b8b21881d651c6f71eacdd85d7ac1" id="r_a7a8b8b21881d651c6f71eacdd85d7ac1"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a7a8b8b21881d651c6f71eacdd85d7ac1">issue_execution_fence</a> (bool block)</td></tr>
+<tr class="memitem:a909bfdc2674da49dc725cc30815b0e33" id="r_a909bfdc2674da49dc725cc30815b0e33"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a909bfdc2674da49dc725cc30815b0e33">issue_mapping_fence</a> ()</td></tr>
 </table>
 <a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
 <a id="a5b93eebd06dc138ffd1282dfeb5e95b6" name="a5b93eebd06dc138ffd1282dfeb5e95b6"></a>
@@ -187,6 +194,56 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a7a8b8b21881d651c6f71eacdd85d7ac1" name="a7a8b8b21881d651c6f71eacdd85d7ac1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7a8b8b21881d651c6f71eacdd85d7ac1">&#9670;&#160;</a></span>issue_execution_fence()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void legate_wrapper::runtime::issue_execution_fence </td>
+          <td>(</td>
+          <td class="paramtype">bool</td>          <td class="paramname"><span class="paramname"><em>block</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a909bfdc2674da49dc725cc30815b0e33" name="a909bfdc2674da49dc725cc30815b0e33"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a909bfdc2674da49dc725cc30815b0e33">&#9670;&#160;</a></span>issue_mapping_fence()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void legate_wrapper::runtime::issue_mapping_fence </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a12d0a6b01c36260b1a24558ac7170ece" name="a12d0a6b01c36260b1a24558ac7170ece"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a12d0a6b01c36260b1a24558ac7170ece">&#9670;&#160;</a></span>legate_finish()</h2>
 
@@ -211,6 +268,85 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Finalize the Legate runtime. </p>
+
+</div>
+</div>
+<a id="af6f5d048123b3bcd8f17097ce94a773c" name="af6f5d048123b3bcd8f17097ce94a773c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af6f5d048123b3bcd8f17097ce94a773c">&#9670;&#160;</a></span>num_gpus()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t legate_wrapper::runtime::num_gpus </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a43a6d312341bce8fa7d6d5f0aa3da6ea" name="a43a6d312341bce8fa7d6d5f0aa3da6ea"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a43a6d312341bce8fa7d6d5f0aa3da6ea">&#9670;&#160;</a></span>num_procs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t legate_wrapper::runtime::num_procs </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Provide number of runtime processors. </p>
+
+</div>
+</div>
+<a id="a81a5aee17d67f6f0817edf4ebdd262df" name="a81a5aee17d67f6f0817edf4ebdd262df"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81a5aee17d67f6f0817edf4ebdd262df">&#9670;&#160;</a></span>runtime_sync()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void legate_wrapper::runtime::runtime_sync </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Block until all pending Legate tasks have completed. </p>
 
 </div>
 </div>

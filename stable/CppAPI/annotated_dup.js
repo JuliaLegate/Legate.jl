@@ -14,5 +14,6 @@ var annotated_dup =
       [ "TaskRequestData", "structufi_1_1TaskRequestData.html", "structufi_1_1TaskRequestData" ],
       [ "JuliaCustomTask", "classufi_1_1JuliaCustomTask.html", null ]
     ] ],
-    [ "WrapDefault", "structWrapDefault.html", "structWrapDefault" ]
+    [ "WrapDefault", "structWrapDefault.html", "structWrapDefault" ],
+    [ "WrapScalarStrictCtors", "structWrapScalarStrictCtors.html", "structWrapScalarStrictCtors" ]
 ];
