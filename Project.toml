@@ -1,6 +1,6 @@
 name = "Legate"
 uuid = "1238f2cf-6593-4d60-9aca-2f5364e49909"
-version = "0.2.0"
+version = "0.2.1"
 
 [workspace]
 projects = ["test", "dev"]
