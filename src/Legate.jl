@@ -134,7 +134,7 @@ function _finish_runtime()
     Legate.has_finished() && return nothing
 
     # finish legate runtime
-    Legate.legate_finish()
+    return Legate.legate_finish()
 end
 
 function _start_runtime()
@@ -180,10 +180,14 @@ function __init__()
     _is_precompiling() && return nothing
 
     # Cannot set LEGATE_CONFIG on CI machines used
-    # to register packages. So we will just skip starting 
+    # to register packages. So we will just skip starting
     # legate when using registry CI machines.
     get(ENV, "JULIA_REGISTRYCI_AUTOMERGE", false) == "true" && return nothing
 
-    ensure_runtime!()
+    # Downstream build scripts load Legate only for paths/tooling; skip starting the
+    # runtime so `using Legate` has no side effects during a build.
+    get(ENV, "LEGATE_SKIP_RUNTIME", "false") == "true" && return nothing
+
+    return ensure_runtime!()
 end
 end
