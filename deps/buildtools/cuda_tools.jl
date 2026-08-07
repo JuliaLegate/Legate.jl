@@ -15,8 +15,7 @@ end
 # try/catch because CUDA_SDK_jll is a weakdep — may not be in the environment.
 function try_get_cuda_sdk_jll_dir()
     try
-        Core.eval(Main, :(using CUDA_SDK_jll))
-        return joinpath(getfield(Main, :CUDA_SDK_jll).artifact_dir, "cuda")
+        return joinpath(load_jll_module(:CUDA_SDK_jll).artifact_dir, "cuda")
     catch
         return nothing
     end
