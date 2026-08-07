@@ -8,5 +8,6 @@ var hierarchy =
     ] ],
     [ "ufi::TaskRequestData", "structufi_1_1TaskRequestData.html", null ],
     [ "ufi::ufiFunctor", "structufi_1_1ufiFunctor.html", null ],
-    [ "WrapDefault", "structWrapDefault.html", null ]
+    [ "WrapDefault", "structWrapDefault.html", null ],
+    [ "WrapScalarStrictCtors", "structWrapScalarStrictCtors.html", null ]
 ];

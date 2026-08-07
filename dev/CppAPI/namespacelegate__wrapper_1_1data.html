@@ -110,12 +110,22 @@ Functions</h2></td></tr>
 <tr class="memdesc:a662665c1d02109bd568dc04f792a959c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a store with a specified shape.  <br /></td></tr>
 <tr class="memitem:a0ed8113afdd370e753cfa6b2ba16918f" id="r_a0ed8113afdd370e753cfa6b2ba16918f"><td class="memItemLeft">LogicalStore&#160;</td><td class="memItemRight"><a class="el" href="#a0ed8113afdd370e753cfa6b2ba16918f">store_from_scalar</a> (const Scalar &amp;scalar, const Shape &amp;shape=Shape{1})</td></tr>
 <tr class="memdesc:a0ed8113afdd370e753cfa6b2ba16918f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a store from a scalar value.  <br /></td></tr>
+<tr class="memitem:a6df9871172d70d39d82e4a9c164b74e6" id="r_a6df9871172d70d39d82e4a9c164b74e6"><td class="memItemLeft">LogicalStore&#160;</td><td class="memItemRight"><a class="el" href="#a6df9871172d70d39d82e4a9c164b74e6">attach_external_store_sysmem_row_major</a> (void *ptr, const Shape &amp;shape, const Type &amp;ty)</td></tr>
+<tr class="memdesc:a6df9871172d70d39d82e4a9c164b74e6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attach an external store in system memory with row-major (C) ordering.  <br /></td></tr>
+<tr class="memitem:adf473032bf2fdfab5f92e5315fa964e5" id="r_adf473032bf2fdfab5f92e5315fa964e5"><td class="memItemLeft">LogicalStore&#160;</td><td class="memItemRight"><a class="el" href="#adf473032bf2fdfab5f92e5315fa964e5">attach_external_store_sysmem_col_major</a> (void *ptr, const Shape &amp;shape, const Type &amp;ty)</td></tr>
+<tr class="memdesc:adf473032bf2fdfab5f92e5315fa964e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attach an external store in system memory with col-major (Fortran) ordering.  <br /></td></tr>
 <tr class="memitem:ac1576079b4e4725b98066642ee04af9d" id="r_ac1576079b4e4725b98066642ee04af9d"><td class="memItemLeft">LogicalStore&#160;</td><td class="memItemRight"><a class="el" href="#ac1576079b4e4725b98066642ee04af9d">attach_external_store_sysmem</a> (void *ptr, const Shape &amp;shape, const Type &amp;ty)</td></tr>
-<tr class="memdesc:ac1576079b4e4725b98066642ee04af9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attach an external store in system memory.  <br /></td></tr>
+<tr class="memdesc:ac1576079b4e4725b98066642ee04af9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attach an external store in system memory (defaults to row-major).  <br /></td></tr>
+<tr class="memitem:a8264b47be63d112ba8bbec7a3a6fd24e" id="r_a8264b47be63d112ba8bbec7a3a6fd24e"><td class="memItemLeft">LogicalStore&#160;</td><td class="memItemRight"><a class="el" href="#a8264b47be63d112ba8bbec7a3a6fd24e">attach_external_store_fbmem_row_major</a> (int device_id, void *ptr, const Shape &amp;shape, const Type &amp;ty, bool readonly)</td></tr>
+<tr class="memdesc:a8264b47be63d112ba8bbec7a3a6fd24e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attach an external store in frame buffer memory with row-major (C) ordering.  <br /></td></tr>
+<tr class="memitem:a6618bfbe571eebe60ed160ced36cfd48" id="r_a6618bfbe571eebe60ed160ced36cfd48"><td class="memItemLeft">LogicalStore&#160;</td><td class="memItemRight"><a class="el" href="#a6618bfbe571eebe60ed160ced36cfd48">attach_external_store_fbmem_col_major</a> (int device_id, void *ptr, const Shape &amp;shape, const Type &amp;ty, bool readonly)</td></tr>
+<tr class="memdesc:a6618bfbe571eebe60ed160ced36cfd48"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attach an external store in frame buffer memory with col-major (Fortran) ordering.  <br /></td></tr>
 <tr class="memitem:a86676c6f469c1b3aad4f6b75347f62c2" id="r_a86676c6f469c1b3aad4f6b75347f62c2"><td class="memItemLeft">LogicalStore&#160;</td><td class="memItemRight"><a class="el" href="#a86676c6f469c1b3aad4f6b75347f62c2">attach_external_store_fbmem</a> (int device_id, void *ptr, const Shape &amp;shape, const Type &amp;ty, bool readonly)</td></tr>
-<tr class="memdesc:a86676c6f469c1b3aad4f6b75347f62c2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attach an external store in frame buffer memory.  <br /></td></tr>
+<tr class="memdesc:a86676c6f469c1b3aad4f6b75347f62c2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attach an external store in frame buffer memory (defaults to row-major).  <br /></td></tr>
 <tr class="memitem:a96a51700e9f9b24eecbab12e7351a522" id="r_a96a51700e9f9b24eecbab12e7351a522"><td class="memItemLeft">void *&#160;</td><td class="memItemRight"><a class="el" href="#a96a51700e9f9b24eecbab12e7351a522">get_ptr</a> (legate::PhysicalStore *store)</td></tr>
 <tr class="memdesc:a96a51700e9f9b24eecbab12e7351a522"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a pointer to the data in a PhysicalStore.  <br /></td></tr>
+<tr class="memitem:a46cd59e91e53792364c7afd959c3a0cd" id="r_a46cd59e91e53792364c7afd959c3a0cd"><td class="memItemLeft">std::shared_ptr&lt; LogicalStorePartition &gt;&#160;</td><td class="memItemRight"><a class="el" href="#a46cd59e91e53792364c7afd959c3a0cd">partition_by_tiling</a> (LogicalStore &amp;store, std::vector&lt; uint64_t &gt; tile_shape)</td></tr>
+<tr class="memitem:a9457e3cd0063971deae7bd4310968723" id="r_a9457e3cd0063971deae7bd4310968723"><td class="memItemLeft">std::shared_ptr&lt; LogicalStorePartition &gt;&#160;</td><td class="memItemRight"><a class="el" href="#a9457e3cd0063971deae7bd4310968723">partition_by_tiling</a> (LogicalStore &amp;store, std::vector&lt; uint64_t &gt; tile_shape, std::vector&lt; uint64_t &gt; color_shape)</td></tr>
 </table>
 <a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
 <a id="a86676c6f469c1b3aad4f6b75347f62c2" name="a86676c6f469c1b3aad4f6b75347f62c2"></a>
@@ -160,17 +170,99 @@ Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Attach an external store in frame buffer memory. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">device_id</td><td>The device ID. </td></tr>
-    <tr><td class="paramname">ptr</td><td>Pointer to the external memory. </td></tr>
-    <tr><td class="paramname">shape</td><td>The shape of the store. </td></tr>
-    <tr><td class="paramname">ty</td><td>The type of the store elements. </td></tr>
-    <tr><td class="paramname">readonly</td><td>Whether the store is read-only. </td></tr>
-  </table>
-  </dd>
-</dl>
+<p>Attach an external store in frame buffer memory (defaults to row-major). </p>
+
+</div>
+</div>
+<a id="a6618bfbe571eebe60ed160ced36cfd48" name="a6618bfbe571eebe60ed160ced36cfd48"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6618bfbe571eebe60ed160ced36cfd48">&#9670;&#160;</a></span>attach_external_store_fbmem_col_major()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">LogicalStore legate_wrapper::data::attach_external_store_fbmem_col_major </td>
+          <td>(</td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>device_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>ptr</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Shape &amp;</td>          <td class="paramname"><span class="paramname"><em>shape</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Type &amp;</td>          <td class="paramname"><span class="paramname"><em>ty</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool</td>          <td class="paramname"><span class="paramname"><em>readonly</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Attach an external store in frame buffer memory with col-major (Fortran) ordering. </p>
+
+</div>
+</div>
+<a id="a8264b47be63d112ba8bbec7a3a6fd24e" name="a8264b47be63d112ba8bbec7a3a6fd24e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8264b47be63d112ba8bbec7a3a6fd24e">&#9670;&#160;</a></span>attach_external_store_fbmem_row_major()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">LogicalStore legate_wrapper::data::attach_external_store_fbmem_row_major </td>
+          <td>(</td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>device_id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>ptr</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Shape &amp;</td>          <td class="paramname"><span class="paramname"><em>shape</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Type &amp;</td>          <td class="paramname"><span class="paramname"><em>ty</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool</td>          <td class="paramname"><span class="paramname"><em>readonly</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Attach an external store in frame buffer memory with row-major (C) ordering. </p>
 
 </div>
 </div>
@@ -206,15 +298,79 @@ Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Attach an external store in system memory. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">ptr</td><td>Pointer to the external memory. </td></tr>
-    <tr><td class="paramname">shape</td><td>The shape of the store. </td></tr>
-    <tr><td class="paramname">ty</td><td>The type of the store elements. </td></tr>
-  </table>
-  </dd>
-</dl>
+<p>Attach an external store in system memory (defaults to row-major). </p>
+
+</div>
+</div>
+<a id="adf473032bf2fdfab5f92e5315fa964e5" name="adf473032bf2fdfab5f92e5315fa964e5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adf473032bf2fdfab5f92e5315fa964e5">&#9670;&#160;</a></span>attach_external_store_sysmem_col_major()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">LogicalStore legate_wrapper::data::attach_external_store_sysmem_col_major </td>
+          <td>(</td>
+          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>ptr</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Shape &amp;</td>          <td class="paramname"><span class="paramname"><em>shape</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Type &amp;</td>          <td class="paramname"><span class="paramname"><em>ty</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Attach an external store in system memory with col-major (Fortran) ordering. </p>
+
+</div>
+</div>
+<a id="a6df9871172d70d39d82e4a9c164b74e6" name="a6df9871172d70d39d82e4a9c164b74e6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6df9871172d70d39d82e4a9c164b74e6">&#9670;&#160;</a></span>attach_external_store_sysmem_row_major()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">LogicalStore legate_wrapper::data::attach_external_store_sysmem_row_major </td>
+          <td>(</td>
+          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>ptr</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Shape &amp;</td>          <td class="paramname"><span class="paramname"><em>shape</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Type &amp;</td>          <td class="paramname"><span class="paramname"><em>ty</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Attach an external store in system memory with row-major (C) ordering. </p>
 
 </div>
 </div>
@@ -424,6 +580,69 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
+
+</div>
+</div>
+<a id="a46cd59e91e53792364c7afd959c3a0cd" name="a46cd59e91e53792364c7afd959c3a0cd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a46cd59e91e53792364c7afd959c3a0cd">&#9670;&#160;</a></span>partition_by_tiling() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::shared_ptr&lt; LogicalStorePartition &gt; legate_wrapper::data::partition_by_tiling </td>
+          <td>(</td>
+          <td class="paramtype">LogicalStore &amp;</td>          <td class="paramname"><span class="paramname"><em>store</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::vector&lt; uint64_t &gt;</td>          <td class="paramname"><span class="paramname"><em>tile_shape</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9457e3cd0063971deae7bd4310968723" name="a9457e3cd0063971deae7bd4310968723"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9457e3cd0063971deae7bd4310968723">&#9670;&#160;</a></span>partition_by_tiling() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::shared_ptr&lt; LogicalStorePartition &gt; legate_wrapper::data::partition_by_tiling </td>
+          <td>(</td>
+          <td class="paramtype">LogicalStore &amp;</td>          <td class="paramname"><span class="paramname"><em>store</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::vector&lt; uint64_t &gt;</td>          <td class="paramname"><span class="paramname"><em>tile_shape</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::vector&lt; uint64_t &gt;</td>          <td class="paramname"><span class="paramname"><em>color_shape</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>

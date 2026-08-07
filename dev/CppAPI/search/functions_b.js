@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['ufi_0',['UFI',['../namespaceufi.html#a4eb4be57857a4cb7f12bf437e4637b2e',1,'ufi::UFI(read, read_accessor)'],['../namespaceufi.html#a9b569732c7672d0a8c8832bc4582e848',1,'ufi::UFI(write, write_accessor)']]],
-  ['ufi_5finterface_5fregister_1',['ufi_interface_register',['../namespaceufi.html#a41e4fe7838dbc7f32e74479b9b40a077',1,'ufi']]],
-  ['ufifunctor_2',['ufiFunctor',['../structufi_1_1ufiFunctor.html#a6a8d6b45657ac65f91c522b706e04d77',1,'ufi::ufiFunctor::ufiFunctor()=default'],['../structufi_1_1ufiFunctor.html#a8c140d5d53074f262c444f4cffcec4a2',1,'ufi::ufiFunctor::ufiFunctor(int *ndim, int64_t *dims)']]]
+  ['read_5fh5_0',['read_h5',['../namespacelegate__wrapper_1_1hdf5.html#a6f60e93fdd02afb6002be0408ce4daeb',1,'legate_wrapper::hdf5']]],
+  ['runtime_5fsync_1',['runtime_sync',['../namespacelegate__wrapper_1_1runtime.html#a81a5aee17d67f6f0817edf4ebdd262df',1,'legate_wrapper::runtime']]]
 ];

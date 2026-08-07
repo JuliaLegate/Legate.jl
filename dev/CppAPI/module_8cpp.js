@@ -1,6 +1,7 @@
 var module_8cpp =
 [
     [ "WrapDefault", "structWrapDefault.html", "structWrapDefault" ],
+    [ "WrapScalarStrictCtors", "structWrapScalarStrictCtors.html", "structWrapScalarStrictCtors" ],
     [ "define_julia_module", "module_8cpp.html#a3fd385f8fe7b981e30b95ff471f542a3", null ],
     [ "get_ptr", "module_8cpp.html#a78e768f5e7ea789678aa1f834f9d80b1", null ],
     [ "submit_auto_task", "module_8cpp.html#a442d7b0321af23c6051eda59e700068f", null ],

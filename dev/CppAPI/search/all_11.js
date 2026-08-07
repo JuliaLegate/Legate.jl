@@ -1,10 +1,7 @@
 var searchData=
 [
-  ['wrap_5fprivilege_5fmodes_0',['wrap_privilege_modes',['../types_8cpp.html#aeb815285b03bc1dfc7f8e35112b32908',1,'wrap_privilege_modes(jlcxx::Module &amp;mod):&#160;types.cpp'],['../types_8h.html#a81fbab98044a5ce51d62e941808e50f6',1,'wrap_privilege_modes(jlcxx::Module &amp;):&#160;types.cpp']]],
-  ['wrap_5ftype_5fenums_1',['wrap_type_enums',['../types_8cpp.html#a91ca648a6f3d170443a32261afa2e876',1,'wrap_type_enums(jlcxx::Module &amp;mod):&#160;types.cpp'],['../types_8h.html#a5aeb8891866373efca6d4ce671400062',1,'wrap_type_enums(jlcxx::Module &amp;):&#160;types.cpp']]],
-  ['wrap_5ftype_5fgetters_2',['wrap_type_getters',['../types_8cpp.html#af5e69c63c7c6abed49b8f3b08836efd6',1,'wrap_type_getters(jlcxx::Module &amp;mod):&#160;types.cpp'],['../types_8h.html#aef9abd8fa32b5f0004740cad7ab913a9',1,'wrap_type_getters(jlcxx::Module &amp;):&#160;types.cpp']]],
-  ['wrap_5fufi_3',['wrap_ufi',['../task_8cpp.html#a0933f70f5a790bb63f8f675718469f41',1,'wrap_ufi(jlcxx::Module &amp;mod):&#160;task.cpp'],['../task_8h.html#a0933f70f5a790bb63f8f675718469f41',1,'wrap_ufi(jlcxx::Module &amp;mod):&#160;task.cpp']]],
-  ['wrapdefault_4',['WrapDefault',['../structWrapDefault.html',1,'']]],
-  ['wrapper_2einl_5',['wrapper.inl',['../wrapper_8inl.html',1,'']]],
-  ['write_6',['WRITE',['../namespaceufi.html#a1b12f5afea88fad4974b04700aa9122bad4b9e47f65b6e79b010582f15785867e',1,'ufi']]]
+  ['ufi_0',['UFI',['../task_8cpp.html#ac3fd89812a26deb3556cd5d4833cb169',1,'UFI:&#160;task.cpp'],['../namespaceufi.html#a4eb4be57857a4cb7f12bf437e4637b2e',1,'ufi::UFI(read, read_accessor)'],['../namespaceufi.html#a9b569732c7672d0a8c8832bc4582e848',1,'ufi::UFI(write, write_accessor)']]],
+  ['ufi_1',['ufi',['../namespaceufi.html',1,'']]],
+  ['ufi_5finterface_5fregister_2',['ufi_interface_register',['../namespaceufi.html#a41e4fe7838dbc7f32e74479b9b40a077',1,'ufi']]],
+  ['ufifunctor_3',['ufiFunctor',['../structufi_1_1ufiFunctor.html',1,'ufi::ufiFunctor'],['../structufi_1_1ufiFunctor.html#a6a8d6b45657ac65f91c522b706e04d77',1,'ufi::ufiFunctor::ufiFunctor()=default'],['../structufi_1_1ufiFunctor.html#a8c140d5d53074f262c444f4cffcec4a2',1,'ufi::ufiFunctor::ufiFunctor(int *ndim, int64_t *dims)']]]
 ];
