@@ -7,7 +7,7 @@ include("cuda_tools.jl")
 function start_build(pkg_name::String, deps_dir::String)
     pkg_root = abspath(joinpath(deps_dir, ".."))
     open(joinpath(deps_dir, "build.log"), "w") do io
-        println(io, "=== Build started ===")
+        return println(io, "=== Build started ===")
     end
     @info "$(pkg_name): Parsed Package Dir as: $(pkg_root)"
     return pkg_root
@@ -48,8 +48,8 @@ end
 # Activates pkg_root on exit.
 function setup_jll_build_env(pkg_root::String, primary::package)
     dev_dir = joinpath(pkg_root, "dev")
-    artifact_dir = find_jll_artifact_dir(Symbol(primary.name))
-    jll_mod = getfield(Main, Symbol(primary.name))
+    jll_mod = load_jll_module(Symbol(primary.name))
+    artifact_dir = jll_mod.artifact_dir
 
     cuda_enabled = detect_jll_cuda_enabled(jll_mod)
     v = pkgversion(jll_mod)
@@ -73,10 +73,16 @@ function setup_jll_build_env(pkg_root::String, primary::package)
     return artifact_dir, cuda_root
 end
 
+# `using X_jll` in Main, then read the binding via invokelatest: Julia 1.12 rejects
+# reading a binding created in a newer world age from within the same call.
+function load_jll_module(jll::Symbol)
+    Core.eval(Main, :(using $(jll)))
+    return Base.invokelatest(getfield, Main, jll)
+end
+
 # calls using X_jll on core.main and grabs path of artifact dir
 function find_jll_artifact_dir(jll::Symbol)
-    Core.eval(Main, :(using $(jll)))
-    return getfield(Main, jll).artifact_dir
+    return load_jll_module(jll).artifact_dir
 end
 
 # Redirect a JLL package to a locally built artifact by symlinking its override/ directory.
@@ -120,7 +126,7 @@ function run_sh(cmd::Cmd, filename::String; log_dir::String)
         run(pipeline(cmd; stdout=tmp_build_log, stderr=err_log, append=false))
         contents = read(tmp_build_log, String)
         open(build_log, "a") do io
-            println(contents)
+            return println(contents)
         end
     catch
         println("stderr log generated: ", err_log, '\n')
@@ -141,7 +147,7 @@ function get_version(version_file::String)
         major = parse(Int, split(data[end - 2])[end])
         minor = parse(Int, lpad(split(data[end - 1])[end], 2, '0'))
         patch = parse(Int, lpad(split(data[end])[end], 2, '0'))
-        version = VersionNumber(major, minor, patch)
+        return version = VersionNumber(major, minor, patch)
     end
     isnothing(version) && error("BuildTools: failed to parse version from $(version_file)")
     return version
@@ -178,7 +184,7 @@ function run_build_wrapper_script(
 
     bash_cmd = Cmd(`bash ./build_wrapper.sh`; dir=repo_root)
     @info "Running build command: $bash_cmd"
-    run_sh(bash_cmd, "cpp_wrapper"; log_dir)
+    return run_sh(bash_cmd, "cpp_wrapper"; log_dir)
 end
 
 function write_build_script(path::String, cmd::Cmd; env::Dict{String,String}=Dict{String,String}())
@@ -188,9 +194,9 @@ function write_build_script(path::String, cmd::Cmd; env::Dict{String,String}=Dic
         for (k, v) in env
             println(io, "export $(k)=$(v)")
         end
-        println(io, join(cmd.exec, " "))
+        return println(io, join(cmd.exec, " "))
     end
-    chmod(path, 0o755)
+    return chmod(path, 0o755)
 end
 
 function build_jlcxxwrap(
@@ -221,7 +227,7 @@ function build_jlcxxwrap(
     run_sh(`bash $build_libcxxwrap $repo_root`, "libcxxwrap"; log_dir)
     mkpath(dirname(version_path))
     open(version_path, "w") do io
-        write(io, string(package_version))
+        return write(io, string(package_version))
     end
     return nothing
 end
