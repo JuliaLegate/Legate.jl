@@ -19,54 +19,11 @@
 
 module LegatePreferences
 using Preferences
-using Libdl
 
 include("PreferenceBackend.jl")
 using .PrefBackend
 
 @make_preferences("legate_")
-
-const _libcuda_names = (
-    "libcuda.so.1",  # Linux 
-    "libcuda.so",    # Linux
-    "nvcuda.dll",    # Windows
-    "libcuda.dylib", # macOS
-)
-
-const CUresult = Cint
-const CUDA_SUCCESS = CUresult(0)
-
-# Assumes the driver is visible, if its only installed
-# via a JLL this will probably return false
-function has_cuda_gpu()::Bool
-    for name in _libcuda_names
-        # dlopen_e: no throw on failure, returns C_NULL
-        handle = Libdl.dlopen_e(name)
-        handle == C_NULL && continue
-
-        try
-            # dlsym_e: no throw on failure, returns C_NULL
-            cuInit_ptr = Libdl.dlsym_e(handle, :cuInit)
-            cuInit_ptr == C_NULL && continue
-
-            cuDeviceGetCount_ptr = Libdl.dlsym_e(handle, :cuDeviceGetCount)
-            cuDeviceGetCount_ptr == C_NULL && continue
-
-            # Call cuInit
-            res = ccall(cuInit_ptr, CUresult, (Cuint,), 0)
-            res == CUDA_SUCCESS || continue
-
-            # Call cuDeviceGetCount
-            n = Ref{Cint}()
-            res = ccall(cuDeviceGetCount_ptr, CUresult, (Ref{Cint},), n)
-            return res == CUDA_SUCCESS && n[] > 0
-        finally
-            Libdl.dlclose(handle)
-        end
-    end
-
-    return false
-end
 
 function maybe_warn_prerelease()
     load_preference(@__MODULE__, "legate_suppress_prerelease_warning", false) && return nothing
@@ -78,20 +35,6 @@ function maybe_warn_prerelease()
     """
 
     _set("suppress_prerelease_warning" => true;)
-end
-
-function __init__()
-    if MODE == MODE_JLL
-        if has_cuda_gpu()
-            @debug "Detected CUDA GPU"
-        else
-            @warn "Detected no CUDA GPU will download CPU only JLL."
-        end
-    end
-
-    #! FOR CONDA/LOCAL INSTALLS WE NEED TO  
-    #! SET SOME THINGS IN LOCALPREFERENCES.TOML TO 
-    #! TELL CUDA.JL TO USE THE RIGHT CUDA
 end
 
 end # module LegatePreferences

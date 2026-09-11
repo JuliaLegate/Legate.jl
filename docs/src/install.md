@@ -67,3 +67,12 @@ To update `LocalPreferences.toml` so that a local conda environment is used as t
 using LegatePreferences; LegatePreferences.use_conda("conda-env-with-legate");
 Pkg.build()
 ```
+
+## CUDA driver compatibility
+
+Legate uses CUDA.jl's `CUDACore` for GPU detection and checks the loaded driver's
+CUDA capability before starting a JLL-backed GPU runtime. The current GPU JLL
+requires CUDA 13.0 capability or newer, including supported forward-compatibility
+drivers. The selected toolkit tag (for example, `13.4`) is not the driver version.
+CPU artifacts and explicit `--gpus 0` runs skip this check. This version check does
+not test context creation or protect against arbitrary native crashes.

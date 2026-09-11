@@ -24,6 +24,7 @@ using LegatePreferences
 import LegatePreferences: Mode, JLL, Developer, Conda, to_mode
 using Libdl
 using CxxWrap
+using CUDACore: CUDACore
 
 using FunctionWrappers
 import FunctionWrappers: FunctionWrapper
@@ -31,6 +32,7 @@ import FunctionWrappers: FunctionWrapper
 include(joinpath(@__DIR__, "../deps/buildtools/dev_tools.jl"))
 include(joinpath(@__DIR__, "../deps/version.jl"))
 include("utilities/preference.jl")
+include("utilities/cuda.jl")
 
 const SUPPORTED_INT_TYPES = Union{Int32,Int64}
 const SUPPORTED_FLOAT_TYPES = Union{Float32,Float64}
@@ -138,6 +140,7 @@ function _finish_runtime()
 end
 
 function _start_runtime()
+    _check_cuda(to_mode(LegatePreferences.MODE))
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
