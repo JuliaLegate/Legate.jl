@@ -139,7 +139,16 @@ function _finish_runtime()
     return Legate.legate_finish()
 end
 
+function _configure_realm_backtrace!()
+    # Realm's backtrace handler replaces Julia's SIGSEGV handler, but Julia uses
+    # SIGSEGV internally for GC safepoints. Keep Julia's handler by default while
+    # still allowing users to explicitly opt in with REALM_BACKTRACE=1.
+    return get!(ENV, "REALM_BACKTRACE", "0")
+end
+
 function _start_runtime()
+    _configure_realm_backtrace!()
+
     _check_cuda(to_mode(LegatePreferences.MODE))
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)

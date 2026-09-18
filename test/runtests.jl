@@ -4,6 +4,17 @@ using Legate
 using Test
 using HDF5
 
+@testset "Realm backtrace configuration" begin
+    withenv("REALM_BACKTRACE" => nothing) do
+        @test Legate._configure_realm_backtrace!() == "0"
+        @test ENV["REALM_BACKTRACE"] == "0"
+    end
+    withenv("REALM_BACKTRACE" => "1") do
+        @test Legate._configure_realm_backtrace!() == "1"
+        @test ENV["REALM_BACKTRACE"] == "1"
+    end
+end
+
 @testset "CUDA artifact selection" begin
     if isdefined(Legate, :legate_jll)
         jll = Legate.legate_jll
