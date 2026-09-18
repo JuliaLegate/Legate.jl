@@ -3,6 +3,7 @@ include("cuda_startup.jl")
 using Legate
 using Test
 using HDF5
+using Pkg
 
 @testset "Realm backtrace configuration" begin
     withenv("REALM_BACKTRACE" => nothing) do
@@ -19,10 +20,10 @@ end
     if isdefined(Legate, :legate_jll)
         jll = Legate.legate_jll
         platform = deepcopy(jll.host_platform)
-        artifacts = Legate.Pkg.Artifacts.find_artifacts_toml(pathof(jll))
+        artifacts = Pkg.Artifacts.find_artifacts_toml(pathof(jll))
         for (tag, expected) in (("13.4", "13.0"), ("12.9", nothing), ("none", "none"))
             platform["cuda"] = tag
-            metadata = Legate.Pkg.Artifacts.artifact_meta("legate", artifacts; platform)
+            metadata = Pkg.Artifacts.artifact_meta("legate", artifacts; platform)
             @test (metadata === nothing ? nothing : metadata["cuda"]) == expected
         end
     end
