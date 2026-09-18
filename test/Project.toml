@@ -4,5 +4,8 @@ HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 Legate = "1238f2cf-6593-4d60-9aca-2f5364e49909"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[compat]
+CUDA = "6.4"
+
 [extras]
 LegatePreferences = "8028f36a-2b64-49e9-aa04-2d0933fd2ed9"

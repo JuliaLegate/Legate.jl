@@ -36,26 +36,12 @@ function check_legate_install(legate_root)
 end
 
 function check_jll(m::Module)
-    if !m.is_available()
-        m_host_cuda = legate_jll.host_platform["cuda"]
-
-        if (m_host_cuda == "none")
-            error(
-                "$(string(m)) installed but not available on this platform.\n $(string(legate_jll.host_platform))"
-            )
-        end
-
-        v_host_cuda = VersionNumber(m_host_cuda)
-        valid_cuda_version = MIN_CUDA_VERSION <= v_host_cuda <= MAX_CUDA_VERSION
-        if !valid_cuda_version
-            error(
-                "$(string(m)) installed but not available on this platform." *
-                "Host CUDA ver: $(v_host_cuda) not in range supported by $(string(m)): $(MIN_CUDA_VERSION)-$(MAX_CUDA_VERSION).",
-            )
-        else
-            error("$(string(m)) installed but not available on this platform. Unknown reason.")
-        end
-    end
+    m.is_available() && return nothing
+    selected = get(m.host_platform.tags, "cuda", "unset")
+    error("$m has no artifact for $(m.host_platform). " *
+          "Selected CUDA toolkit: $selected. " *
+          "The selected toolkit tag is not the system driver version. " *
+          "Check CUDA runtime preferences and platform support.")
 end
 
 function find_paths(
