@@ -19,7 +19,7 @@ legate_jll = "e95fb1d3-fb9e-51b5-bdb8-1a812408cac9"
 libcxxwrap_julia_jll = "3eaa8342-bff7-56a5-9981-c04077f7cee7"
 
 [compat]
-CUDACore = "6.2"
+CUDACore = "6.4"
 CxxWrap = "0.17"
 FunctionWrappers = "1.1.3"
 JuliaFormatter = "2.2.0"
