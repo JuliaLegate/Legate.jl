@@ -108,7 +108,7 @@ Create a store from a scalar value.
 """
 function create_store(scalar::T; shape::Vector{B}=[1]) where {T<:SUPPORTED_TYPES,B<:Integer}
     lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type   
-    impl = LegateInternal.store_from_scalar(Legate.Scalar(scalar), lshape) # cxxwrap call
+    impl = LegateInternal.store_from_scalar(Legate.Scalar(scalar).impl, lshape) # cxxwrap call
     return LogicalStore{T,length(shape)}(impl, Tuple(shape))
 end
 

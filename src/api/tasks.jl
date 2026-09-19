@@ -1,74 +1,76 @@
-"""
-    create_task(rt::Runtime, lib::Library, id::LocalTaskID) -> AutoTask
+#= Copyright 2026 Northwestern University, 
+ *                   Carnegie Mellon University University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author(s): David Krasowska <krasow@u.northwestern.edu>
+ *            Ethan Meitz <emeitz@andrew.cmu.edu>
+=#
 
-Create an auto task in the runtime.
+using CxxWrap
 
-# Arguments
-- `rt`: The current runtime instance.
-- `lib`: The library to associate with the task.
-- `id`: The local task identifier.
-"""
+const REGISTRY_LOCK = ReentrantLock()
+const GLOBAL_TASK_REGISTRY = Dict{UInt32,UfiMetadata}()
+
+const SUBMITTED_COUNT = Threads.Atomic{Int}(0)
+const NEXT_TASK_ID = Threads.Atomic{UInt32}(50000)
+
 function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID)
-    return LegateInternal.create_auto_task(rt, lib, id)
+    impl = LegateInternal.create_auto_task(rt, lib, id)
+    @debug "Creating auto task $(impl)"
+    task = AutoTask(impl)
+    return task
 end
+
 function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain)
-    return LegateInternal.create_manual_task(rt, lib, id, domain)
+    impl = LegateInternal.create_manual_task(rt, lib, id, domain)
+    @debug "Creating manual task $(impl)"
+    task = ManualTask(impl)
+    return task
 end
 
-"""
-    submit_task(rt::Runtime, AutoTask)
-    submit_task(rt::Runtime, ManualTask)
-
-Submit an manual/auto task to the runtime.
-"""
-function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
-    rt_ptr = LegateInternal.get_obj_ptr(rt[])
-    task_ptr = LegateInternal.get_obj_ptr(task)
-    GC.@preserve rt task begin
-        Base.@threadcall(
-            :submit_auto_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
-        )
-    end
+function add_input(task::LegateTask, array::LogicalArray{T,N}) where {T,N}
+    push!(task.input_types, T)
+    push!(task.arg_dims, array.dims)
+    return LegateInternal.add_input(task.impl, array.handle)
 end
 
-function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
-    rt_ptr = LegateInternal.get_obj_ptr(rt[])
-    task_ptr = LegateInternal.get_obj_ptr(task)
-    GC.@preserve rt task begin
-        Base.@threadcall(
-            :submit_manual_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
-        )
-    end
+function add_output(task::LegateTask, array::LogicalArray{T,N}) where {T,N}
+    push!(task.output_types, T)
+    push!(task.arg_dims, array.dims)
+    return LegateInternal.add_output(task.impl, array.handle)
 end
 
-"""
-    align(a::Variable, b::Variable) -> Constraint
+function add_scalar(task::LegateTask, scalar::Scalar{T}) where {T}
+    push!(task.scalar_types, T)
+    return LegateInternal.add_scalar(task.impl, scalar.impl)
+end
 
-Align two variables.
+function align(a::Variable, b::Variable)
+    return LegateInternal.align(a, b)
+end
 
-Returns a new constraint representing the alignment of `a` and `b`.
-"""
-align(a::Variable, b::Variable) = LegateInternal.align(a, b)
-
-"""
-    default_alignment(task::AutoTask, inputs::Vector{Variable}, outputs::Vector{Variable})
-
-Add default alignment constraints to the task. All inputs and outputs are aligned to the first input.
-"""
 function default_alignment(
-    task::Legate.AutoTask, inputs::Vector{<:Legate.Variable}, outputs::Vector{<:Legate.Variable}
+    task::LegateTask, inputs::Vector{<:Variable}, outputs::Vector{<:Variable}
 )
-    # Align all inputs to the first input
     for i in 2:length(inputs)
-        Legate.add_constraint(task, Legate.align(inputs[i], inputs[1]))
+        add_constraint(task, align(inputs[i], inputs[1]))
     end
-    # Align all outputs to the first output
-    for i in 2:length(outputs)
-        Legate.add_constraint(task, Legate.align(outputs[i], outputs[1]))
+    for i in 1:length(outputs)
+        add_constraint(task, align(outputs[i], outputs[1]))
     end
-    # Align first output with first input
     if !isempty(inputs) && !isempty(outputs)
-        Legate.add_constraint(task, Legate.align(outputs[1], inputs[1]))
+        add_constraint(task, align(outputs[1], inputs[1]))
     end
 end
 
@@ -77,62 +79,101 @@ end
 
 Add a constraint to the task.
 """
-add_constraint(task::AutoTask, c::Constraint) = LegateInternal.add_constraint(task, c)
-
-"""
-    add_input(AutoTask, LogicalArray) -> Variable
-    add_input(ManualTask, LogicalStore) -> Variable
-
-Add a logical array/store as an input to the task.
-"""
-function add_input(
-    task::Union{AutoTask,ManualTask},
-    item::Union{LogicalArray,LogicalStore,LogicalStorePartition},
-)
-    return LegateInternal.add_input(task, item.handle)
+function add_constraint(task::LegateTask, c::Constraint)
+    return LegateInternal.add_constraint(task.impl, c)
 end
 
-"""
-    add_output(AutoTask, LogicalArray) -> Variable
-    add_output(ManualTask, LogicalStore) -> Variable
-
-Add a logical array/store as an output of the task.
-"""
-function add_output(
-    task::Union{AutoTask,ManualTask},
-    item::Union{LogicalArray,LogicalStore,LogicalStorePartition},
-)
-    return LegateInternal.add_output(task, item.handle)
+function create_julia_task(rt, lib, task_obj::JuliaTask{CPUBackend})
+    return create_julia_task_impl(rt, lib, task_obj, Int32(0))
 end
 
-"""
-    add_scalar(AutoTask, scalar::Scalar)
-    add_scalar(ManualTask, scalar::Scalar)
-
-Add a scalar argument to the task.
-"""
-function add_scalar(task::Union{AutoTask,ManualTask}, scalar::Scalar)
-    return LegateInternal.add_scalar(task, scalar)
+function create_julia_task(rt, lib, task_obj::JuliaTask{GPUBackend})
+    return create_julia_task_impl(rt, lib, task_obj, Int32(1))
 end
 
-function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore})
-    part = LegateInternal.find_or_declare_partition(task, item.handle)
-    return add_constraint(task, LegateInternal.broadcast(part))
-end
-
-function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore}, axes)
-    part = LegateInternal.find_or_declare_partition(task, item.handle)
-    return add_constraint(task, LegateInternal.broadcast(part, axes))
-end
-
-# with_scope("my_debug_label") do
-#     # create/submit Legate ops here
-# end
-function with_scope(f, provenance::String)
-    scope = Legate.Scope(provenance)  # pushes label
-    try
-        return f()
-    finally
-        LegateInternal.destroy_scope(scope)
+function create_julia_task_impl(rt, lib, task_obj, backend_flag::Int32)
+    id = if (backend_flag == 0)
+        LegateInternal.JULIA_CUSTOM_TASK
+    else
+        LegateInternal.JULIA_CUSTOM_GPU_TASK
     end
+    impl = LegateInternal.create_auto_task(rt, lib, id)
+
+    task = LegateTask(impl, task_obj.fun)
+    task.task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
+    # Prepend internal task_id as scalar 0 on cpp Legate side
+    LegateInternal.add_scalar(task.impl, Scalar(UInt32(task.task_id)).impl)
+    return task
+end
+
+function _submit_task(t::CxxPtr{Runtime}, task::LegateTask{<:CxxPtr{<:LegateInternal.AutoTask}})
+    return LegateInternal.submit_auto_task(t, task.impl[])
+end
+
+function _submit_task(t::CxxPtr{Runtime}, task::LegateTask{<:LegateInternal.AutoTask})
+    return LegateInternal.submit_auto_task(t, task.impl)
+end
+
+function _submit_task(t::CxxPtr{Runtime}, task::ManualTask)
+    return LegateInternal.submit_manual_task(t, task.impl)
+end
+
+function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
+    if !isnothing(task.fun)
+        in_t = Tuple{task.input_types...}
+        out_t = Tuple{task.output_types...}
+        sc_t = Tuple{task.scalar_types...}
+
+        sig = UfiSignature{in_t,out_t,sc_t}()
+        meta = UfiMetadata(task.fun, sig, Tuple(task.arg_dims))
+
+        lock(REGISTRY_LOCK) do
+            return GLOBAL_TASK_REGISTRY[task.task_id] = meta
+        end
+
+        # Principled warmup: Force JIT compilation safely on submission thread
+        # Use the rank of the first input/output argument for local_dims_type
+        nd = isempty(task.arg_dims) ? 0 : length(task.arg_dims[1])
+        local_dims_type = NTuple{nd,Int}
+        # 1. Precompile the internal statically-typed dispatcher
+        precompile(
+            Legate._do_call,
+            (
+                typeof(task.fun),
+                Ptr{Legate.PhysArrPtr},
+                Ptr{Legate.PhysArrPtr},
+                Ptr{Ptr{Cvoid}},
+                local_dims_type,
+                typeof(meta.dims),
+                typeof(sig),
+            ),
+        )
+        precompile(
+            Legate._extract_and_call,
+            (
+                typeof(meta),
+                Vector{Legate.PhysArrPtr},
+                Vector{Legate.PhysArrPtr},
+                Vector{Ptr{Cvoid}},
+                local_dims_type,
+                typeof(sig),
+            ),
+        )
+
+        # 2. Precompile the user-provided function with exact types
+        user_arg_types = Any[]
+        for (T, d) in zip(task.input_types, task.arg_dims)
+            push!(user_arg_types, Array{T,length(d)})
+        end
+        for (T, d) in zip(task.output_types, task.arg_dims)
+            push!(user_arg_types, Array{T,length(d)})
+        end
+        for T in task.scalar_types
+            push!(user_arg_types, T)
+        end
+        precompile(task.fun, (user_arg_types...,))
+
+        Threads.atomic_add!(SUBMITTED_COUNT, 1)
+    end
+    return _submit_task(rt, task)
 end
