@@ -1,0 +1,51 @@
+name: Auto Tag
+
+# Tag versions on merge to main. Idempotent: only creates a tag if the
+# version's tag doesn't already exist. Releases are drafted manually on GitHub.
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Tag versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tags
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+
+          # Read the top-level version = "..." (first occurrence, before any [section]).
+          read_version() {
+            grep -m1 '^version *= *"' "$1" | sed -E 's/^version *= *"([^"]+)".*/\1/'
+          }
+
+          tag_if_new() {
+            local tag="$1"
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              echo "  $tag already exists — skipping"
+            else
+              echo "  creating $tag"
+              git tag -a "$tag" -m "$tag"
+              git push origin "$tag"
+            fi
+          }
+
+          echo "Legate:"
+          tag_if_new "v$(read_version Project.toml)"
+
+          echo "LegatePreferences:"
+          tag_if_new "LegatePreferences-v$(read_version lib/LegatePreferences/Project.toml)"
