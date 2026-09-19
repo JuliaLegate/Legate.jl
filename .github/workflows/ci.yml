@@ -18,8 +18,11 @@ on:
       - 'deps/build.jl'
       - 'deps/buildtools/**'
       - 'Project.toml'
+      - 'lib/legate_jl_wrapper/src/**'
+      - 'lib/legate_jl_wrapper/include/**'
       - 'lib/LegatePreferences/src/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/developer.yml'
       - 'Dockerfile' # container.yml depends on this
     tags:
       - 'v*'
@@ -32,8 +35,11 @@ on:
       - 'deps/build.jl'
       - 'deps/buildtools/**'
       - 'Project.toml'
+      - 'lib/legate_jl_wrapper/src/**'
+      - 'lib/legate_jl_wrapper/include/**'
       - 'lib/LegatePreferences/src/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/developer.yml'
       - 'Dockerfile' # container.yml depends on this
 jobs:
   check_changes:
@@ -49,6 +55,19 @@ jobs:
           filters: |
             wrapper:
               - 'lib/legate_jl_wrapper/**'
+
+  developer_tests:
+    name: Developer wrapper tests
+    needs: check_changes
+    # Build-from-source (developer) CI only when the wrapper changed, or on/into main
+    if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || needs.check_changes.outputs.wrapper_changed == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+      actions: write
+    uses: ./.github/workflows/developer.yml
 
   test:
     name: Julia ${{ matrix.julia }} - ${{ matrix.os }}
