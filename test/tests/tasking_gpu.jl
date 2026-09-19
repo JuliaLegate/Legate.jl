@@ -10,15 +10,16 @@ end
 function init_cpu_task(args)
     a, b = args
     fill!(a, 1.0f0)
-    fill!(b, 2.0f0)
+    return fill!(b, 2.0f0)
 end
 
 @testset "GPU Tasking" begin
+    Legate.Experimental(true)  # tasking is experimental
     rt = Legate.get_runtime()
     lib = Legate.create_library("gpu_test_lib")
 
-    gpu_task_wrapped = Legate.wrap_task(gpu_add_kernel; task_type=:gpu)
-    init_wrapped = Legate.wrap_task(init_cpu_task)
+    gpu_task_wrapped = Legate.wrap_task(gpu_add_kernel, Legate.GPUBackend)
+    init_wrapped = Legate.wrap_task(init_cpu_task, Legate.CPUBackend)
 
     N = 100
     a = Legate.create_array([N], Float32)
