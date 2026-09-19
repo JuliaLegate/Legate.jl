@@ -72,7 +72,7 @@ inline bool has_finished() { return legate::has_finished(); }
 inline void runtime_sync() {
   Runtime::get_runtime()->issue_execution_fence(true);
 }
-  
+
 /**
  * @ingroup legate_wrapper
  * @brief Provide number of runtime processors.
@@ -213,6 +213,17 @@ inline Scalar string_to_scalar(std::string str) { return Scalar(str); }
 
 /**
  * @ingroup legate_wrapper
+ * @brief Create a Scalar from a pointer and type.
+ *
+ * @param ptr Pointer to the scalar data.
+ * @param ty The type of the scalar.
+ */
+inline Scalar make_scalar(void* ptr, const Type& ty) {
+  return Scalar(ty, ptr, true);
+}
+
+/**
+ * @ingroup legate_wrapper
  * @brief Create an unbound array.
  *
  * @param ty The type of the array elements.
@@ -282,8 +293,8 @@ inline LogicalStore store_from_scalar(const Scalar& scalar,
  * @brief Attach an external store in system memory with row-major (C) ordering.
  */
 inline LogicalStore attach_external_store_sysmem_row_major(void* ptr,
-                                                          const Shape& shape,
-                                                          const Type& ty) {
+                                                           const Shape& shape,
+                                                           const Type& ty) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
       ptr, shape.volume() * ty.size());
   legate::mapping::DimOrdering ordering =
@@ -296,11 +307,12 @@ inline LogicalStore attach_external_store_sysmem_row_major(void* ptr,
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in system memory with col-major (Fortran) ordering.
+ * @brief Attach an external store in system memory with col-major (Fortran)
+ * ordering.
  */
 inline LogicalStore attach_external_store_sysmem_col_major(void* ptr,
-                                                          const Shape& shape,
-                                                          const Type& ty) {
+                                                           const Shape& shape,
+                                                           const Type& ty) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
       ptr, shape.volume() * ty.size());
   legate::mapping::DimOrdering ordering =
@@ -322,12 +334,14 @@ inline LogicalStore attach_external_store_sysmem(void* ptr, const Shape& shape,
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in frame buffer memory with row-major (C) ordering.
+ * @brief Attach an external store in frame buffer memory with row-major (C)
+ * ordering.
  */
-inline LogicalStore attach_external_store_fbmem_row_major(int device_id, void* ptr,
-                                                         const Shape& shape,
-                                                         const Type& ty,
-                                                         bool readonly) {
+inline LogicalStore attach_external_store_fbmem_row_major(int device_id,
+                                                          void* ptr,
+                                                          const Shape& shape,
+                                                          const Type& ty,
+                                                          bool readonly) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_fbmem(
       device_id, ptr, shape.volume() * ty.size(), readonly);
   legate::mapping::DimOrdering ordering =
@@ -340,12 +354,14 @@ inline LogicalStore attach_external_store_fbmem_row_major(int device_id, void* p
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in frame buffer memory with col-major (Fortran) ordering.
+ * @brief Attach an external store in frame buffer memory with col-major
+ * (Fortran) ordering.
  */
-inline LogicalStore attach_external_store_fbmem_col_major(int device_id, void* ptr,
-                                                         const Shape& shape,
-                                                         const Type& ty,
-                                                         bool readonly) {
+inline LogicalStore attach_external_store_fbmem_col_major(int device_id,
+                                                          void* ptr,
+                                                          const Shape& shape,
+                                                          const Type& ty,
+                                                          bool readonly) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_fbmem(
       device_id, ptr, shape.volume() * ty.size(), readonly);
   legate::mapping::DimOrdering ordering =
@@ -358,7 +374,8 @@ inline LogicalStore attach_external_store_fbmem_col_major(int device_id, void* p
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in frame buffer memory (defaults to row-major).
+ * @brief Attach an external store in frame buffer memory (defaults to
+ * row-major).
  */
 inline LogicalStore attach_external_store_fbmem(int device_id, void* ptr,
                                                 const Shape& shape,

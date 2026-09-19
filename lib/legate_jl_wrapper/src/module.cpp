@@ -28,63 +28,6 @@
 #include "types.h"
 #include "wrapper.inl"
 
-extern "C" {
-// Exposed for @threadcall
-// https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
-// Takes a raw C++ pointer to PhysicalStore (casted to void*)
-void* get_ptr(void* store_ptr) {
-  legate::PhysicalStore* store = static_cast<legate::PhysicalStore*>(store_ptr);
-  return legate_wrapper::data::get_ptr(store);
-}
-
-void submit_auto_task(void* rt_ptr, void* task_ptr) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  legate::AutoTask* task = static_cast<legate::AutoTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-
-void submit_manual_task(void* rt_ptr, void* task_ptr) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  legate::ManualTask* task = static_cast<legate::ManualTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-}
-
-legate::Type type_from_code(legate::Type::Code type_id) {
-  switch (type_id) {
-    case legate::Type::Code::BOOL:
-      return legate::bool_();
-    case legate::Type::Code::INT8:
-      return legate::int8();
-    case legate::Type::Code::INT16:
-      return legate::int16();
-    case legate::Type::Code::INT32:
-      return legate::int32();
-    case legate::Type::Code::INT64:
-      return legate::int64();
-    case legate::Type::Code::UINT8:
-      return legate::uint8();
-    case legate::Type::Code::UINT16:
-      return legate::uint16();
-    case legate::Type::Code::UINT32:
-      return legate::uint32();
-    case legate::Type::Code::UINT64:
-      return legate::uint64();
-    case legate::Type::Code::FLOAT16:
-      return legate::float16();
-    case legate::Type::Code::FLOAT32:
-      return legate::float32();
-    case legate::Type::Code::FLOAT64:
-      return legate::float64();
-    case legate::Type::Code::COMPLEX64:
-      return legate::complex64();
-    case legate::Type::Code::COMPLEX128:
-      return legate::complex128();
-    default:
-      throw std::invalid_argument("Unsupported legate::Type::Code enum value.");
-  }
-}
-
 struct WrapDefault {
   template <typename TypeWrapperT>
   void operator()(TypeWrapperT&& wrapped) {
@@ -94,16 +37,15 @@ struct WrapDefault {
 };
 
 // Register Scalar(StrictlyTypedNumber<T>) for each numeric element type.
-// apply_combination is for Parametric types; for_each_type walks a ParameterList
-// and adds constructors on a single non-parametric TypeWrapper.
+// apply_combination is for Parametric types; for_each_type walks a
+// ParameterList and adds constructors on a single non-parametric TypeWrapper.
 struct WrapScalarStrictCtors {
   jlcxx::TypeWrapper<Scalar> wrapped;
 
   template <typename T>
   void operator()() {
-    wrapped.constructor([](jlcxx::StrictlyTypedNumber<T> v) {
-      return new Scalar(v.value);
-    });
+    wrapped.constructor(
+        [](jlcxx::StrictlyTypedNumber<T> v) { return new Scalar(v.value); });
   }
 };
 
@@ -171,9 +113,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("is_readable", &PhysicalStore::is_readable)
       .method("is_writable", &PhysicalStore::is_writable)
       .method("is_reducible", &PhysicalStore::is_reducible)
-      .method("valid", &PhysicalStore::valid)
-      .method("get_obj_ptr",
-              [](PhysicalStore& s) { return static_cast<void*>(&s); });
+      .method("valid", &PhysicalStore::valid);
 
   mod.add_type<LogicalStore>("LogicalStoreImpl");
   mod.add_type<LogicalStorePartition>("LogicalStorePartitionImpl");
@@ -198,6 +138,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("equal_storage", [](LogicalStore& s, LogicalStore& other) {
     return s.equal_storage(other);
   });
+  mod.method("detach", [](LogicalStore& s) { return s.detach(); });
   mod.method("partition_by_tiling", [](LogicalStore& store,
                                        std::vector<uint64_t> tile_shape) {
     return legate_wrapper::data::partition_by_tiling(store, tile_shape);
@@ -291,8 +232,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
               [](ManualTask& t) { return static_cast<void*>(&t); });
 
   /* runtime */
-  mod.add_type<Runtime>("Runtime").method(
-      "get_obj_ptr", [](Runtime& r) { return static_cast<void*>(&r); });
+  mod.add_type<Runtime>("Runtime");
 
   mod.method("start_legate", &legate_wrapper::runtime::start_legate);
   mod.method("legate_finish", &legate_wrapper::runtime::legate_finish);
@@ -345,6 +285,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("attach_external_store_fbmem",
              &legate_wrapper::data::attach_external_store_fbmem);
   mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
+  mod.method("make_scalar", &legate_wrapper::data::make_scalar);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);
   /* timing */
@@ -363,4 +304,18 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::runtime::issue_mapping_fence);
 
   wrap_ufi(mod);
+}
+
+extern "C" void legate_logical_store_detach(void* store_ptr) {
+  reinterpret_cast<legate::LogicalStore*>(store_ptr)->detach();
+}
+
+extern "C" void legate_issue_copy(void* dest_ptr, void* src_ptr) {
+  auto& dest = *reinterpret_cast<legate::LogicalStore*>(dest_ptr);
+  auto& src = *reinterpret_cast<const legate::LogicalStore*>(src_ptr);
+  legate::Runtime::get_runtime()->issue_copy(dest, src);
+}
+
+extern "C" void legate_issue_execution_fence_blocking() {
+  legate::Runtime::get_runtime()->issue_execution_fence(/*block=*/true);
 }
