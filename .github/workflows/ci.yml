@@ -53,7 +53,8 @@ jobs:
   test:
     name: Julia ${{ matrix.julia }} - ${{ matrix.os }}
     needs: check_changes
-    if: ${{ github.base_ref == 'main' || needs.check_changes.outputs.wrapper_changed != 'true' }}
+    # Always run JLL CI on main (push/merge) and on PRs targeting main; otherwise skip when only wrappers changed
+    if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || needs.check_changes.outputs.wrapper_changed != 'true' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
