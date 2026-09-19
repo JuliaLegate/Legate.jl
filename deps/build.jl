@@ -29,7 +29,7 @@ function build_cpp_wrapper(
     @info "liblegatewrapper: Building C++ Wrapper Library"
     isdir(install_root) && (rm(install_root; recursive=true); mkdir(install_root))
     bld_command = `$(joinpath(repo_root, "scripts/build_cpp_wrapper.sh")) $repo_root $legate_root $install_root $(Threads.nthreads())`
-    BuildTools.run_build_wrapper_script(
+    return BuildTools.run_build_wrapper_script(
         repo_root, bld_command; cuda_root, cuda_enabled, log_dir=@__DIR__
     )
 end
@@ -49,7 +49,7 @@ function build_deps(pkg_root, legate_root; cuda_root=nothing, cuda_enabled=true)
         log_dir=@__DIR__, is_compatible=is_supported_version,
     )
     build_cpp_wrapper(pkg_root, legate_root, install_dir; cuda_root, cuda_enabled)
-    BuildTools.set_jll_artifact_override(:legate_jl_wrapper_jll, install_dir)
+    return BuildTools.set_jll_artifact_override(:legate_jl_wrapper_jll, install_dir)
 end
 
 function build(::LegatePreferences.JLL)
@@ -67,7 +67,7 @@ function build(::LegatePreferences.Conda)
     end
 
     is_legate_installed(legate_root; throw_errors=true)
-    build_deps(pkg_root, legate_root)
+    return build_deps(pkg_root, legate_root)
 end
 
 function build(::LegatePreferences.Developer)
@@ -83,7 +83,9 @@ function build(::LegatePreferences.Developer)
     end
 
     build_deps(pkg_root, legate_root; cuda_root, cuda_enabled)
-    set_preferences!(LegatePreferences, "LEGATE_LIBDIR" => joinpath(legate_root, "lib"); force=true)
+    return set_preferences!(
+        LegatePreferences, "LEGATE_LIBDIR" => joinpath(legate_root, "lib"); force=true
+    )
 end
 
 const mode_str = load_preference(LegatePreferences, "legate_mode", LegatePreferences.MODE_JLL)
