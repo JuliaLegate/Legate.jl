@@ -8,9 +8,11 @@ Create an auto task in the runtime.
 - `lib`: The library to associate with the task.
 - `id`: The local task identifier.
 """
-create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID) = create_auto_task(rt, lib, id)
+function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID)
+    return LegateInternal.create_auto_task(rt, lib, id)
+end
 function create_task(rt::CxxPtr{Runtime}, lib::Library, id::LocalTaskID, domain::Domain)
-    return create_manual_task(rt, lib, id, domain)
+    return LegateInternal.create_manual_task(rt, lib, id, domain)
 end
 
 """
@@ -20,8 +22,8 @@ end
 Submit an manual/auto task to the runtime.
 """
 function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
-    rt_ptr = Legate.get_obj_ptr(rt[])
-    task_ptr = Legate.get_obj_ptr(task)
+    rt_ptr = LegateInternal.get_obj_ptr(rt[])
+    task_ptr = LegateInternal.get_obj_ptr(task)
     GC.@preserve rt task begin
         Base.@threadcall(
             :submit_auto_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
@@ -30,8 +32,8 @@ function submit_task(rt::CxxPtr{Runtime}, task::AutoTask)
 end
 
 function submit_task(rt::CxxPtr{Runtime}, task::ManualTask)
-    rt_ptr = Legate.get_obj_ptr(rt[])
-    task_ptr = Legate.get_obj_ptr(task)
+    rt_ptr = LegateInternal.get_obj_ptr(rt[])
+    task_ptr = LegateInternal.get_obj_ptr(task)
     GC.@preserve rt task begin
         Base.@threadcall(
             :submit_manual_task, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), rt_ptr, task_ptr
@@ -46,7 +48,7 @@ Align two variables.
 
 Returns a new constraint representing the alignment of `a` and `b`.
 """
-align
+align(a::Variable, b::Variable) = LegateInternal.align(a, b)
 
 """
     default_alignment(task::AutoTask, inputs::Vector{Variable}, outputs::Vector{Variable})
@@ -75,7 +77,7 @@ end
 
 Add a constraint to the task.
 """
-add_constraint
+add_constraint(task::AutoTask, c::Constraint) = LegateInternal.add_constraint(task, c)
 
 """
     add_input(AutoTask, LogicalArray) -> Variable
@@ -87,7 +89,7 @@ function add_input(
     task::Union{AutoTask,ManualTask},
     item::Union{LogicalArray,LogicalStore,LogicalStorePartition},
 )
-    return add_input(task, item.handle)
+    return LegateInternal.add_input(task, item.handle)
 end
 
 """
@@ -100,7 +102,7 @@ function add_output(
     task::Union{AutoTask,ManualTask},
     item::Union{LogicalArray,LogicalStore,LogicalStorePartition},
 )
-    return add_output(task, item.handle)
+    return LegateInternal.add_output(task, item.handle)
 end
 
 """
@@ -109,16 +111,18 @@ end
 
 Add a scalar argument to the task.
 """
-add_scalar
+function add_scalar(task::Union{AutoTask,ManualTask}, scalar::Scalar)
+    return LegateInternal.add_scalar(task, scalar)
+end
 
 function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore})
-    part = find_or_declare_partition(task, item.handle)
-    return add_constraint(task, broadcast(part))
+    part = LegateInternal.find_or_declare_partition(task, item.handle)
+    return add_constraint(task, LegateInternal.broadcast(part))
 end
 
 function add_broadcast(task::AutoTask, item::Union{LogicalArray,LogicalStore}, axes)
-    part = find_or_declare_partition(task, item.handle)
-    return add_constraint(task, broadcast(part, axes))
+    part = LegateInternal.find_or_declare_partition(task, item.handle)
+    return add_constraint(task, LegateInternal.broadcast(part, axes))
 end
 
 # with_scope("my_debug_label") do
@@ -129,6 +133,6 @@ function with_scope(f, provenance::String)
     try
         return f()
     finally
-        Legate.destroy_scope(scope)
+        LegateInternal.destroy_scope(scope)
     end
 end

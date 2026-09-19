@@ -6,7 +6,7 @@ Start the Legate runtime.
 This function initializes the Legate runtime and must be called
 before creating tasks or data objects.
 """
-start_legate
+start_legate() = LegateInternal.start_legate()
 
 """
     legate_finish() -> Int32
@@ -15,7 +15,7 @@ Finalize the Legate runtime.
 
 Returns an integer status code from the runtime shutdown procedure.
 """
-legate_finish
+legate_finish() = LegateInternal.legate_finish()
 
 """
     get_runtime() -> Runtime
@@ -24,21 +24,21 @@ Return the current Legate runtime instance.
 
 This returns a handle to the singleton `Runtime` object managed by Legate.
 """
-get_runtime
+get_runtime() = LegateInternal.get_runtime()
 
 """
     has_started() -> Bool
 
 Check whether the Legate runtime has started.
 """
-has_started
+has_started() = LegateInternal.has_started()
 
 """
     has_finished() -> Bool
 
 Check whether the Legate runtime has finished.
 """
-has_finished
+has_finished() = LegateInternal.has_finished()
 
 """
     runtime_sync()
@@ -47,7 +47,7 @@ Block until all pending Legate tasks have completed.
 
 Useful before reading files written by `h5write` or other async operations.
 """
-runtime_sync
+runtime_sync() = LegateInternal.runtime_sync()
 
 """
     create_library(name::String) -> Library
@@ -57,12 +57,12 @@ with the C++ runtime.
 """
 function create_library(name::String)
     rt = get_runtime()
-    lib = _create_library(rt, name) # cxxwrap call
+    lib = LegateInternal._create_library(rt, name) # cxxwrap call
     # registers JuliaCustomTask::cpu_variant to legate runtime
-    _ufi_interface_register(lib) # cxxwrap call
+    LegateInternal._ufi_interface_register(lib) # cxxwrap call
     request_ptr = _get_request_ptr()
     # initialize async system to handle Julia task requests
-    _initialize_async_system(request_ptr) # cxxwrap call
+    LegateInternal._initialize_async_system(request_ptr) # cxxwrap call
     @debug "Registered library with C++ runtime"
     return lib
 end
@@ -72,11 +72,11 @@ end
 
 Measure time in microseconds.
 """
-time_microseconds
+time_microseconds() = LegateInternal.time_microseconds()
 
 """
     time_nanoseconds() -> UInt64
 
 Measure time in nanoseconds.
 """
-time_nanoseconds
+time_nanoseconds() = LegateInternal.time_nanoseconds()
