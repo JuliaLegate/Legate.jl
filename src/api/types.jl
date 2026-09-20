@@ -44,11 +44,12 @@ mutable struct LegateTask{I,F}
     output_types::Vector{DataType}
     scalar_types::Vector{DataType}
     arg_dims::Vector{Union{Nothing,NTuple}}
+    is_gpu::Bool
 end
 
 function LegateTask(impl::I, fun::F) where {I,F}
     return LegateTask{I,F}(
-        impl, fun, UInt32(0), DataType[], DataType[], DataType[], Union{Nothing,NTuple}[]
+        impl, fun, UInt32(0), DataType[], DataType[], DataType[], Union{Nothing,NTuple}[], false
     )
 end
 

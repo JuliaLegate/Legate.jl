@@ -1,3 +1,4 @@
+# GPU kernels receive their operands as a single tuple (see _gpu_launch).
 function gpu_add_kernel(args)
     a, b, c = args
     idx = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -7,8 +8,7 @@ function gpu_add_kernel(args)
     return nothing
 end
 
-function init_cpu_task(args)
-    a, b = args
+function init_cpu_task(a, b)
     fill!(a, 1.0f0)
     return fill!(b, 2.0f0)
 end

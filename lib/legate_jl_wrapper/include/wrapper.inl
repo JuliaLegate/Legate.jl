@@ -409,7 +409,15 @@ struct GetPtrFunctor {
 inline void* get_ptr(legate::PhysicalStore* store) {
   int dim = store->dim();
   legate::Type::Code code = store->type().code();
-  return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
+  // wait_until_valid blocks until the store is ready; run it GC-safe so the
+  // Julia GC can stop-the-world while this thread is parked in Legate. Without
+  // this, a UFI task compiling/allocating on a worker deadlocks against a
+  // GC-unsafe main thread stuck here (jl_gc_wait_for_the_world).
+  jl_task_t* ct = jl_current_task;
+  int8_t gc_state = jl_gc_safe_enter(ct->ptls);
+  void* p = legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
+  jl_gc_safe_leave(ct->ptls, gc_state);
+  return p;
 }
 
 inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(

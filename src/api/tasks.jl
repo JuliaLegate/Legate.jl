@@ -100,6 +100,7 @@ function create_julia_task_impl(rt, lib, task_obj, backend_flag::Int32)
     impl = LegateInternal.create_auto_task(rt, lib, id)
 
     task = LegateTask(impl, task_obj.fun)
+    task.is_gpu = backend_flag != 0
     task.task_id = Threads.atomic_add!(NEXT_TASK_ID, UInt32(1))
     # Prepend internal task_id as scalar 0 on cpp Legate side
     LegateInternal.add_scalar(task.impl, Scalar(UInt32(task.task_id)).impl)
@@ -117,6 +118,11 @@ end
 function _submit_task(t::CxxPtr{Runtime}, task::ManualTask)
     return LegateInternal.submit_manual_task(t, task.impl)
 end
+
+# Overridden by CUDAExt (a more specific fixed-arity method) to compile a GPU task's
+# kernel ahead of execution. Varargs here so the extension method is more specific
+# and extends rather than overwrites. No-op without CUDA.
+_gpu_precompile(args...) = nothing
 
 function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
     drain_pending_frees!()
@@ -177,6 +183,18 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
             push!(user_arg_types, T)
         end
         precompile(task.fun, (user_arg_types...,))
+
+        # GPU tasks: compile the CUDA kernel now, on the submitting (main) thread,
+        # while the libuv event loop is live. The compile runs ptxas as a subprocess;
+        # if it instead ran on a UFI worker while the main thread is parked in a
+        # blocking Legate call, the subprocess I/O would deadlock against the starved
+        # event loop. Compiling here caches the cubin so the worker's launch is a
+        # cache hit. No-op without CUDA (see CUDAExt).
+        if task.is_gpu
+            _gpu_precompile(
+                task.fun, task.input_types, task.output_types, task.scalar_types, task.arg_dims
+            )
+        end
 
         Threads.atomic_add!(SUBMITTED_COUNT, 1)
     end

@@ -1,51 +1,86 @@
-# TaskArgumentGPU is imported from Legate.
-# GPU task creation is handled by Legate.create_julia_task (src/api/tasks.jl); the
-# extension only provides the GPU launch + execution path below.
+# GPU task execution for the UFI. The worker dispatches here (Legate._execute_gpu_task)
+# for is_gpu tasks. Device pointers are wrapped as CuArrays; the user kernel receives
+# them as a single tuple and is launched with @cuda. Phase 1: assumes dense
+# (non-partitioned) tiles.
 
-function launch_gpu_task(fun, args, threads, blocks)
-    # unfortunately, we have to convert to a tuple for @cuda
-    @cuda threads=threads blocks=blocks fun(Tuple(args))
-    return CUDA.synchronize()
+# Compile a GPU task's kernel on the submitting (main) thread so context creation,
+# the compiler-version probe, and ptxas all run while the libuv event loop is live.
+# The cubin is cached, so the UFI worker's launch is a cache hit and needs no
+# subprocess (which would otherwise deadlock against the event loop starved by the
+# main thread's blocking Legate call). Dummy device arrays match the exact types the
+# worker builds in _gpu_args, so the compilation caches under the right key.
+function Legate._gpu_precompile(fun, in_types, out_types, sc_types, arg_dims)
+    CUDA.functional() || return nothing
+    n_in = length(in_types)
+    args = Any[]
+    for i in 1:n_in
+        push!(args, CUDA.zeros(in_types[i], ntuple(_ -> 1, length(arg_dims[i]))...))
+    end
+    for j in 1:length(out_types)
+        push!(args, CUDA.zeros(out_types[j], ntuple(_ -> 1, length(arg_dims[n_in + j]))...))
+    end
+    for T in sc_types
+        push!(args, zero(T))
+    end
+    CUDA.@cuda launch = false fun((args...,))
+    return nothing
 end
 
-function _execute_julia_task(::Val{:gpu}, req, task_fun)
-    args = Vector{TaskArgumentGPU}()
-    sizehint!(args, req.num_inputs + req.num_outputs + req.num_scalars)
-
-    dims = ntuple(i -> req.dims[i], Int(req.ndim))
-    N = prod(dims)
-    threads = 256
-    blocks = cld(N, threads)
-
-    # Process Inputs
-    for i in 1:req.num_inputs
-        type_code = unsafe_load(req.inputs_types, i) # get type code
-        T = get_code_type(type_code) # get type from code
-        ptr_val = unsafe_load(req.inputs_ptr, i) # get value storage
-        cu_ptr = reinterpret(CUDA.CuPtr{T}, ptr_val) # convert to CuPtr with proper type
-        push!(args, unsafe_wrap(CuArray, cu_ptr, dims))
+# Build the argument tuple (CuArrays for in/out, values for scalars) from the request.
+@generated function _gpu_args(
+    in_p_ptr::Ptr{Legate.PhysArrPtr},
+    out_p_ptr::Ptr{Legate.PhysArrPtr},
+    scal_p_ptr::Ptr{Ptr{Cvoid}},
+    local_dims::Tuple,
+    ::Legate.UfiSignature{InT,OutT,ScT},
+) where {InT,OutT,ScT}
+    args = []
+    for (i, T) in enumerate(InT.parameters)
+        E = eltype(T)
+        push!(
+            args,
+            :(unsafe_wrap(
+                CUDA.CuArray, reinterpret(CUDA.CuPtr{$E}, unsafe_load(in_p_ptr, $i)), local_dims)),
+        )
     end
-
-    # Process Outputs
-    for i in 1:req.num_outputs
-        type_code = unsafe_load(req.outputs_types, i)
-        T = get_code_type(type_code)
-        ptr_val = unsafe_load(req.outputs_ptr, i)
-        cu_ptr = reinterpret(CUDA.CuPtr{T}, ptr_val)
-        push!(args, unsafe_wrap(CuArray, cu_ptr, dims))
+    for (i, T) in enumerate(OutT.parameters)
+        E = eltype(T)
+        push!(
+            args,
+            :(unsafe_wrap(
+                CUDA.CuArray, reinterpret(CUDA.CuPtr{$E}, unsafe_load(out_p_ptr, $i)), local_dims)),
+        )
     end
-
-    # Process Scalars
-    for i in 1:req.num_scalars
-        type_code = Int(unsafe_load(req.scalar_types, i))
-        T = get_code_type(type_code)
-        val_ptr = unsafe_load(req.scalars_ptr, i) # get value storage
-        scalar_val = unsafe_load(Ptr{T}(val_ptr)) # load value with proper type
-        push!(args, scalar_val)
+    for (i, T) in enumerate(ScT.parameters)
+        push!(args, :(unsafe_load(Ptr{$T}(unsafe_load(scal_p_ptr, $i)))))
     end
+    return :(($(args...),))
+end
 
-    # Launch Kernel via invokelatest to handle world age issues
-    Base.invokelatest(launch_gpu_task, task_fun, args, threads, blocks)
+# @cuda lives in a normal function (not @generated) to keep the launch out of
+# generated code.
+function _gpu_launch(f, argt, n::Int)
+    threads = min(256, n)
+    blocks = cld(n, max(threads, 1))
+    CUDA.@cuda threads = threads blocks = blocks f(argt)
+    CUDA.synchronize()
+    return nothing
+end
 
-    @debug "Legate UFI: GPU task completed successfully!" req.task_id
+function Legate._execute_gpu_task(
+    meta::Legate.UfiMetadata,
+    in_args::Vector{Legate.PhysArrPtr},
+    out_args::Vector{Legate.PhysArrPtr},
+    scal_args::Vector{Ptr{Cvoid}},
+    in_strides::Vector{Int64},
+    out_strides::Vector{Int64},
+    local_dims::Tuple,
+    sig,
+)
+    GC.@preserve in_args out_args scal_args in_strides out_strides begin
+        argt = _gpu_args(
+            pointer(in_args), pointer(out_args), pointer(scal_args), local_dims, sig)
+        _gpu_launch(meta.fun, argt, prod(local_dims))
+    end
+    return nothing
 end

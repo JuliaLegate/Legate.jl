@@ -74,6 +74,7 @@ end
 
 struct TaskJob
     slot_id::Int
+    is_gpu::Bool
     in_args::Vector{PhysArrPtr}
     out_args::Vector{PhysArrPtr}
     scal_args::Vector{Ptr{Cvoid}}
@@ -81,6 +82,11 @@ struct TaskJob
     out_strides::Vector{Int64}
     local_dims::Tuple
     meta::UfiMetadata
+end
+
+# GPU execution is provided by the CUDAExt extension; stub errors without it.
+function _execute_gpu_task(args...)
+    return error("GPU tasking requires CUDA.jl to be loaded (`using CUDA`).")
 end
 
 mutable struct UfiManager
@@ -290,7 +296,8 @@ function ufi_poll(mgr::UfiManager)
         put!(
             mgr.job_queue,
             TaskJob(
-                slot_id, in_args, out_args, scal_args, in_strides, out_strides, local_dims, meta
+                slot_id, req.is_gpu != 0, in_args, out_args, scal_args, in_strides,
+                out_strides, local_dims, meta,
             ),
         )
     catch e
@@ -308,7 +315,6 @@ function _ufi_poller_loop(mgr::UfiManager)
     while !mgr.shutdown[]
         if !ufi_poll(mgr)
             yield()
-            # sleep(0.001)
         end
     end
     return mgr.shutdown_done[] = true
@@ -328,9 +334,11 @@ function _ufi_worker_loop(mgr::UfiManager)
         end
 
         try
-            # Use invokelatest to ensure MethodInstance visibility across threads
+            # Use invokelatest to ensure MethodInstance visibility across threads.
+            # GPU tasks run their kernel via the CUDAExt path; CPU tasks run directly.
+            handler = job.is_gpu ? _execute_gpu_task : _extract_and_call
             Base.invokelatest(
-                _extract_and_call,
+                handler,
                 job.meta,
                 job.in_args,
                 job.out_args,
