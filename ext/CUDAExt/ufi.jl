@@ -1,13 +1,6 @@
-# TaskArgumentGPU is imported from Legate
-
-function create_julia_task(
-    rt::CxxPtr{Runtime}, lib::Library, task_obj::JuliaTask{GPUBackend}
-)
-    task = create_task(rt, lib, JULIA_CUSTOM_GPU_TASK[])
-    add_scalar(task, Scalar(task_obj.task_id))
-    # register_task_function(task_obj.task_id, task_obj.fun)
-    return task
-end
+# TaskArgumentGPU is imported from Legate.
+# GPU task creation is handled by Legate.create_julia_task (src/api/tasks.jl); the
+# extension only provides the GPU launch + execution path below.
 
 function launch_gpu_task(fun, args, threads, blocks)
     # unfortunately, we have to convert to a tuple for @cuda
