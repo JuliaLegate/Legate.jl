@@ -67,8 +67,8 @@ mutable struct UfiManager
             Threads.Atomic{Bool}(false),
         )
 
-        # Real thread, not @async: poller must keep popping slots while the main
-        # thread blocks in a synchronous Legate call, else it deadlocks.
+        # Poller + workers on the default pool. Launched with `-t N,1` the caller runs
+        # on the interactive thread, so these keep running while it blocks in Legate.
         mgr.poller_task = errormonitor(Threads.@spawn _ufi_poller_loop(mgr))
 
         for _ in 1:num_workers
@@ -308,8 +308,8 @@ function init_ufi()
         precompile(_ufi_poller_loop, (UfiManager,))
         precompile(_ufi_worker_loop, (UfiManager,))
 
-        # Ensure at least one worker loop is running, even in single-threaded mode.
-        num_workers = max(1, Threads.nthreads() - 1)
+        # Workers run on the default pool; reserve one default thread for the caller.
+        num_workers = max(1, Threads.nthreads(:default) - 1)
         UFI_MANAGER[] = UfiManager(num_workers)
 
         yield()
