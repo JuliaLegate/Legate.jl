@@ -19,6 +19,7 @@
 
 #include <complex>
 #include <cstdint>
+#include <mutex>
 #include <type_traits>
 #include <vector>
 
@@ -27,6 +28,49 @@
 #include "task.h"
 #include "types.h"
 #include "wrapper.inl"
+
+// Deferred free: LogicalStore/LogicalArray destructors touch the Legate runtime
+// (e.g. unmap_region), which is only valid on the launch thread, but Julia GC
+// finalizers may run on any thread. Finalizers only enqueue here (no Legate
+// call); the launch thread drains via legate_drain_frees to delete them safely.
+namespace {
+std::mutex g_deferred_free_mutex;
+std::vector<LogicalStore*> g_deferred_stores;
+std::vector<LogicalArray*> g_deferred_arrays;
+
+void enqueue_deferred_store(LogicalStore* p) {
+  if (p == nullptr) return;
+  std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
+  g_deferred_stores.push_back(p);
+}
+void enqueue_deferred_array(LogicalArray* p) {
+  if (p == nullptr) return;
+  std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
+  g_deferred_arrays.push_back(p);
+}
+void drain_deferred_frees() {
+  std::vector<LogicalStore*> stores;
+  std::vector<LogicalArray*> arrays;
+  {
+    std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
+    stores.swap(g_deferred_stores);
+    arrays.swap(g_deferred_arrays);
+  }
+  for (auto* p : stores) delete p;
+  for (auto* p : arrays) delete p;
+}
+}  // namespace
+
+namespace jlcxx {
+template <>
+struct Finalizer<LogicalStore, SpecializedFinalizer> {
+  static void finalize(LogicalStore* p) { enqueue_deferred_store(p); }
+};
+template <>
+struct Finalizer<LogicalArray, SpecializedFinalizer> {
+  static void finalize(LogicalArray* p) { enqueue_deferred_array(p); }
+};
+}  // namespace jlcxx
 
 struct WrapDefault {
   template <typename TypeWrapperT>
@@ -236,6 +280,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
 
   mod.method("start_legate", &legate_wrapper::runtime::start_legate);
   mod.method("legate_finish", &legate_wrapper::runtime::legate_finish);
+  // Drain GC-enqueued LogicalStore/LogicalArray frees; call on the launch
+  // thread.
+  mod.method("legate_drain_frees", []() { drain_deferred_frees(); });
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);
   mod.method("has_started", &legate_wrapper::runtime::has_started);
   mod.method("has_finished", &legate_wrapper::runtime::has_finished);

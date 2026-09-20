@@ -128,8 +128,18 @@ const _start_lock = ReentrantLock()
 const _shutdown_lock = ReentrantLock()
 const _runtime_ref = Ref{Bool}(RUNTIME_INACTIVE)
 const _shutdown_done = Ref{Bool}(false)
+const _LAUNCH_TID = Ref{Int}(0)
 
 runtime_started() = _runtime_ref[] == RUNTIME_ACTIVE
+
+# GC finalizers enqueue Legate handle frees in C++ (any thread); delete them here
+# on the launch thread, where Legate runtime calls are valid. No-op elsewhere.
+function drain_pending_frees!()
+    _LAUNCH_TID[] == 0 && return nothing
+    Threads.threadid() == _LAUNCH_TID[] || return nothing
+    LegateInternal.legate_drain_frees()
+    return nothing
+end
 
 function _finish_runtime()
     lock(_shutdown_lock) do
@@ -145,6 +155,11 @@ function _finish_runtime()
                 sleep(0.001)
             end
         end
+
+        # Flush finalizers then free their handles on the launch thread while the
+        # runtime is still up.
+        GC.gc()
+        drain_pending_frees!()
 
         try
             legate_finish()
@@ -170,6 +185,7 @@ function _start_runtime()
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
     start_legate()
+    _LAUNCH_TID[] = Threads.threadid()
     LegatePreferences.maybe_warn_prerelease()
     init_ufi()
 

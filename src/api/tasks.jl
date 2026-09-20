@@ -119,6 +119,7 @@ function _submit_task(t::CxxPtr{Runtime}, task::ManualTask)
 end
 
 function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
+    drain_pending_frees!()
     if !isnothing(task.fun)
         in_t = Tuple{task.input_types...}
         out_t = Tuple{task.output_types...}

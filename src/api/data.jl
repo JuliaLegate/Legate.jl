@@ -58,6 +58,7 @@ Create an array with a specified shape.
 function create_array(shape::Vector{B}, ty::Type{T};
     nullable::Bool=false,
     optimize_scalar::Bool=false) where {T<:SUPPORTED_TYPES,B<:Integer}
+    drain_pending_frees!()
     lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type
     impl = LegateInternal.create_array(lshape, to_legate_type(ty), nullable, optimize_scalar) # cxxwrap call
     return LogicalArray{T,length(shape)}(impl, Tuple(shape))
