@@ -84,9 +84,7 @@ function create_library(name::String)
     lib = LegateInternal._create_library(rt, name) # cxxwrap call
     # registers JuliaCustomTask::cpu_variant to legate runtime
     LegateInternal._ufi_interface_register(lib) # cxxwrap call
-    request_ptr = _get_request_ptr()
-    # initialize async system to handle Julia task requests
-    LegateInternal._initialize_async_system(request_ptr) # cxxwrap call
+    # The async UFI system is initialized once at runtime start (init_ufi).
     @debug "Registered library with C++ runtime"
     return lib
 end
