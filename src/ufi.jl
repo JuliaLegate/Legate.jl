@@ -67,7 +67,9 @@ mutable struct UfiManager
             Threads.Atomic{Bool}(false),
         )
 
-        mgr.poller_task = errormonitor(@async _ufi_poller_loop(mgr))
+        # Real thread, not @async: poller must keep popping slots while the main
+        # thread blocks in a synchronous Legate call, else it deadlocks.
+        mgr.poller_task = errormonitor(Threads.@spawn _ufi_poller_loop(mgr))
 
         for _ in 1:num_workers
             push!(mgr.worker_tasks, errormonitor(Threads.@spawn _ufi_worker_loop(mgr)))
