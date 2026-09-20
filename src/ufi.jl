@@ -38,8 +38,38 @@ struct TaskRequest
     inputs_ptr::Ptr{PhysArrPtr}
     outputs_ptr::Ptr{PhysArrPtr}
     scalars_ptr::Ptr{Ptr{Cvoid}}
+    input_strides_ptr::Ptr{Int64}
+    output_strides_ptr::Ptr{Int64}
     ndim::Int32
     dims::NTuple{REALM_MAX_DIM,Int64}
+end
+
+@inline function _stride_offset(strides::NTuple{N,Int}, I::CartesianIndex{N}) where {N}
+    off = 0
+    @inbounds for d in 1:N
+        off += (I[d] - 1) * strides[d]
+    end
+    return off
+end
+
+# Partitioned Legate tiles are strided sub-regions, so task chunks are not dense.
+# Copy a strided tile into a fresh dense Array so the user task gets a plain Array.
+function _strided_to_dense(::Type{T}, ptr::Ptr{T}, dims::NTuple{N,Int},
+    strides::NTuple{N,Int}) where {T,N}
+    out = Array{T,N}(undef, dims)
+    @inbounds for I in CartesianIndices(dims)
+        out[I] = unsafe_load(ptr, _stride_offset(strides, I) + 1)
+    end
+    return out
+end
+
+# Copy a dense Array back into a strided destination tile.
+function _dense_to_strided(ptr::Ptr{T}, src::Array{T,N},
+    strides::NTuple{N,Int}) where {T,N}
+    @inbounds for I in CartesianIndices(size(src))
+        unsafe_store!(ptr, src[I], _stride_offset(strides, I) + 1)
+    end
+    return nothing
 end
 
 struct TaskJob
@@ -47,6 +77,8 @@ struct TaskJob
     in_args::Vector{PhysArrPtr}
     out_args::Vector{PhysArrPtr}
     scal_args::Vector{Ptr{Cvoid}}
+    in_strides::Vector{Int64}   # flat [arg][REALM_MAX_DIM] element strides
+    out_strides::Vector{Int64}
     local_dims::Tuple
     meta::UfiMetadata
 end
@@ -90,34 +122,60 @@ end
     in_p_ptr::Ptr{PhysArrPtr},
     out_p_ptr::Ptr{PhysArrPtr},
     scal_p_ptr::Ptr{Ptr{Cvoid}},
+    in_str_ptr::Ptr{Int64},
+    out_str_ptr::Ptr{Int64},
     local_dims::Tuple,
     dims::Tuple,
     ::UfiSignature{InT,OutT,ScT},
 ) where {InT,OutT,ScT}
-    exprs = []
-    dim_cursor = 1
+    nd = length(local_dims.parameters)
+    pre = []       # allocate dense buffers, copy inputs in
+    callargs = []  # args passed to the user task
+    post = []      # copy dense outputs back to their strided tiles
 
-    # Inputs
+    # Strides unrolled at generation time (no closure in generated code).
+    instr(base) = Expr(:tuple, [:(Int(unsafe_load(in_str_ptr, $(base + d)))) for d in 1:nd]...)
+    outstr(base) = Expr(:tuple, [:(Int(unsafe_load(out_str_ptr, $(base + d)))) for d in 1:nd]...)
+
+    # Inputs: copy each strided tile into a dense Array.
     for (i, T) in enumerate(InT.parameters)
         E = eltype(T)
-        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(in_p_ptr, $i)), local_dims)))
-        dim_cursor += 1
+        base = (i - 1) * REALM_MAX_DIM
+        sym = gensym(:in)
+        push!(
+            pre,
+            :(
+                $sym = _strided_to_dense(
+                    $E, Ptr{$E}(unsafe_load(in_p_ptr, $i)), local_dims, $(instr(base)))
+            ),
+        )
+        push!(callargs, sym)
     end
 
-    # Outputs
+    # Outputs: fresh dense Array in, copy back to the strided tile after.
     for (i, T) in enumerate(OutT.parameters)
         E = eltype(T)
-        push!(exprs, :(unsafe_wrap(Array, Ptr{$E}(unsafe_load(out_p_ptr, $i)), local_dims)))
-        dim_cursor += 1
+        base = (i - 1) * REALM_MAX_DIM
+        sym = gensym(:out)
+        psym = gensym(:outp)
+        ssym = gensym(:outs)
+        push!(pre, :($sym = Array{$E,$nd}(undef, local_dims)))
+        push!(pre, :($psym = Ptr{$E}(unsafe_load(out_p_ptr, $i))))
+        push!(pre, :($ssym = $(outstr(base))))
+        push!(callargs, sym)
+        push!(post, :(_dense_to_strided($psym, $sym, $ssym)))
     end
 
     # Scalars
     for (i, T) in enumerate(ScT.parameters)
-        push!(exprs, :(unsafe_load(Ptr{$T}(unsafe_load(scal_p_ptr, $i)))))
+        push!(callargs, :(unsafe_load(Ptr{$T}(unsafe_load(scal_p_ptr, $i)))))
     end
 
     return quote
-        f($(exprs...))
+        $(pre...)
+        f($(callargs...))
+        $(post...)
+        nothing
     end
 end
 
@@ -126,15 +184,19 @@ function _extract_and_call(
     in_args::Vector{PhysArrPtr},
     out_args::Vector{PhysArrPtr},
     scal_args::Vector{Ptr{Cvoid}},
+    in_strides::Vector{Int64},
+    out_strides::Vector{Int64},
     local_dims::Tuple,
     sig::S,
 ) where {F,S,D}
-    GC.@preserve in_args out_args scal_args begin
+    GC.@preserve in_args out_args scal_args in_strides out_strides begin
         _do_call(
             meta.fun,
             pointer(in_args),
             pointer(out_args),
             pointer(scal_args),
+            pointer(in_strides),
+            pointer(out_strides),
             local_dims,
             meta.dims,
             sig,
@@ -216,10 +278,21 @@ function ufi_poll(mgr::UfiManager)
         scal_args[i] = unsafe_load(scal_p_ptr, i)
     end
 
+    # Copy per-arg element strides into stable Julia buffers (flat [arg][REALM_MAX_DIM]).
+    in_strides = Vector{Int64}(undef, in_len * REALM_MAX_DIM)
+    in_len > 0 && unsafe_copyto!(pointer(in_strides), req.input_strides_ptr, in_len * REALM_MAX_DIM)
+    out_strides = Vector{Int64}(undef, out_len * REALM_MAX_DIM)
+    out_len > 0 &&
+        unsafe_copyto!(pointer(out_strides), req.output_strides_ptr, out_len * REALM_MAX_DIM)
+
     Threads.atomic_add!(PENDING_JOBS, 1)
-    # UFI_VERBOSE && println(stderr, "[UFI] queuing task_id=$(task_id) sig=$(sig_type) local_dims=$(local_dims) global_dims=$(meta.dims)")
     try
-        put!(mgr.job_queue, TaskJob(slot_id, in_args, out_args, scal_args, local_dims, meta))
+        put!(
+            mgr.job_queue,
+            TaskJob(
+                slot_id, in_args, out_args, scal_args, in_strides, out_strides, local_dims, meta
+            ),
+        )
     catch e
         Threads.atomic_sub!(PENDING_JOBS, 1) # Decrement if put! fails
         if e isa InvalidStateException && e.state == :closed
@@ -262,6 +335,8 @@ function _ufi_worker_loop(mgr::UfiManager)
                 job.in_args,
                 job.out_args,
                 job.scal_args,
+                job.in_strides,
+                job.out_strides,
                 job.local_dims,
                 job.meta.sig,
             )

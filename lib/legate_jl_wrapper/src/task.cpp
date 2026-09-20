@@ -42,11 +42,24 @@ enum class AccessMode {
   template <                                                                  \
       typename T, int D,                                                      \
       typename std::enable_if<(D >= 1 && D <= REALM_MAX_DIM), int>::type = 0> \
-  void ufi_##MODE(std::uintptr_t& p, const legate::PhysicalArray& rf) {       \
+  void ufi_##MODE(std::uintptr_t& p, int64_t* strides,                        \
+                  const legate::PhysicalArray& rf) {                          \
     auto shp = rf.shape<D>();                                                 \
     auto acc = rf.data().ACCESSOR_CALL<T, D>();                               \
-    p = reinterpret_cast<std::uintptr_t>(                                     \
-        static_cast<const void*>(acc.ptr(Realm::Point<D>(shp.lo))));          \
+    auto lo = Realm::Point<D>(shp.lo);                                        \
+    auto base = acc.ptr(lo);                                                  \
+    p = reinterpret_cast<std::uintptr_t>(static_cast<const void*>(base));     \
+    /* Partitioned tiles are strided sub-regions; report per-dim element      \
+       strides so Julia can index them correctly (dense wrap is wrong). */    \
+    for (int d = 0; d < D; ++d) {                                             \
+      if (shp.hi[d] > shp.lo[d]) {                                            \
+        auto pd = lo;                                                         \
+        pd[d] += 1;                                                           \
+        strides[d] = static_cast<int64_t>(acc.ptr(pd) - base);                \
+      } else {                                                                \
+        strides[d] = 1;                                                       \
+      }                                                                       \
+    }                                                                         \
   }
 
 UFI(read, read_accessor);
@@ -60,21 +73,21 @@ struct ufiFunctor {
   ufiFunctor(int* ndim, int64_t* dims) : ndim_ptr(ndim), dims_ptr(dims) {}
 
   template <legate::Type::Code CODE, int DIM>
-  void operator()(ufi::AccessMode mode, std::uintptr_t& p,
+  void operator()(ufi::AccessMode mode, std::uintptr_t& p, int64_t* strides,
                   const legate::PhysicalArray& rf) {
     if (ndim_ptr && *ndim_ptr == 0) {
       *ndim_ptr = DIM;
       auto shp = rf.shape<DIM>();
-      for (int i = 0; i < DIM && i < 3; ++i) {
+      for (int i = 0; i < DIM && i < REALM_MAX_DIM; ++i) {
         dims_ptr[i] = shp.hi[i] - shp.lo[i] + 1;
       }
     }
 
     using CppT = typename legate_util::code_to_cxx<CODE>::type;
     if (mode == ufi::AccessMode::READ)
-      ufi::ufi_read<CppT, DIM>(p, rf);
+      ufi::ufi_read<CppT, DIM>(p, strides, rf);
     else
-      ufi::ufi_write<CppT, DIM>(p, rf);
+      ufi::ufi_write<CppT, DIM>(p, strides, rf);
   }
 };
 
@@ -94,12 +107,14 @@ struct TaskRequestData {
   void** inputs_ptr;            // Offset 8
   void** outputs_ptr;           // Offset 16
   void** scalars_ptr;           // Offset 24
-  int ndim;                     // Offset 32
-  int64_t dims[REALM_MAX_DIM];  // Offset 40 (Padding ensures 8-byte alignment)
+  int64_t* input_strides_ptr;   // Offset 32 (per-arg element strides, flat)
+  int64_t* output_strides_ptr;  // Offset 40
+  int ndim;                     // Offset 48
+  int64_t dims[REALM_MAX_DIM];  // Offset 56 (padding ensures 8-byte alignment)
 };
 
-static_assert(sizeof(TaskRequestData) == 40 + REALM_MAX_DIM * sizeof(int64_t),
-              "TaskRequestData size must be 64 bytes");
+static_assert(sizeof(TaskRequestData) == 56 + REALM_MAX_DIM * sizeof(int64_t),
+              "TaskRequestData layout must match Julia's TaskRequest");
 
 struct UFISlot {
   TaskRequestData request;
@@ -113,6 +128,8 @@ struct UFISlot {
   void* outputs[MAX_UFI_ARGS];
   void* scalar_ptrs[MAX_UFI_ARGS];
   char scalar_data[MAX_UFI_ARGS][MAX_SCALAR_SIZE];
+  int64_t input_strides[MAX_UFI_ARGS][REALM_MAX_DIM];
+  int64_t output_strides[MAX_UFI_ARGS][REALM_MAX_DIM];
 
   UFISlot() {
     task_done.store(false);
@@ -120,6 +137,8 @@ struct UFISlot {
     request.inputs_ptr = inputs;
     request.outputs_ptr = outputs;
     request.scalars_ptr = scalar_ptrs;
+    request.input_strides_ptr = &input_strides[0][0];
+    request.output_strides_ptr = &output_strides[0][0];
   }
 
   void reset() {
@@ -260,7 +279,8 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     auto ps = context.input(i);
     std::uintptr_t p = 0;
     legate::double_dispatch(ps.dim(), ps.type().code(), functor,
-                            ufi::AccessMode::READ, p, ps);
+                            ufi::AccessMode::READ, p, slot.input_strides[i],
+                            ps);
     slot.inputs[i] = reinterpret_cast<void*>(p);
   }
 
@@ -268,7 +288,8 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
     auto ps = context.output(i);
     std::uintptr_t p = 0;
     legate::double_dispatch(ps.dim(), ps.type().code(), functor,
-                            ufi::AccessMode::WRITE, p, ps);
+                            ufi::AccessMode::WRITE, p, slot.output_strides[i],
+                            ps);
     slot.outputs[i] = reinterpret_cast<void*>(p);
   }
 
