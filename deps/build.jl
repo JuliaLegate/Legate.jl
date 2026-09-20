@@ -28,7 +28,7 @@ function build_cpp_wrapper(
 )
     @info "liblegatewrapper: Building C++ Wrapper Library"
     isdir(install_root) && (rm(install_root; recursive=true); mkdir(install_root))
-    bld_command = `$(joinpath(repo_root, "scripts/build_cpp_wrapper.sh")) $repo_root $legate_root $install_root $(Threads.nthreads())`
+    bld_command = `$(joinpath(repo_root, "scripts/build_cpp_wrapper.sh")) $repo_root $legate_root $install_root $(Sys.CPU_THREADS)`
     return BuildTools.run_build_wrapper_script(
         repo_root, bld_command; cuda_root, cuda_enabled, log_dir=@__DIR__
     )
