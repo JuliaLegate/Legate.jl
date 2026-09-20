@@ -19,6 +19,7 @@
 
 #include <complex>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <type_traits>
 #include <vector>
@@ -29,46 +30,34 @@
 #include "types.h"
 #include "wrapper.inl"
 
-// Deferred free: LogicalStore/LogicalArray destructors touch the Legate runtime
-// (e.g. unmap_region), which is only valid on the launch thread, but Julia GC
-// finalizers may run on any thread. Finalizers only enqueue here (no Legate
-// call); the launch thread drains via legate_drain_frees to delete them safely.
+// Deferred free: destroying wrapped Legate handles off-thread (Julia's
+// multi-threaded GC finalizers, e.g. 1.12's interactive thread) corrupts the
+// runtime — some destructors call it (unmap_region) and it is only valid on the
+// launch thread. Every wrapped object's finalizer instead enqueues its deleter
+// here; the launch thread runs them via legate_drain_frees.
 namespace {
 std::mutex g_deferred_free_mutex;
-std::vector<LogicalStore*> g_deferred_stores;
-std::vector<LogicalArray*> g_deferred_arrays;
+std::vector<std::function<void()>> g_deferred_deleters;
 
-void enqueue_deferred_store(LogicalStore* p) {
-  if (p == nullptr) return;
-  std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
-  g_deferred_stores.push_back(p);
-}
-void enqueue_deferred_array(LogicalArray* p) {
-  if (p == nullptr) return;
-  std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
-  g_deferred_arrays.push_back(p);
-}
 void drain_deferred_frees() {
-  std::vector<LogicalStore*> stores;
-  std::vector<LogicalArray*> arrays;
+  std::vector<std::function<void()>> local;
   {
     std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
-    stores.swap(g_deferred_stores);
-    arrays.swap(g_deferred_arrays);
+    local.swap(g_deferred_deleters);
   }
-  for (auto* p : stores) delete p;
-  for (auto* p : arrays) delete p;
+  for (auto& del : local) del();
 }
 }  // namespace
 
 namespace jlcxx {
-template <>
-struct Finalizer<LogicalStore, SpecializedFinalizer> {
-  static void finalize(LogicalStore* p) { enqueue_deferred_store(p); }
-};
-template <>
-struct Finalizer<LogicalArray, SpecializedFinalizer> {
-  static void finalize(LogicalArray* p) { enqueue_deferred_array(p); }
+// Defer destruction of ALL wrapped types to the launch thread (see above).
+template <typename T>
+struct Finalizer<T, SpecializedFinalizer> {
+  static void finalize(T* p) {
+    if (p == nullptr) return;
+    std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
+    g_deferred_deleters.emplace_back([p] { delete p; });
+  }
 };
 }  // namespace jlcxx
 
