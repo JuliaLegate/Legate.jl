@@ -418,13 +418,12 @@ function shutdown_ufi(mgr::UfiManager=UFI_MANAGER[])
         close(mgr.job_queue)
     end
 
-    # Join poller+workers (bounded) so none is inside a ccall when legate_finish tears
-    # down the runtime — that race is the 1.12/1.13 shutdown segfault.
-    deadline = time() + 5.0
+    # Join all tasks before tearing down the runtime; closing the queue makes this finite.
     for t in (mgr.poller_task, mgr.worker_tasks...)
-        while !istaskdone(t) && time() < deadline
-            yield()
-            sleep(0.001)
+        try
+            wait(t)
+        catch e
+            @error "UFI task errored during shutdown" exception = (e, catch_backtrace())
         end
     end
 

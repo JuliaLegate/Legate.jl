@@ -146,17 +146,18 @@ function _finish_runtime()
         _shutdown_done[] && return nothing
         _shutdown_done[] = true
 
+        # Avoid a Julia 1.12+ atexit race between GC and scheduler threads.
+        GC.enable(false)
+        GC.enable_finalizers(false)
+
         # shutdown_ufi joins poller+workers so none is mid-ccall during teardown.
         if !ufi_has_shutdown_done()
             wait_ufi(false)
             shutdown_ufi()
         end
 
-        # Free handles on the launch thread while the runtime is up, then stop finalizers
-        # so Julia's exit GC does not run a wrapped-handle finalizer during teardown.
-        GC.gc()
+        # Free handles already queued by finalizers while the runtime is still up.
         drain_pending_frees!()
-        GC.enable_finalizers(false)
 
         try
             legate_finish()
