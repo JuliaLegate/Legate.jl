@@ -321,6 +321,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("attach_external_store_fbmem",
              &legate_wrapper::data::attach_external_store_fbmem);
   mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
+  mod.method("set_gpu_tasking_active",
+             &legate_wrapper::data::set_gpu_tasking_active);
   mod.method("make_scalar", &legate_wrapper::data::make_scalar);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);

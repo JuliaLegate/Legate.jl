@@ -17,6 +17,8 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
  */
 
+#include <atomic>
+
 #include "legate.h"
 #include "legate/io/hdf5/interface.h"
 #include "legate/mapping/machine.h"
@@ -406,18 +408,31 @@ struct GetPtrFunctor {
  *
  * @param store Pointer to the PhysicalStore.
  */
+// Set true once a GPU UFI task is submitted (see submit_task). Only then does
+// the blocking accessor below need to be GC-safe, so CPU-only programs keep the
+// original (GC-unsafe) path untouched.
+inline std::atomic<bool>& gpu_tasking_active() {
+  static std::atomic<bool> flag{false};
+  return flag;
+}
+inline void set_gpu_tasking_active(bool v) { gpu_tasking_active().store(v); }
+
 inline void* get_ptr(legate::PhysicalStore* store) {
   int dim = store->dim();
   legate::Type::Code code = store->type().code();
-  // wait_until_valid blocks until the store is ready; run it GC-safe so the
-  // Julia GC can stop-the-world while this thread is parked in Legate. Without
-  // this, a UFI task compiling/allocating on a worker deadlocks against a
-  // GC-unsafe main thread stuck here (jl_gc_wait_for_the_world).
-  jl_task_t* ct = jl_current_task;
-  int8_t gc_state = jl_gc_safe_enter(ct->ptls);
-  void* p = legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
-  jl_gc_safe_leave(ct->ptls, gc_state);
-  return p;
+  // wait_until_valid blocks until the store is ready. With a GPU UFI task in
+  // flight this must run GC-safe so the Julia GC can stop-the-world while this
+  // thread is parked in Legate; otherwise a UFI worker compiling/allocating
+  // deadlocks against a GC-unsafe main thread stuck here
+  // (jl_gc_wait_for_the_world).
+  if (gpu_tasking_active().load(std::memory_order_relaxed)) {
+    jl_task_t* ct = jl_current_task;
+    int8_t gc_state = jl_gc_safe_enter(ct->ptls);
+    void* p = legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
+    jl_gc_safe_leave(ct->ptls, gc_state);
+    return p;
+  }
+  return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
 }
 
 inline std::shared_ptr<LogicalStorePartition> partition_by_tiling(
