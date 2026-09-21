@@ -141,12 +141,21 @@ function drain_pending_frees!()
     return nothing
 end
 
+function _shutdown_trace(msg)
+    println(stderr, "[legate-shutdown] ", msg)
+    flush(stderr)
+    Base.Libc.flush_cstdio()
+    return nothing
+end
+
 function _finish_runtime()
+    _shutdown_trace("enter")
     lock(_shutdown_lock) do
         _shutdown_done[] && return nothing
         _shutdown_done[] = true
 
         if !ufi_has_shutdown_done()
+            _shutdown_trace("ufi: wait+shutdown")
             wait_ufi(false) # Drain active worker calls
             shutdown_ufi()  # Signal poller to stop
             # Wait for poller to actually exit to avoid race with legate_finish
@@ -154,21 +163,28 @@ function _finish_runtime()
                 yield()
                 sleep(0.001)
             end
+            _shutdown_trace("ufi: stopped")
         end
 
         # Flush finalizers then free their handles on the launch thread while the
         # runtime is still up. Then stop finalizers so Julia's exit GC (multi-threaded
         # on 1.12+) does not run any wrapped-handle finalizer during/after teardown.
+        _shutdown_trace("gc")
         GC.gc()
+        _shutdown_trace("drain")
         drain_pending_frees!()
+        _shutdown_trace("disable finalizers")
         GC.enable_finalizers(false)
 
+        _shutdown_trace("legate_finish")
         try
             legate_finish()
         catch e
             @error "legate_finish() failed" exception=(e, catch_backtrace())
         end
+        return _shutdown_trace("legate_finish returned")
     end
+    return _shutdown_trace("complete")
 end
 
 function _configure_realm_backtrace!()
