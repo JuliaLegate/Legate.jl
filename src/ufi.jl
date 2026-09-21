@@ -418,9 +418,20 @@ function shutdown_ufi(mgr::UfiManager=UFI_MANAGER[])
         close(mgr.job_queue)
     end
 
+    # Join poller+workers (bounded) so none is inside a ccall when legate_finish tears
+    # down the runtime — that race is the 1.12/1.13 shutdown segfault.
+    deadline = time() + 5.0
+    for t in (mgr.poller_task, mgr.worker_tasks...)
+        while !istaskdone(t) && time() < deadline
+            yield()
+            sleep(0.001)
+        end
+    end
+
     if mgr === UFI_MANAGER[]
         UFI_MANAGER[] = nothing
     end
+    return nothing
 end
 
 function ufi_has_shutdown_done()
