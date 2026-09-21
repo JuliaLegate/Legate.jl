@@ -107,33 +107,26 @@ function create_julia_task_impl(rt, lib, task_obj, backend_flag::Int32)
     return task
 end
 
-# Julia 1.12+ can collect on another thread while submission blocks in Legate.
-@static if VERSION >= v"1.12"
-    function _submit_auto_task(t::CxxPtr{Runtime}, impl)
-        task_ptr = LegateInternal.get_obj_ptr(impl)
-        error_ptr = GC.@preserve t impl begin
-            @ccall gc_safe = true WRAPPER_LIB_PATH.legate_submit_auto_task_gc_safe(
-                t.cpp_object::Ptr{Cvoid}, task_ptr::Ptr{Cvoid}
-            )::Cstring
-        end
-        error_ptr == C_NULL || error("Task submission failed: $(unsafe_string(error_ptr))")
-        return nothing
+function _submit_auto_task(t::CxxPtr{Runtime}, impl)
+    task_ptr = LegateInternal.get_obj_ptr(impl)
+    error_ptr = GC.@preserve t impl begin
+        @ccall WRAPPER_LIB_PATH.legate_submit_auto_task_gc_safe(
+            t.cpp_object::Ptr{Cvoid}, task_ptr::Ptr{Cvoid}
+        )::Cstring
     end
+    error_ptr == C_NULL || error("Task submission failed: $(unsafe_string(error_ptr))")
+    return nothing
+end
 
-    function _submit_manual_task(t::CxxPtr{Runtime}, impl)
-        task_ptr = LegateInternal.get_obj_ptr(impl)
-        error_ptr = GC.@preserve t impl begin
-            @ccall gc_safe = true WRAPPER_LIB_PATH.legate_submit_manual_task_gc_safe(
-                t.cpp_object::Ptr{Cvoid}, task_ptr::Ptr{Cvoid}
-            )::Cstring
-        end
-        error_ptr == C_NULL || error("Task submission failed: $(unsafe_string(error_ptr))")
-        return nothing
+function _submit_manual_task(t::CxxPtr{Runtime}, impl)
+    task_ptr = LegateInternal.get_obj_ptr(impl)
+    error_ptr = GC.@preserve t impl begin
+        @ccall WRAPPER_LIB_PATH.legate_submit_manual_task_gc_safe(
+            t.cpp_object::Ptr{Cvoid}, task_ptr::Ptr{Cvoid}
+        )::Cstring
     end
-else
-    _submit_auto_task(t::CxxPtr{Runtime}, impl) = LegateInternal.submit_auto_task(t, impl)
-    _submit_manual_task(t::CxxPtr{Runtime}, impl) =
-        LegateInternal.submit_manual_task(t, impl)
+    error_ptr == C_NULL || error("Task submission failed: $(unsafe_string(error_ptr))")
+    return nothing
 end
 
 function _submit_task(t::CxxPtr{Runtime}, task::LegateTask{<:CxxPtr{<:LegateInternal.AutoTask}})

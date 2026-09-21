@@ -28,6 +28,7 @@
 
 #include "jlcxx/jlcxx.hpp"
 #include "jlcxx/stl.hpp"
+#include "julia.h"
 #include "task.h"
 #include "types.h"
 #include "wrapper.inl"
@@ -374,13 +375,32 @@ extern "C" void legate_issue_execution_fence_blocking() {
 }
 
 namespace {
+// Julia < 1.12 cannot mark a ccall GC-safe, so transition inside the wrapper.
+class JuliaGcSafeRegion {
+ public:
+  JuliaGcSafeRegion()
+      : ptls_(reinterpret_cast<jl_ptls_t>(jl_get_ptls_states())),
+        state_(jl_gc_safe_enter(ptls_)) {}
+  ~JuliaGcSafeRegion() { jl_gc_safe_leave(ptls_, state_); }
+
+  JuliaGcSafeRegion(const JuliaGcSafeRegion&) = delete;
+  JuliaGcSafeRegion& operator=(const JuliaGcSafeRegion&) = delete;
+
+ private:
+  jl_ptls_t ptls_;
+  int8_t state_;
+};
+
 template <typename Task>
 const char* submit_task_gc_safe(void* runtime_ptr, void* task_ptr) noexcept {
   static thread_local std::string error;
   auto* runtime = reinterpret_cast<legate::Runtime*>(runtime_ptr);
   auto* task = reinterpret_cast<Task*>(task_ptr);
   try {
-    runtime->submit(std::move(*task));
+    {
+      JuliaGcSafeRegion gc_safe;
+      runtime->submit(std::move(*task));
+    }
     error.clear();
     return nullptr;
   } catch (const std::exception& exception) {
