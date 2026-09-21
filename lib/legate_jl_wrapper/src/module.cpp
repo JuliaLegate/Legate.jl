@@ -19,8 +19,10 @@
 
 #include <complex>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <mutex>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -369,4 +371,33 @@ extern "C" void legate_issue_copy(void* dest_ptr, void* src_ptr) {
 
 extern "C" void legate_issue_execution_fence_blocking() {
   legate::Runtime::get_runtime()->issue_execution_fence(/*block=*/true);
+}
+
+namespace {
+template <typename Task>
+const char* submit_task_gc_safe(void* runtime_ptr, void* task_ptr) noexcept {
+  static thread_local std::string error;
+  auto* runtime = reinterpret_cast<legate::Runtime*>(runtime_ptr);
+  auto* task = reinterpret_cast<Task*>(task_ptr);
+  try {
+    runtime->submit(std::move(*task));
+    error.clear();
+    return nullptr;
+  } catch (const std::exception& exception) {
+    error = exception.what();
+    return error.c_str();
+  } catch (...) {
+    return "unknown C++ exception";
+  }
+}
+}  // namespace
+
+extern "C" const char* legate_submit_auto_task_gc_safe(void* runtime_ptr,
+                                                       void* task_ptr) {
+  return submit_task_gc_safe<legate::AutoTask>(runtime_ptr, task_ptr);
+}
+
+extern "C" const char* legate_submit_manual_task_gc_safe(void* runtime_ptr,
+                                                         void* task_ptr) {
+  return submit_task_gc_safe<legate::ManualTask>(runtime_ptr, task_ptr);
 }
