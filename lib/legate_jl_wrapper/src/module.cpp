@@ -35,15 +35,28 @@
 // runtime — some destructors call it (unmap_region) and it is only valid on the
 // launch thread. Every wrapped object's finalizer instead enqueues its deleter
 // here; the launch thread runs them via legate_drain_frees.
+// Leaked, never-destructed singletons. A wrapped object can be finalized during
+// Julia's exit GC (multi-threaded on 1.12+), which may run after these
+// translation units' static destructors would have run. Destroying the
+// mutex/vector at process exit and then having a late finalizer enqueue into
+// them is a use-after-free (static-destruction-order crash, seen as a
+// stochastic shutdown SIGSEGV on 1.12/ 1.13). Leaking them keeps enqueue valid
+// at any point during teardown.
 namespace {
-std::mutex g_deferred_free_mutex;
-std::vector<std::function<void()>> g_deferred_deleters;
+std::mutex& deferred_free_mutex() {
+  static std::mutex* m = new std::mutex();
+  return *m;
+}
+std::vector<std::function<void()>>& deferred_deleters() {
+  static auto* v = new std::vector<std::function<void()>>();
+  return *v;
+}
 
 void drain_deferred_frees() {
   std::vector<std::function<void()>> local;
   {
-    std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
-    local.swap(g_deferred_deleters);
+    std::lock_guard<std::mutex> lk(deferred_free_mutex());
+    local.swap(deferred_deleters());
   }
   for (auto& del : local) del();
 }
@@ -55,8 +68,8 @@ template <typename T>
 struct Finalizer<T, SpecializedFinalizer> {
   static void finalize(T* p) {
     if (p == nullptr) return;
-    std::lock_guard<std::mutex> lk(g_deferred_free_mutex);
-    g_deferred_deleters.emplace_back([p] { delete p; });
+    std::lock_guard<std::mutex> lk(deferred_free_mutex());
+    deferred_deleters().emplace_back([p] { delete p; });
   }
 };
 }  // namespace jlcxx

@@ -157,9 +157,11 @@ function _finish_runtime()
         end
 
         # Flush finalizers then free their handles on the launch thread while the
-        # runtime is still up.
+        # runtime is still up. Then stop finalizers so Julia's exit GC (multi-threaded
+        # on 1.12+) does not run any wrapped-handle finalizer during/after teardown.
         GC.gc()
         drain_pending_frees!()
+        GC.enable_finalizers(false)
 
         try
             legate_finish()
