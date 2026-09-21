@@ -1,6 +1,7 @@
 # Experimental feature guard. Mirrors cuNumeric.jl.
 
 function Experimental(setting::Bool)
+    setting && _check_ufi_thread_configuration()
     return task_local_storage(:Experimental, setting)
 end
 

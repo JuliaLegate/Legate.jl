@@ -16,6 +16,19 @@ using Pkg
     end
 end
 
+@testset "UFI thread configuration" begin
+    @test Legate._check_ufi_thread_configuration(2, :default) === nothing
+    @test Legate._check_ufi_thread_configuration(1, :interactive) === nothing
+    error = try
+        Legate._check_ufi_thread_configuration(1, :default)
+    catch exception
+        exception
+    end
+    @test error isa ErrorException
+    @test occursin("--threads=2", error.msg)
+    @test occursin("--threads=1,1", error.msg)
+end
+
 @testset "CUDA artifact selection" begin
     if isdefined(Legate, :legate_jll)
         jll = Legate.legate_jll

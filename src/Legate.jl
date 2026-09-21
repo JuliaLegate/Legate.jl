@@ -174,6 +174,19 @@ function _configure_realm_backtrace!()
     return get!(ENV, "REALM_BACKTRACE", "0")
 end
 
+function _check_ufi_thread_configuration(
+    default_threads::Int=Threads.nthreads(:default),
+    launch_pool::Symbol=Threads.threadpool(),
+)
+    if default_threads == 1 && launch_pool === :default
+        error(
+            "Experimental UFI tasking requires the default `--threads=1,1` " *
+            "configuration or at least `--threads=2`.",
+        )
+    end
+    return nothing
+end
+
 function _start_runtime()
     _configure_realm_backtrace!()
 
