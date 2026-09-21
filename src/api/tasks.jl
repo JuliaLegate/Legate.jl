@@ -166,7 +166,7 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
         sc_t = Tuple{task.scalar_types...}
 
         sig = UfiSignature{in_t,out_t,sc_t}()
-        meta = UfiMetadata(task.fun, sig, Tuple(task.arg_dims))
+        meta = UfiMetadata(task.fun, sig)
 
         lock(REGISTRY_LOCK) do
             return GLOBAL_TASK_REGISTRY[task.task_id] = meta
@@ -176,10 +176,12 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
         # Use the rank of the first input/output argument for local_dims_type
         nd = isempty(task.arg_dims) ? 0 : length(task.arg_dims[1])
         local_dims_type = NTuple{nd,Int}
+        backend_type = task.is_gpu ? GPUBackend : CPUBackend
         # 1. Precompile the internal statically-typed dispatcher
         precompile(
             Legate._do_call,
             (
+                backend_type,
                 typeof(task.fun),
                 Ptr{Legate.PhysArrPtr},
                 Ptr{Legate.PhysArrPtr},
@@ -187,22 +189,12 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
                 Ptr{Int64},
                 Ptr{Int64},
                 local_dims_type,
-                typeof(meta.dims),
                 typeof(sig),
             ),
         )
         precompile(
-            Legate._extract_and_call,
-            (
-                typeof(meta),
-                Vector{Legate.PhysArrPtr},
-                Vector{Legate.PhysArrPtr},
-                Vector{Ptr{Cvoid}},
-                Vector{Int64},
-                Vector{Int64},
-                local_dims_type,
-                typeof(sig),
-            ),
+            Legate._execute_task,
+            (Legate.TaskJob{backend_type,typeof(meta),local_dims_type},),
         )
 
         # 2. Precompile the user-provided function with exact types

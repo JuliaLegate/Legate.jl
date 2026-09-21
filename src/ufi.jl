@@ -18,15 +18,11 @@
  =#
 
 const REALM_MAX_DIM = 6
-const UFI_VERBOSE = get(ENV, "VERBOSE", "1") != "0"
 const MAX_UFI_SLOTS_VAL = 32
 const PhysArrPtr = Ptr{Cvoid}
 const SLOT_REQUEST_PTRS = Vector{Ptr{Cvoid}}(undef, MAX_UFI_SLOTS_VAL)
 
 const UFI_INIT_LOCK = ReentrantLock()
-const DISPATCH_LOCK = ReentrantLock()
-const COMPILED_LOCK = ReentrantLock()
-const COMPILED_SPECIALIZATIONS = Set{Type}()
 
 const PENDING_JOBS = Threads.Atomic{Int}(0)
 
@@ -52,8 +48,7 @@ end
     return off
 end
 
-# Partitioned Legate tiles are strided sub-regions, so task chunks are not dense.
-# Copy a strided tile into a fresh dense Array so the user task gets a plain Array.
+# Materialize a strided Legate tile as a dense Julia array.
 function _strided_to_dense(::Type{T}, ptr::Ptr{T}, dims::NTuple{N,Int},
     strides::NTuple{N,Int}) where {T,N}
     out = Array{T,N}(undef, dims)
@@ -63,7 +58,7 @@ function _strided_to_dense(::Type{T}, ptr::Ptr{T}, dims::NTuple{N,Int},
     return out
 end
 
-# Copy a dense Array back into a strided destination tile.
+# Commit a dense result to a strided Legate tile.
 function _dense_to_strided(ptr::Ptr{T}, src::Array{T,N},
     strides::NTuple{N,Int}) where {T,N}
     @inbounds for I in CartesianIndices(size(src))
@@ -72,22 +67,57 @@ function _dense_to_strided(ptr::Ptr{T}, src::Array{T,N},
     return nothing
 end
 
-struct TaskJob
+# Holds copied request metadata; B selects CPU or GPU hooks.
+struct TaskJob{B<:TaskBackend,M<:UfiMetadata,D<:Tuple}
     slot_id::Int
-    is_gpu::Bool
+    backend::B
     in_args::Vector{PhysArrPtr}
     out_args::Vector{PhysArrPtr}
     scal_args::Vector{Ptr{Cvoid}}
     in_strides::Vector{Int64}   # flat [arg][REALM_MAX_DIM] element strides
     out_strides::Vector{Int64}
-    local_dims::Tuple
-    meta::UfiMetadata
+    local_dims::D
+    meta::M
 end
 
-# GPU execution is provided by the CUDAExt extension; stub errors without it.
-function _execute_gpu_task(args...)
+function _unsupported_backend(backend::TaskBackend)
+    return error("$(nameof(typeof(backend))) tasking requires its package extension to be loaded.")
+end
+function _unsupported_backend(::GPUBackend)
     return error("GPU tasking requires CUDA.jl to be loaded (`using CUDA`).")
 end
+
+# CUDAExt adds GPU methods for these shared dispatcher hooks.
+_ufi_prepare_input(backend::TaskBackend, args...) = _unsupported_backend(backend)
+_ufi_prepare_output(backend::TaskBackend, args...) = _unsupported_backend(backend)
+_ufi_commit_output(backend::TaskBackend, args...) = _unsupported_backend(backend)
+_ufi_invoke(backend::TaskBackend, args...) = _unsupported_backend(backend)
+_ufi_synchronize(backend::TaskBackend) = _unsupported_backend(backend)
+
+function _ufi_prepare_input(
+    ::CPUBackend, ::Type{T}, ptr::PhysArrPtr, dims::NTuple{N,Int}, strides::NTuple{N,Int}
+) where {T,N}
+    return _strided_to_dense(T, Ptr{T}(ptr), dims, strides)
+end
+
+function _ufi_prepare_output(
+    ::CPUBackend, ::Type{T}, ptr::PhysArrPtr, dims::NTuple{N,Int}, ::NTuple{N,Int}
+) where {T,N}
+    return Array{T,N}(undef, dims), Ptr{T}(ptr)
+end
+
+function _ufi_commit_output(
+    ::CPUBackend,
+    destination::Ptr{T},
+    output::Array{T,N},
+    ::NTuple{N,Int},
+    strides::NTuple{N,Int},
+) where {T,N}
+    return _dense_to_strided(destination, output, strides)
+end
+
+_ufi_invoke(::CPUBackend, f, ::Tuple, args...) = f(args...)
+_ufi_synchronize(::CPUBackend) = nothing
 
 mutable struct UfiManager
     job_queue::Channel{TaskJob}
@@ -105,8 +135,7 @@ mutable struct UfiManager
             Threads.Atomic{Bool}(false),
         )
 
-        # Poller + workers on the default pool. Launched with `-t N,1` the caller runs
-        # on the interactive thread, so these keep running while it blocks in Legate.
+        # Default-pool tasks keep running while the interactive launch thread blocks.
         mgr.poller_task = errormonitor(Threads.@spawn _ufi_poller_loop(mgr))
 
         for _ in 1:num_workers
@@ -123,7 +152,9 @@ function ufi_initialized()
     return !isnothing(UFI_MANAGER[])
 end
 
+# Signature types unroll argument decoding; backend hooks own storage and invocation.
 @generated function _do_call(
+    backend::B,
     f,
     in_p_ptr::Ptr{PhysArrPtr},
     out_p_ptr::Ptr{PhysArrPtr},
@@ -131,19 +162,17 @@ end
     in_str_ptr::Ptr{Int64},
     out_str_ptr::Ptr{Int64},
     local_dims::Tuple,
-    dims::Tuple,
     ::UfiSignature{InT,OutT,ScT},
-) where {InT,OutT,ScT}
+) where {B<:TaskBackend,InT,OutT,ScT}
     nd = length(local_dims.parameters)
-    pre = []       # allocate dense buffers, copy inputs in
+    pre = []       # prepare input and output buffers
     callargs = []  # args passed to the user task
-    post = []      # copy dense outputs back to their strided tiles
+    post = []      # commit outputs to their destination tiles
 
-    # Strides unrolled at generation time (no closure in generated code).
+    # Unroll per-rank stride loads at generation time.
     instr(base) = Expr(:tuple, [:(Int(unsafe_load(in_str_ptr, $(base + d)))) for d in 1:nd]...)
     outstr(base) = Expr(:tuple, [:(Int(unsafe_load(out_str_ptr, $(base + d)))) for d in 1:nd]...)
 
-    # Inputs: copy each strided tile into a dense Array.
     for (i, T) in enumerate(InT.parameters)
         E = eltype(T)
         base = (i - 1) * REALM_MAX_DIM
@@ -151,63 +180,64 @@ end
         push!(
             pre,
             :(
-                $sym = _strided_to_dense(
-                    $E, Ptr{$E}(unsafe_load(in_p_ptr, $i)), local_dims, $(instr(base)))
+                $sym = _ufi_prepare_input(
+                    backend, $E, unsafe_load(in_p_ptr, $i), local_dims, $(instr(base)))
             ),
         )
         push!(callargs, sym)
     end
 
-    # Outputs: fresh dense Array in, copy back to the strided tile after.
     for (i, T) in enumerate(OutT.parameters)
         E = eltype(T)
         base = (i - 1) * REALM_MAX_DIM
         sym = gensym(:out)
-        psym = gensym(:outp)
+        state = gensym(:state)
         ssym = gensym(:outs)
-        push!(pre, :($sym = Array{$E,$nd}(undef, local_dims)))
-        push!(pre, :($psym = Ptr{$E}(unsafe_load(out_p_ptr, $i))))
         push!(pre, :($ssym = $(outstr(base))))
+        push!(
+            pre,
+            :(
+                ($sym, $state) = _ufi_prepare_output(
+                    backend, $E, unsafe_load(out_p_ptr, $i), local_dims, $ssym)
+            ),
+        )
         push!(callargs, sym)
-        push!(post, :(_dense_to_strided($psym, $sym, $ssym)))
+        push!(post, :(_ufi_commit_output(backend, $state, $sym, local_dims, $ssym)))
     end
 
-    # Scalars
     for (i, T) in enumerate(ScT.parameters)
         push!(callargs, :(unsafe_load(Ptr{$T}(unsafe_load(scal_p_ptr, $i)))))
     end
 
     return quote
         $(pre...)
-        f($(callargs...))
+        _ufi_invoke(backend, f, local_dims, $(callargs...))
         $(post...)
+        _ufi_synchronize(backend)
         nothing
     end
 end
 
-function _extract_and_call(
-    meta::UfiMetadata{F,S,D},
-    in_args::Vector{PhysArrPtr},
-    out_args::Vector{PhysArrPtr},
-    scal_args::Vector{Ptr{Cvoid}},
-    in_strides::Vector{Int64},
-    out_strides::Vector{Int64},
-    local_dims::Tuple,
-    sig::S,
-) where {F,S,D}
-    GC.@preserve in_args out_args scal_args in_strides out_strides begin
+function _execute_task(job::TaskJob)
+    in_args = job.in_args
+    out_args = job.out_args
+    scalar_args = job.scal_args
+    in_strides = job.in_strides
+    out_strides = job.out_strides
+    GC.@preserve in_args out_args scalar_args in_strides out_strides begin
         _do_call(
-            meta.fun,
+            job.backend,
+            job.meta.fun,
             pointer(in_args),
             pointer(out_args),
-            pointer(scal_args),
+            pointer(scalar_args),
             pointer(in_strides),
             pointer(out_strides),
-            local_dims,
-            meta.dims,
-            sig,
+            job.local_dims,
+            job.meta.sig,
         )
     end
+    return nothing
 end
 
 function ufi_has_pending_work(drain_slots::Bool=true)
@@ -225,6 +255,43 @@ function wait_ufi(drain_slots::Bool=true)
         yield()
         sleep(0.001)
     end
+end
+
+_task_backend(is_gpu::Int32) = is_gpu == 0 ? CPUBackend() : GPUBackend()
+
+function _copy_pointer_args(ptr::Ptr{T}, count::Int) where {T}
+    args = Vector{T}(undef, count)
+    @inbounds for i in 1:count
+        args[i] = unsafe_load(ptr, i)
+    end
+    return args
+end
+
+function _copy_strides(ptr::Ptr{Int64}, count::Int)
+    strides = Vector{Int64}(undef, count * REALM_MAX_DIM)
+    count > 0 && unsafe_copyto!(pointer(strides), ptr, length(strides))
+    return strides
+end
+
+# C++ keeps the referenced tile storage valid until the completion callback.
+function _make_job(slot_id::Int, req::TaskRequest, meta::UfiMetadata)
+    sig_type = typeof(meta.sig)
+    in_count = length(sig_type.parameters[1].parameters)
+    out_count = length(sig_type.parameters[2].parameters)
+    scalar_count = length(sig_type.parameters[3].parameters)
+    local_dims = ntuple(i -> Int(max(0, req.dims[i])), Int(req.ndim))
+
+    return TaskJob(
+        slot_id,
+        _task_backend(req.is_gpu),
+        _copy_pointer_args(req.inputs_ptr, in_count),
+        _copy_pointer_args(req.outputs_ptr, out_count),
+        _copy_pointer_args(req.scalars_ptr, scalar_count),
+        _copy_strides(req.input_strides_ptr, in_count),
+        _copy_strides(req.output_strides_ptr, out_count),
+        local_dims,
+        meta,
+    )
 end
 
 function ufi_poll(mgr::UfiManager)
@@ -254,52 +321,9 @@ function ufi_poll(mgr::UfiManager)
         return false
     end
 
-    # Dimension Extraction: Use explicit loop to avoid closure JIT.
-    nd = Int(req.ndim)
-    local_dims = ntuple(i -> Int(max(0, req.dims[i])), nd)
-
-    # Signature extraction for immediate use
-    sig_type = typeof(meta.sig)
-
-    in_p_ptr = req.inputs_ptr
-    out_p_ptr = req.outputs_ptr
-    scal_p_ptr = req.scalars_ptr
-
-    # Extract pointers immediately into stable vectors via explicit loops (JIT-safe)
-    in_len = length(sig_type.parameters[1].parameters)
-    in_args = Vector{PhysArrPtr}(undef, in_len)
-    for i in 1:in_len
-        in_args[i] = unsafe_load(in_p_ptr, i)
-    end
-
-    out_len = length(sig_type.parameters[2].parameters)
-    out_args = Vector{PhysArrPtr}(undef, out_len)
-    for i in 1:out_len
-        out_args[i] = unsafe_load(out_p_ptr, i)
-    end
-
-    scal_len = length(sig_type.parameters[3].parameters)
-    scal_args = Vector{Ptr{Cvoid}}(undef, scal_len)
-    for i in 1:scal_len
-        scal_args[i] = unsafe_load(scal_p_ptr, i)
-    end
-
-    # Copy per-arg element strides into stable Julia buffers (flat [arg][REALM_MAX_DIM]).
-    in_strides = Vector{Int64}(undef, in_len * REALM_MAX_DIM)
-    in_len > 0 && unsafe_copyto!(pointer(in_strides), req.input_strides_ptr, in_len * REALM_MAX_DIM)
-    out_strides = Vector{Int64}(undef, out_len * REALM_MAX_DIM)
-    out_len > 0 &&
-        unsafe_copyto!(pointer(out_strides), req.output_strides_ptr, out_len * REALM_MAX_DIM)
-
     Threads.atomic_add!(PENDING_JOBS, 1)
     try
-        put!(
-            mgr.job_queue,
-            TaskJob(
-                slot_id, req.is_gpu != 0, in_args, out_args, scal_args, in_strides,
-                out_strides, local_dims, meta,
-            ),
-        )
+        put!(mgr.job_queue, _make_job(slot_id, req, meta))
     catch e
         Threads.atomic_sub!(PENDING_JOBS, 1) # Decrement if put! fails
         if e isa InvalidStateException && e.state == :closed
@@ -334,20 +358,8 @@ function _ufi_worker_loop(mgr::UfiManager)
         end
 
         try
-            # Use invokelatest to ensure MethodInstance visibility across threads.
-            # GPU tasks run their kernel via the CUDAExt path; CPU tasks run directly.
-            handler = job.is_gpu ? _execute_gpu_task : _extract_and_call
-            Base.invokelatest(
-                handler,
-                job.meta,
-                job.in_args,
-                job.out_args,
-                job.scal_args,
-                job.in_strides,
-                job.out_strides,
-                job.local_dims,
-                job.meta.sig,
-            )
+            # Workers must see methods compiled on the submitting thread.
+            Base.invokelatest(_execute_task, job)
         catch e
             println(stderr, "[UFI Worker Error] Slot $(job.slot_id): $e")
             Base.display_error(stderr, e, catch_backtrace())
@@ -391,7 +403,7 @@ function init_ufi()
         precompile(_ufi_poller_loop, (UfiManager,))
         precompile(_ufi_worker_loop, (UfiManager,))
 
-        # Workers run on the default pool; reserve one default thread for the caller.
+        # Reserve one default thread for the caller.
         num_workers = max(1, Threads.nthreads(:default) - 1)
         UFI_MANAGER[] = UfiManager(num_workers)
 
@@ -404,21 +416,20 @@ function init_ufi()
     end
 end
 
-# These are provided by the C++ wrapper when it is loaded.
-# We define stubs here that will be overwritten or used by the extension.
+# Filled from the C++ wrapper during UFI initialization.
 const JULIA_CUSTOM_GPU_TASK = Ref{Any}(nothing)
 export JULIA_CUSTOM_GPU_TASK
 
 function shutdown_ufi(mgr::UfiManager=UFI_MANAGER[])
     isnothing(mgr) && return nothing
-    # Note: caller is responsible for draining work via wait_ufi() before shutdown.
+    # The caller must drain work with wait_ufi() first.
     mgr.shutdown[] = true
 
     if isopen(mgr.job_queue)
         close(mgr.job_queue)
     end
 
-    # Join all tasks before tearing down the runtime; closing the queue makes this finite.
+    # Closing the queue lets workers exit before runtime teardown.
     for t in (mgr.poller_task, mgr.worker_tasks...)
         try
             wait(t)

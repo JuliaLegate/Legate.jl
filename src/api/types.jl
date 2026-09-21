@@ -68,10 +68,9 @@ end
 
 struct UfiSignature{InT,OutT,ScT} end
 
-struct UfiMetadata{F,S,D}
+struct UfiMetadata{F,S}
     fun::F
     sig::S
-    dims::D
 end
 
 struct Scalar{T}
