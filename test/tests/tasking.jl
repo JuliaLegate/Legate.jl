@@ -58,6 +58,20 @@ function task_scalar(a, b, scalar)
     end
 end
 
+function stencil_task(core_indices, halo, output)
+    offset = Int(core_indices[1] - halo[1])
+    @assert length(halo) >= length(output)
+    @assert 0 <= offset <= 1
+    @inbounds for i in eachindex(output)
+        h = i + offset
+        center = halo[h]
+        left = h == 1 ? center : halo[h - 1]
+        right = h == length(halo) ? center : halo[h + 1]
+        output[i] = left + 2 * center + right
+    end
+    return nothing
+end
+
 # get ground truth from base julia
 base_results = run_base_julia_test()
 
@@ -75,6 +89,7 @@ expected_a = expected_c .* 2.5f0
     my_task = Legate.wrap_task(task_test, Legate.CPUBackend)
     my_4arg_task = Legate.wrap_task(task_4arg, Legate.CPUBackend)
     my_scalar_task = Legate.wrap_task(task_scalar, Legate.CPUBackend)
+    my_stencil_task = Legate.wrap_task(stencil_task, Legate.CPUBackend)
 
     @testset "Initialization" begin
         a = Legate.create_array([10, 10], Float32)
@@ -92,6 +107,15 @@ expected_a = expected_c .* 2.5f0
         val_b = Array(b)
         @test val_a ≈ base_results.a_init
         @test val_b ≈ base_results.b_init
+    end
+
+    @testset "LogicalArray Slice" begin
+        reference = reshape(Float32.(1:36), 6, 6)
+        array = Legate.create_array([6, 6], Float32)
+        copyto!(array, reference)
+        view = Legate.slice(array, 0, 1, 5)
+        view = Legate.slice(view, 1, 2, 6)
+        @test size(view) == (4, 4)
     end
 
     a = Legate.create_array([10, 10], Float32)
@@ -142,5 +166,45 @@ expected_a = expected_c .* 2.5f0
         Legate.submit_task(rt, task4)
         val_a = Array(a)
         @test val_a ≈ expected_a
+    end
+
+    @testset "Execution Fence" begin
+        @test Legate.issue_execution_fence() === nothing
+        @test Legate.runtime_sync() === nothing
+    end
+
+    @testset "Bloat Constraint (Radius-One Stencil)" begin
+        if !isdefined(Legate.LegateInternal, :bloat)
+            @test_skip false
+        else
+            n = 100_000
+            reference = Float64.(1:n)
+            core_indices = Legate.create_array([n], Float64)
+            stencil_input = Legate.create_array([n], Float64)
+            stencil_output = Legate.create_array([n], Float64)
+            copyto!(core_indices, reference)
+            copyto!(stencil_input, reference)
+
+            task = Legate.create_julia_task(rt, lib, my_stencil_task)
+            core_var = Legate.add_input(task, core_indices)
+            halo_var = Legate.add_input(task, stencil_input)
+            output_var = Legate.add_output(task, stencil_output)
+            Legate.add_constraint(task, Legate.align(core_var, output_var))
+            Legate.add_constraint(task, Legate.bloat(core_var, halo_var, (1,), (1,)))
+
+            started_before = Legate.LegateInternal.legate_get_started_count()
+            Legate.submit_task(rt, task)
+            result = Array(stencil_output)
+            started =
+                Legate.LegateInternal.legate_get_started_count() - started_before
+
+            expected = 4 .* reference
+            expected[1] = 5
+            expected[end] = 4n - 1
+            @test result == expected
+            if Legate.LegateInternal.num_procs() > 1
+                @test started > 1
+            end
+        end
     end
 end

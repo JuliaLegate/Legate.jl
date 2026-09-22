@@ -60,6 +60,25 @@ function align(a::Variable, b::Variable)
     return LegateInternal.align(a, b)
 end
 
+"""
+    bloat(source, target, low_offsets, high_offsets) -> Constraint
+
+Partition `target` like `source`, expanded by the given halo width in each dimension.
+"""
+function bloat(source::Variable, target::Variable, low_offsets, high_offsets)
+    isdefined(LegateInternal, :bloat) ||
+        error("bloat constraints require a newer Legate.jl wrapper")
+    length(low_offsets) == length(high_offsets) ||
+        throw(DimensionMismatch("low and high bloat offsets must have equal lengths"))
+    all(offset -> offset >= 0, low_offsets) ||
+        throw(ArgumentError("bloat offsets must be nonnegative"))
+    all(offset -> offset >= 0, high_offsets) ||
+        throw(ArgumentError("bloat offsets must be nonnegative"))
+    return LegateInternal.bloat(
+        source, target, to_cxx_vector(low_offsets), to_cxx_vector(high_offsets)
+    )
+end
+
 function default_alignment(
     task::LegateTask, inputs::Vector{<:Variable}, outputs::Vector{<:Variable}
 )
@@ -161,8 +180,16 @@ _gpu_precompile(args...) = nothing
 function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
     drain_pending_frees!()
     if !isnothing(task.fun)
-        in_t = Tuple{task.input_types...}
-        out_t = Tuple{task.output_types...}
+        n_inputs = length(task.input_types)
+        in_t = Tuple{
+            [Array{T,length(task.arg_dims[i])} for (i, T) in enumerate(task.input_types)]...
+        }
+        out_t = Tuple{
+            [
+                Array{T,length(task.arg_dims[n_inputs + i])} for
+                (i, T) in enumerate(task.output_types)
+            ]...,
+        }
         sc_t = Tuple{task.scalar_types...}
 
         sig = UfiSignature{in_t,out_t,sc_t}()
@@ -188,6 +215,8 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
                 Ptr{Ptr{Cvoid}},
                 Ptr{Int64},
                 Ptr{Int64},
+                Ptr{Int64},
+                Ptr{Int64},
                 local_dims_type,
                 typeof(sig),
             ),
@@ -199,11 +228,11 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
 
         # 2. Precompile the user-provided function with exact types
         user_arg_types = Any[]
-        for (T, d) in zip(task.input_types, task.arg_dims)
-            push!(user_arg_types, Array{T,length(d)})
+        for (i, T) in enumerate(task.input_types)
+            push!(user_arg_types, Array{T,length(task.arg_dims[i])})
         end
-        for (T, d) in zip(task.output_types, task.arg_dims)
-            push!(user_arg_types, Array{T,length(d)})
+        for (i, T) in enumerate(task.output_types)
+            push!(user_arg_types, Array{T,length(task.arg_dims[n_inputs + i])})
         end
         for T in task.scalar_types
             push!(user_arg_types, T)

@@ -60,7 +60,7 @@ Block until all pending Legate tasks have completed.
 
 Useful before reading files written by `h5write` or other async operations.
 """
-runtime_sync() = LegateInternal.runtime_sync()
+runtime_sync() = issue_execution_fence()
 
 """
     create_library(name::String) -> Library
@@ -113,7 +113,11 @@ Issues an execution fence to the runtime.
 """
 function issue_execution_fence(; blocking::Bool=true)
     if blocking
-        @threadcall((:legate_issue_execution_fence_blocking, Legate.WRAPPER_LIB_PATH), Cvoid, ())
+        @static if VERSION >= v"1.12"
+            @ccall gc_safe = true WRAPPER_LIB_PATH.legate_issue_execution_fence_blocking()::Cvoid
+        else
+            @ccall WRAPPER_LIB_PATH.legate_issue_execution_fence_blocking()::Cvoid
+        end
     else
         LegateInternal.issue_execution_fence(false)
     end

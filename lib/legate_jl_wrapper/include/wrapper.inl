@@ -111,6 +111,20 @@ inline Constraint align(const Variable& a, const Variable& b) {
 
 /**
  * @ingroup legate_wrapper
+ * @brief Bloat target partitions around their aligned source partitions.
+ */
+inline Constraint bloat(const Variable& source, const Variable& target,
+                        const std::vector<std::uint64_t>& low_offsets,
+                        const std::vector<std::uint64_t>& high_offsets) {
+  return legate::bloat(
+      source, target,
+      legate::Span<const std::uint64_t>{low_offsets.data(), low_offsets.size()},
+      legate::Span<const std::uint64_t>{high_offsets.data(),
+                                        high_offsets.size()});
+}
+
+/**
+ * @ingroup legate_wrapper
  * @brief Create an auto task in the runtime.
  *
  * @param rt Pointer to the Runtime instance.
