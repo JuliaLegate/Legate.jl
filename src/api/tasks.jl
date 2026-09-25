@@ -246,14 +246,13 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
         # event loop. Compiling here caches the cubin so the worker's launch is a
         # cache hit. No-op without CUDA (see CUDAExt).
         if task.is_gpu
-            # get_ptr only needs to be GC-safe once a GPU task is in flight; flag it so
-            # CPU-only programs keep the original accessor path.
-            LegateInternal.set_gpu_tasking_active(true)
             _gpu_precompile(
                 task.fun, task.input_types, task.output_types, task.scalar_types, task.arg_dims
             )
         end
 
+        # A worker GC would otherwise deadlock against the caller parked in get_ptr.
+        LegateInternal.set_gpu_tasking_active(true)
         Threads.atomic_add!(SUBMITTED_COUNT, 1)
     end
     return _submit_task(rt, task)
