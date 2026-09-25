@@ -79,6 +79,20 @@ function bloat(source::Variable, target::Variable, low_offsets, high_offsets)
     )
 end
 
+"""
+    broadcast(var) -> Constraint
+    broadcast(var, axes) -> Constraint
+
+Give every task the whole of `var`, or only the full extent of zero-based `axes`.
+"""
+broadcast(var::Variable) = LegateInternal.broadcast(var)
+
+function broadcast(var::Variable, axes)
+    all(axis -> axis >= 0, axes) ||
+        throw(ArgumentError("broadcast axes must be nonnegative"))
+    return LegateInternal.broadcast(var, CxxWrap.StdVector([UInt32(a) for a in axes]))
+end
+
 function default_alignment(
     task::LegateTask, inputs::Vector{<:Variable}, outputs::Vector{<:Variable}
 )
