@@ -68,16 +68,21 @@ UFI(write, write_accessor);
 struct ufiFunctor {
   int* ndim_ptr = nullptr;
   int64_t* dims_ptr = nullptr;
+  int64_t* arg_dims_ptr = nullptr;
 
   ufiFunctor() = default;
-  ufiFunctor(int* ndim, int64_t* dims) : ndim_ptr(ndim), dims_ptr(dims) {}
+  ufiFunctor(int* ndim, int64_t* dims, int64_t* arg_dims)
+      : ndim_ptr(ndim), dims_ptr(dims), arg_dims_ptr(arg_dims) {}
 
   template <legate::Type::Code CODE, int DIM>
   void operator()(ufi::AccessMode mode, std::uintptr_t& p, int64_t* strides,
                   const legate::PhysicalArray& rf) {
+    auto shp = rf.shape<DIM>();
+    for (int i = 0; i < DIM && i < REALM_MAX_DIM; ++i) {
+      arg_dims_ptr[i] = shp.hi[i] - shp.lo[i] + 1;
+    }
     if (ndim_ptr && *ndim_ptr == 0) {
       *ndim_ptr = DIM;
-      auto shp = rf.shape<DIM>();
       for (int i = 0; i < DIM && i < REALM_MAX_DIM; ++i) {
         dims_ptr[i] = shp.hi[i] - shp.lo[i] + 1;
       }
@@ -130,6 +135,8 @@ struct UFISlot {
   char scalar_data[MAX_UFI_ARGS][MAX_SCALAR_SIZE];
   int64_t input_strides[MAX_UFI_ARGS][REALM_MAX_DIM];
   int64_t output_strides[MAX_UFI_ARGS][REALM_MAX_DIM];
+  int64_t input_dims[MAX_UFI_ARGS][REALM_MAX_DIM];
+  int64_t output_dims[MAX_UFI_ARGS][REALM_MAX_DIM];
 
   UFISlot() {
     task_done.store(false);
@@ -180,6 +187,16 @@ JULIA_LEGATE_UFI_EXPORT int legate_get_max_slots() { return MAX_UFI_SLOTS; }
 JULIA_LEGATE_UFI_EXPORT void* legate_get_slot_request_ptr(int slot_id) {
   if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return nullptr;
   return static_cast<void*>(&g_ufi_slots[slot_id].request);
+}
+
+JULIA_LEGATE_UFI_EXPORT int64_t* legate_get_slot_input_dims_ptr(int slot_id) {
+  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return nullptr;
+  return &g_ufi_slots[slot_id].input_dims[0][0];
+}
+
+JULIA_LEGATE_UFI_EXPORT int64_t* legate_get_slot_output_dims_ptr(int slot_id) {
+  if (slot_id < 0 || slot_id >= MAX_UFI_SLOTS) return nullptr;
+  return &g_ufi_slots[slot_id].output_dims[0][0];
 }
 
 JULIA_LEGATE_UFI_EXPORT int legate_get_active_call_count() {
@@ -273,11 +290,11 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   slot.request.task_id = task_id;
   slot.request.ndim = 0;
 
-  ufiFunctor functor{&slot.request.ndim, slot.request.dims};
-
   for (size_t i = 0; i < ni; ++i) {
     auto ps = context.input(i);
     std::uintptr_t p = 0;
+    ufiFunctor functor{no == 0 && i == 0 ? &slot.request.ndim : nullptr,
+                       slot.request.dims, slot.input_dims[i]};
     legate::double_dispatch(ps.dim(), ps.type().code(), functor,
                             ufi::AccessMode::READ, p, slot.input_strides[i],
                             ps);
@@ -287,6 +304,8 @@ inline void JuliaTaskInterface(legate::TaskContext context, bool is_gpu) {
   for (size_t i = 0; i < no; ++i) {
     auto ps = context.output(i);
     std::uintptr_t p = 0;
+    ufiFunctor functor{i == 0 ? &slot.request.ndim : nullptr, slot.request.dims,
+                       slot.output_dims[i]};
     legate::double_dispatch(ps.dim(), ps.type().code(), functor,
                             ufi::AccessMode::WRITE, p, slot.output_strides[i],
                             ps);
@@ -355,6 +374,10 @@ void wrap_ufi(jlcxx::Module& mod) {
   mod.method("_initialize_async_system", &ufi::initialize_async_system);
   mod.method("legate_get_max_slots", &ufi::legate_get_max_slots);
   mod.method("legate_get_slot_request_ptr", &ufi::legate_get_slot_request_ptr);
+  mod.method("legate_get_slot_input_dims_ptr",
+             &ufi::legate_get_slot_input_dims_ptr);
+  mod.method("legate_get_slot_output_dims_ptr",
+             &ufi::legate_get_slot_output_dims_ptr);
   mod.method("legate_pop_pending_slot_nonblocking",
              &ufi::legate_pop_pending_slot_nonblocking);
   mod.method("legate_get_active_call_count",

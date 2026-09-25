@@ -69,9 +69,6 @@ expected_a = expected_c .* 2.5f0
 
 @testset verbose=true "CPU Tasking" begin
     Legate.Experimental(true)  # tasking is experimental
-    rt = Legate.get_runtime()
-    lib = Legate.create_library("test_comparison")
-
     my_task = Legate.wrap_task(task_test, Legate.CPUBackend)
     my_4arg_task = Legate.wrap_task(task_4arg, Legate.CPUBackend)
     my_scalar_task = Legate.wrap_task(task_scalar, Legate.CPUBackend)
@@ -92,6 +89,15 @@ expected_a = expected_c .* 2.5f0
         val_b = Array(b)
         @test val_a ≈ base_results.a_init
         @test val_b ≈ base_results.b_init
+    end
+
+    @testset "LogicalArray Slice" begin
+        reference = reshape(Float32.(1:36), 6, 6)
+        array = Legate.create_array([6, 6], Float32)
+        copyto!(array, reference)
+        view = Legate.slice(array, 0, 1, 5)
+        view = Legate.slice(view, 1, 2, 6)
+        @test size(view) == (4, 4)
     end
 
     a = Legate.create_array([10, 10], Float32)
@@ -142,5 +148,10 @@ expected_a = expected_c .* 2.5f0
         Legate.submit_task(rt, task4)
         val_a = Array(a)
         @test val_a ≈ expected_a
+    end
+
+    @testset "Execution Fence" begin
+        @test Legate.issue_execution_fence() === nothing
+        @test Legate.runtime_sync() === nothing
     end
 end

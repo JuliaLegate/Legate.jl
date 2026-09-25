@@ -21,6 +21,8 @@ const REALM_MAX_DIM = 6
 const MAX_UFI_SLOTS_VAL = 32
 const PhysArrPtr = Ptr{Cvoid}
 const SLOT_REQUEST_PTRS = Vector{Ptr{Cvoid}}(undef, MAX_UFI_SLOTS_VAL)
+const SLOT_INPUT_DIMS_PTRS = fill(Ptr{Int64}(C_NULL), MAX_UFI_SLOTS_VAL)
+const SLOT_OUTPUT_DIMS_PTRS = fill(Ptr{Int64}(C_NULL), MAX_UFI_SLOTS_VAL)
 
 const UFI_INIT_LOCK = ReentrantLock()
 
@@ -76,6 +78,8 @@ struct TaskJob{B<:TaskBackend,M<:UfiMetadata,D<:Tuple}
     scal_args::Vector{Ptr{Cvoid}}
     in_strides::Vector{Int64}   # flat [arg][REALM_MAX_DIM] element strides
     out_strides::Vector{Int64}
+    in_dims::Vector{Int64}      # flat [arg][REALM_MAX_DIM] tile dimensions
+    out_dims::Vector{Int64}
     local_dims::D
     meta::M
 end
@@ -161,27 +165,32 @@ end
     scal_p_ptr::Ptr{Ptr{Cvoid}},
     in_str_ptr::Ptr{Int64},
     out_str_ptr::Ptr{Int64},
+    in_dim_ptr::Ptr{Int64},
+    out_dim_ptr::Ptr{Int64},
     local_dims::Tuple,
     ::UfiSignature{InT,OutT,ScT},
 ) where {B<:TaskBackend,InT,OutT,ScT}
-    nd = length(local_dims.parameters)
     pre = []       # prepare input and output buffers
     callargs = []  # args passed to the user task
     post = []      # commit outputs to their destination tiles
 
-    # Unroll per-rank stride loads at generation time.
-    instr(base) = Expr(:tuple, [:(Int(unsafe_load(in_str_ptr, $(base + d)))) for d in 1:nd]...)
-    outstr(base) = Expr(:tuple, [:(Int(unsafe_load(out_str_ptr, $(base + d)))) for d in 1:nd]...)
+    metadata(ptr, base, nd) =
+        Expr(:tuple, [:(Int(unsafe_load($ptr, $(base + d)))) for d in 1:nd]...)
 
     for (i, T) in enumerate(InT.parameters)
         E = eltype(T)
+        nd = ndims(T)
         base = (i - 1) * REALM_MAX_DIM
         sym = gensym(:in)
+        dsym = gensym(:indims)
+        ssym = gensym(:instrides)
+        push!(pre, :($dsym = $(metadata(:in_dim_ptr, base, nd))))
+        push!(pre, :($ssym = $(metadata(:in_str_ptr, base, nd))))
         push!(
             pre,
             :(
                 $sym = _ufi_prepare_input(
-                    backend, $E, unsafe_load(in_p_ptr, $i), local_dims, $(instr(base)))
+                    backend, $E, unsafe_load(in_p_ptr, $i), $dsym, $ssym)
             ),
         )
         push!(callargs, sym)
@@ -189,20 +198,23 @@ end
 
     for (i, T) in enumerate(OutT.parameters)
         E = eltype(T)
+        nd = ndims(T)
         base = (i - 1) * REALM_MAX_DIM
         sym = gensym(:out)
         state = gensym(:state)
+        dsym = gensym(:outdims)
         ssym = gensym(:outs)
-        push!(pre, :($ssym = $(outstr(base))))
+        push!(pre, :($dsym = $(metadata(:out_dim_ptr, base, nd))))
+        push!(pre, :($ssym = $(metadata(:out_str_ptr, base, nd))))
         push!(
             pre,
             :(
                 ($sym, $state) = _ufi_prepare_output(
-                    backend, $E, unsafe_load(out_p_ptr, $i), local_dims, $ssym)
+                    backend, $E, unsafe_load(out_p_ptr, $i), $dsym, $ssym)
             ),
         )
         push!(callargs, sym)
-        push!(post, :(_ufi_commit_output(backend, $state, $sym, local_dims, $ssym)))
+        push!(post, :(_ufi_commit_output(backend, $state, $sym, $dsym, $ssym)))
     end
 
     for (i, T) in enumerate(ScT.parameters)
@@ -224,7 +236,9 @@ function _execute_task(job::TaskJob)
     scalar_args = job.scal_args
     in_strides = job.in_strides
     out_strides = job.out_strides
-    GC.@preserve in_args out_args scalar_args in_strides out_strides begin
+    in_dims = job.in_dims
+    out_dims = job.out_dims
+    GC.@preserve in_args out_args scalar_args in_strides out_strides in_dims out_dims begin
         _do_call(
             job.backend,
             job.meta.fun,
@@ -233,6 +247,8 @@ function _execute_task(job::TaskJob)
             pointer(scalar_args),
             pointer(in_strides),
             pointer(out_strides),
+            pointer(in_dims),
+            pointer(out_dims),
             job.local_dims,
             job.meta.sig,
         )
@@ -273,6 +289,18 @@ function _copy_strides(ptr::Ptr{Int64}, count::Int)
     return strides
 end
 
+function _copy_dims(ptr::Ptr{Int64}, count::Int, common_dims::Tuple)
+    dims = zeros(Int64, count * REALM_MAX_DIM)
+    if ptr == C_NULL
+        for arg in 0:(count - 1), dim in eachindex(common_dims)
+            dims[arg * REALM_MAX_DIM + dim] = common_dims[dim]
+        end
+    elseif count > 0
+        unsafe_copyto!(pointer(dims), ptr, length(dims))
+    end
+    return dims
+end
+
 # C++ keeps the referenced tile storage valid until the completion callback.
 function _make_job(slot_id::Int, req::TaskRequest, meta::UfiMetadata)
     sig_type = typeof(meta.sig)
@@ -280,6 +308,8 @@ function _make_job(slot_id::Int, req::TaskRequest, meta::UfiMetadata)
     out_count = length(sig_type.parameters[2].parameters)
     scalar_count = length(sig_type.parameters[3].parameters)
     local_dims = ntuple(i -> Int(max(0, req.dims[i])), Int(req.ndim))
+    in_dims_ptr = SLOT_INPUT_DIMS_PTRS[slot_id + 1]
+    out_dims_ptr = SLOT_OUTPUT_DIMS_PTRS[slot_id + 1]
 
     return TaskJob(
         slot_id,
@@ -289,6 +319,8 @@ function _make_job(slot_id::Int, req::TaskRequest, meta::UfiMetadata)
         _copy_pointer_args(req.scalars_ptr, scalar_count),
         _copy_strides(req.input_strides_ptr, in_count),
         _copy_strides(req.output_strides_ptr, out_count),
+        _copy_dims(in_dims_ptr, in_count, local_dims),
+        _copy_dims(out_dims_ptr, out_count, local_dims),
         local_dims,
         meta,
     )
@@ -386,6 +418,9 @@ function init_ufi()
             exit(UFI_ERROR)
         end
 
+        has_arg_dims =
+            isdefined(LegateInternal, :legate_get_slot_input_dims_ptr) &&
+            isdefined(LegateInternal, :legate_get_slot_output_dims_ptr)
         for i in 1:max_slots
             SLOT_REQUEST_PTRS[i] = ccall(
                 (:legate_get_slot_request_ptr, Legate.WRAPPER_LIB_PATH),
@@ -393,6 +428,12 @@ function init_ufi()
                 (Cint,),
                 Cint(i-1),
             )
+            if has_arg_dims
+                SLOT_INPUT_DIMS_PTRS[i] =
+                    LegateInternal.legate_get_slot_input_dims_ptr(Cint(i - 1)).cpp_object
+                SLOT_OUTPUT_DIMS_PTRS[i] =
+                    LegateInternal.legate_get_slot_output_dims_ptr(Cint(i - 1)).cpp_object
+            end
         end
 
         LegateInternal._initialize_async_system()

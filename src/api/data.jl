@@ -203,6 +203,22 @@ function slice(store::LogicalStore, indices...)
 end
 
 """
+    slice(array::LogicalArray, dim, start, stop) -> LogicalArray
+
+Return a view of the half-open interval `[start, stop)` in zero-based dimension `dim`.
+"""
+function slice(
+    array::LogicalArray{T,N}, dim::Integer, start::Integer, stop::Integer
+) where {T,N}
+    store = LegateInternal.slice(
+        LegateInternal.data(array.handle), Int32(dim), Int64(start), Int64(stop)
+    )
+    impl = LegateInternal.array_from_store(store)
+    dims = Tuple(Int.(collect(LegateInternal.shape(impl))))
+    return LogicalArray{T,N}(impl, dims, array.order)
+end
+
+"""
     get_physical_store(LogicalStore) -> PhysicalStore
     get_physical_store(LogicalArray) -> PhysicalStore
 

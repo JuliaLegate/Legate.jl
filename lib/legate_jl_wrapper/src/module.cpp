@@ -179,6 +179,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("slice", [](LogicalStore& s, int32_t dim, legate::Slice sl) {
     return s.slice(dim, sl);
   });
+  mod.method("slice",
+             [](LogicalStore& s, int32_t dim, int64_t start, int64_t stop) {
+               return s.slice(dim, legate::Slice{start, stop});
+             });
   mod.method(
       "get_physical_store",
       [](LogicalStore& s, std::optional<legate::mapping::StoreTarget> target) {
@@ -228,6 +232,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         for (int i = 0; i < arr.dim(); i++) result.push_back(s[i]);
         return result;
       });
+  mod.method("array_from_store",
+             [](const LogicalStore& store) { return LogicalArray{store}; });
 
   mod.add_type<AutoTask>("AutoTask")
       .method("add_input", static_cast<Variable (AutoTask::*)(LogicalArray)>(
@@ -294,6 +300,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("runtime_sync", &legate_wrapper::runtime::runtime_sync);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
+  mod.method("bloat", &legate_wrapper::tasking::bloat);
   mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
   mod.method("create_manual_task",
              &legate_wrapper::tasking::create_manual_task);

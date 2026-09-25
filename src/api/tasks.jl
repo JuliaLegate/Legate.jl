@@ -60,6 +60,39 @@ function align(a::Variable, b::Variable)
     return LegateInternal.align(a, b)
 end
 
+"""
+    bloat(source, target, low_offsets, high_offsets) -> Constraint
+
+Partition `target` like `source`, expanded by the given halo width in each dimension.
+"""
+function bloat(source::Variable, target::Variable, low_offsets, high_offsets)
+    isdefined(LegateInternal, :bloat) ||
+        error("bloat constraints require a newer Legate.jl wrapper")
+    length(low_offsets) == length(high_offsets) ||
+        throw(DimensionMismatch("low and high bloat offsets must have equal lengths"))
+    all(offset -> offset >= 0, low_offsets) ||
+        throw(ArgumentError("bloat offsets must be nonnegative"))
+    all(offset -> offset >= 0, high_offsets) ||
+        throw(ArgumentError("bloat offsets must be nonnegative"))
+    return LegateInternal.bloat(
+        source, target, to_cxx_vector(low_offsets), to_cxx_vector(high_offsets)
+    )
+end
+
+"""
+    broadcast(var) -> Constraint
+    broadcast(var, axes) -> Constraint
+
+Give every task the whole of `var`, or only the full extent of zero-based `axes`.
+"""
+broadcast(var::Variable) = LegateInternal.broadcast(var)
+
+function broadcast(var::Variable, axes)
+    all(axis -> axis >= 0, axes) ||
+        throw(ArgumentError("broadcast axes must be nonnegative"))
+    return LegateInternal.broadcast(var, CxxWrap.StdVector([UInt32(a) for a in axes]))
+end
+
 function default_alignment(
     task::LegateTask, inputs::Vector{<:Variable}, outputs::Vector{<:Variable}
 )
@@ -161,8 +194,16 @@ _gpu_precompile(args...) = nothing
 function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
     drain_pending_frees!()
     if !isnothing(task.fun)
-        in_t = Tuple{task.input_types...}
-        out_t = Tuple{task.output_types...}
+        n_inputs = length(task.input_types)
+        in_t = Tuple{
+            [Array{T,length(task.arg_dims[i])} for (i, T) in enumerate(task.input_types)]...
+        }
+        out_t = Tuple{
+            [
+                Array{T,length(task.arg_dims[n_inputs + i])} for
+                (i, T) in enumerate(task.output_types)
+            ]...,
+        }
         sc_t = Tuple{task.scalar_types...}
 
         sig = UfiSignature{in_t,out_t,sc_t}()
@@ -188,6 +229,8 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
                 Ptr{Ptr{Cvoid}},
                 Ptr{Int64},
                 Ptr{Int64},
+                Ptr{Int64},
+                Ptr{Int64},
                 local_dims_type,
                 typeof(sig),
             ),
@@ -199,11 +242,11 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
 
         # 2. Precompile the user-provided function with exact types
         user_arg_types = Any[]
-        for (T, d) in zip(task.input_types, task.arg_dims)
-            push!(user_arg_types, Array{T,length(d)})
+        for (i, T) in enumerate(task.input_types)
+            push!(user_arg_types, Array{T,length(task.arg_dims[i])})
         end
-        for (T, d) in zip(task.output_types, task.arg_dims)
-            push!(user_arg_types, Array{T,length(d)})
+        for (i, T) in enumerate(task.output_types)
+            push!(user_arg_types, Array{T,length(task.arg_dims[n_inputs + i])})
         end
         for T in task.scalar_types
             push!(user_arg_types, T)
@@ -217,14 +260,13 @@ function submit_task(rt::CxxPtr{Runtime}, task::LegateTask)
         # event loop. Compiling here caches the cubin so the worker's launch is a
         # cache hit. No-op without CUDA (see CUDAExt).
         if task.is_gpu
-            # get_ptr only needs to be GC-safe once a GPU task is in flight; flag it so
-            # CPU-only programs keep the original accessor path.
-            LegateInternal.set_gpu_tasking_active(true)
             _gpu_precompile(
                 task.fun, task.input_types, task.output_types, task.scalar_types, task.arg_dims
             )
         end
 
+        # A worker GC would otherwise deadlock against the caller parked in get_ptr.
+        LegateInternal.set_gpu_tasking_active(true)
         Threads.atomic_add!(SUBMITTED_COUNT, 1)
     end
     return _submit_task(rt, task)
