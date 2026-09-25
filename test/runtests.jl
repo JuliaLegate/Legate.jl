@@ -61,7 +61,9 @@ include("tests/hdf5.jl")
 include("tests/stability.jl")
 include("tests/basic.jl")
 
-include("tests/tasking.jl")
+include("tests/tasking/setup.jl")
+include("tests/tasking/basic.jl")
+include("tests/tasking/constraints.jl")
 if run_gpu_tests
-    include("tests/tasking_gpu.jl")
+    include("tests/tasking/gpu.jl")
 end
