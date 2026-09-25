@@ -1,58 +1,90 @@
-"""
-    Library
+#= Copyright 2026 Northwestern University, 
+ *                   Carnegie Mellon University University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author(s): David Krasowska <krasow@u.northwestern.edu>
+ *            Ethan Meitz <emeitz@andrew.cmu.edu>
+=#
 
-Represents a computational or data library. Serves as a container for tasks, arrays, and stores.
-"""
-Library
+abstract type TaskBackend end
+struct CPUBackend <: TaskBackend end
+struct GPUBackend <: TaskBackend end
 
-"""
-    Variable
+struct JuliaTask{B<:TaskBackend,F}
+    fun::F
+    task_id::UInt32
+end
 
-Represents a variable in the task system, typically produced or consumed by tasks.
-"""
-Variable
+function wrap_task(f, ::Type{CPUBackend})
+    assert_experimental()
+    return JuliaTask{CPUBackend,typeof(f)}(f, 0)
+end
 
-"""
-    Constraint
+function wrap_task(f, ::Type{GPUBackend})
+    assert_experimental()
+    return JuliaTask{GPUBackend,typeof(f)}(f, 0)
+end
 
-Represents a dependency or restriction for a task, such as ordering or memory constraints.
-"""
-Constraint
+mutable struct LegateTask{I,F}
+    impl::I
+    fun::F
+    task_id::UInt32
+    input_types::Vector{DataType}
+    output_types::Vector{DataType}
+    scalar_types::Vector{DataType}
+    arg_dims::Vector{Union{Nothing,NTuple}}
+    is_gpu::Bool
+end
 
-"""
-    LocalTaskID
+function LegateTask(impl::I, fun::F) where {I,F}
+    return LegateTask{I,F}(
+        impl, fun, UInt32(0), DataType[], DataType[], DataType[], Union{Nothing,NTuple}[], false
+    )
+end
 
-A unique identifier for a task within a single process or node.
-"""
-LocalTaskID
+const AutoTask = LegateTask{AutoTaskImpl}
+const ManualTask = LegateTask{ManualTaskImpl}
 
-"""
-    GlobalTaskID
+function AutoTask(impl::LegateInternal.AutoTaskAllocated)
+    @debug "IMPL: Creating auto task $(impl)"
+    return LegateTask{AutoTaskImpl}(impl)
+end
 
-A globally unique identifier for a task across processes or nodes.
-"""
-GlobalTaskID
+function ManualTask(impl::LegateInternal.ManualTaskAllocated)
+    @debug "IMPL: Creating manual task $(impl)"
+    return LegateTask{ManualTaskImpl}(impl)
+end
 
-"""
-    AutoTask
+struct UfiSignature{InT,OutT,ScT} end
 
-Represents an automatically scheduled task. Supports adding inputs, outputs, scalars, and constraints.
-"""
-AutoTask
+struct UfiMetadata{F,S}
+    fun::F
+    sig::S
+end
 
-"""
-    ManualTask
+struct Scalar{T}
+    impl::ScalarImpl
+end
 
-Represents a manually scheduled task. Supports adding inputs, outputs, and scalars.
-"""
-ManualTask
-
-"""
-    StoreTarget
-
-Represents the target storage type or location for a store in the mapping layer.
-"""
-StoreTarget
+function Scalar(x::T) where {T<:SUPPORTED_TYPES}
+    r = Ref(x)
+    impl = GC.@preserve r begin
+        ptr = Base.unsafe_convert(Ptr{Cvoid}, r)
+        LegateInternal.make_scalar(ptr, to_legate_type(T))
+    end
+    return Scalar{T}(impl)
+end
 
 """
     Shape
@@ -60,19 +92,6 @@ StoreTarget
 Represents the dimensions of an array or store. Can be constructed from a vector of `UInt64`.
 """
 Shape
-
-"""
-    Scalar
-
-Represents a scalar value used in tasks. Can be constructed from `Bool`
-(also accepts `CxxWrap.CxxBool`), signed/unsigned integers (`Int8`/`UInt8`
-through `Int64`/`UInt64`), `Float32`, `Float64`, `ComplexF32`, `ComplexF64`,
-or a raw `Ptr{Cvoid}`.
-
-Integer/float overloads are bound with CxxWrap `StrictlyTypedNumber` so each
-Julia type dispatches to the matching C++ `legate::Scalar` constructor.
-"""
-Scalar
 
 """
     Slice

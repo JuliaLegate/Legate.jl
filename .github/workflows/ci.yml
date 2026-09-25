@@ -14,6 +14,7 @@ on:
   push:
     paths:
       - 'src/**'
+      - 'test/**'
       - 'scripts/**'
       - 'deps/build.jl'
       - 'deps/buildtools/**'
@@ -31,6 +32,7 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'test/**'
       - 'scripts/**'
       - 'deps/build.jl'
       - 'deps/buildtools/**'
@@ -102,7 +104,7 @@ jobs:
           LEGATE_SHOW_CONFIG: "1"
           LEGATE_AUTO_CONFIG: "0"
           GPUTESTS: "0" # parsed by runtests.jl
-          LEGATE_CONFIG: "--cpus 1 --utility 1 --sysmem 4000"
+          LEGATE_CONFIG: "--cpus 2 --utility 1 --sysmem 4000"
         run: |
           if julia -e 'exit(VERSION >= v"1.12" ? 0 : 1)'; then
             export JULIA_NUM_THREADS=1,0

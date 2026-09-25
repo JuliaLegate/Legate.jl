@@ -95,6 +95,29 @@ function Base.copyto!(
     return dest
 end
 
+# Copy a Julia Array's data into an existing LogicalArray in place, respecting the
+# destination's buffer order (inverse of the `Array(::LogicalArray)` conversion).
+function Base.copyto!(dest::LogicalArray{T,N}, src::Array{S,N}) where {T,S,N}
+    Base.size(dest) == Base.size(src) || throw(
+        DimensionMismatch(
+            "copyto! size mismatch: dest $(Base.size(dest)) vs src $(Base.size(src))"
+        ),
+    )
+    srcT = T === S ? src : convert(Array{T}, src)
+    buf, attached = if dest.order === :col
+        # dest store is col-major; the native Julia buffer is already col-major.
+        srcT, attach_external_col_major(srcT)
+    else
+        # dest store is row-major; transpose to a C-order buffer, then attach.
+        tmp, shape = _julia_to_row_major_buffer(srcT)
+        tmp, attach_external_row_major(tmp; shape)
+    end
+    GC.@preserve buf begin
+        copyto!(dest, attached)
+    end
+    return dest
+end
+
 # Julia F-order buffer of shape reverse(S) has the same bytes as C-order shape S.
 function _julia_to_row_major_buffer(arr::Array{T,0}) where {T}
     return arr, size(arr)

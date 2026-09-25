@@ -16,6 +16,19 @@ using Pkg
     end
 end
 
+@testset "UFI thread configuration" begin
+    @test Legate._check_ufi_thread_configuration(2, :default) === nothing
+    @test Legate._check_ufi_thread_configuration(1, :interactive) === nothing
+    error = try
+        Legate._check_ufi_thread_configuration(1, :default)
+    catch exception
+        exception
+    end
+    @test error isa ErrorException
+    @test occursin("--threads=2", error.msg)
+    @test occursin("--threads=1,1", error.msg)
+end
+
 @testset "CUDA artifact selection" begin
     if isdefined(Legate, :legate_jll)
         jll = Legate.legate_jll
@@ -34,7 +47,7 @@ const run_gpu_tests =
     (get(ENV, "GPUTESTS", "1") != "0") && (get(ENV, "LEGATE_WRAPPER_ENABLE_CUDA", "ON") != "OFF")
 @info "Run GPU Tests: $(run_gpu_tests)"
 
-if run_gpu_tests
+if run_gpu_tests && !isnothing(Base.find_package("CUDA"))
     using CUDA
     import CUDA: i32
     if CUDA.functional()
@@ -48,7 +61,9 @@ include("tests/hdf5.jl")
 include("tests/stability.jl")
 include("tests/basic.jl")
 
-# include("tests/tasking.jl")
-# if run_gpu_tests
-#     include("tests/tasking_gpu.jl")
-# end
+include("tests/tasking/setup.jl")
+include("tests/tasking/basic.jl")
+include("tests/tasking/constraints.jl")
+if run_gpu_tests
+    include("tests/tasking/gpu.jl")
+end

@@ -19,71 +19,63 @@
 
 #include <complex>
 #include <cstdint>
+#include <exception>
+#include <functional>
+#include <mutex>
+#include <string>
 #include <type_traits>
 #include <vector>
 
 #include "jlcxx/jlcxx.hpp"
 #include "jlcxx/stl.hpp"
+#include "julia.h"
 #include "task.h"
 #include "types.h"
 #include "wrapper.inl"
 
-extern "C" {
-// Exposed for @threadcall
-// https://docs.julialang.org/en/v1/manual/multi-threading/#@threadcall
-// Takes a raw C++ pointer to PhysicalStore (casted to void*)
-void* get_ptr(void* store_ptr) {
-  legate::PhysicalStore* store = static_cast<legate::PhysicalStore*>(store_ptr);
-  return legate_wrapper::data::get_ptr(store);
+// Deferred free: destroying wrapped Legate handles off-thread (Julia's
+// multi-threaded GC finalizers, e.g. 1.12's interactive thread) corrupts the
+// runtime — some destructors call it (unmap_region) and it is only valid on the
+// launch thread. Every wrapped object's finalizer instead enqueues its deleter
+// here; the launch thread runs them via legate_drain_frees.
+// Leaked, never-destructed singletons. A wrapped object can be finalized during
+// Julia's exit GC (multi-threaded on 1.12+), which may run after these
+// translation units' static destructors would have run. Destroying the
+// mutex/vector at process exit and then having a late finalizer enqueue into
+// them is a use-after-free (static-destruction-order crash, seen as a
+// stochastic shutdown SIGSEGV on 1.12/ 1.13). Leaking them keeps enqueue valid
+// at any point during teardown.
+namespace {
+std::mutex& deferred_free_mutex() {
+  static std::mutex* m = new std::mutex();
+  return *m;
+}
+std::vector<std::function<void()>>& deferred_deleters() {
+  static auto* v = new std::vector<std::function<void()>>();
+  return *v;
 }
 
-void submit_auto_task(void* rt_ptr, void* task_ptr) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  legate::AutoTask* task = static_cast<legate::AutoTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-
-void submit_manual_task(void* rt_ptr, void* task_ptr) {
-  legate::Runtime* rt = static_cast<legate::Runtime*>(rt_ptr);
-  legate::ManualTask* task = static_cast<legate::ManualTask*>(task_ptr);
-  rt->submit(std::move(*task));
-}
-}
-
-legate::Type type_from_code(legate::Type::Code type_id) {
-  switch (type_id) {
-    case legate::Type::Code::BOOL:
-      return legate::bool_();
-    case legate::Type::Code::INT8:
-      return legate::int8();
-    case legate::Type::Code::INT16:
-      return legate::int16();
-    case legate::Type::Code::INT32:
-      return legate::int32();
-    case legate::Type::Code::INT64:
-      return legate::int64();
-    case legate::Type::Code::UINT8:
-      return legate::uint8();
-    case legate::Type::Code::UINT16:
-      return legate::uint16();
-    case legate::Type::Code::UINT32:
-      return legate::uint32();
-    case legate::Type::Code::UINT64:
-      return legate::uint64();
-    case legate::Type::Code::FLOAT16:
-      return legate::float16();
-    case legate::Type::Code::FLOAT32:
-      return legate::float32();
-    case legate::Type::Code::FLOAT64:
-      return legate::float64();
-    case legate::Type::Code::COMPLEX64:
-      return legate::complex64();
-    case legate::Type::Code::COMPLEX128:
-      return legate::complex128();
-    default:
-      throw std::invalid_argument("Unsupported legate::Type::Code enum value.");
+void drain_deferred_frees() {
+  std::vector<std::function<void()>> local;
+  {
+    std::lock_guard<std::mutex> lk(deferred_free_mutex());
+    local.swap(deferred_deleters());
   }
+  for (auto& del : local) del();
 }
+}  // namespace
+
+namespace jlcxx {
+// Defer destruction of ALL wrapped types to the launch thread (see above).
+template <typename T>
+struct Finalizer<T, SpecializedFinalizer> {
+  static void finalize(T* p) {
+    if (p == nullptr) return;
+    std::lock_guard<std::mutex> lk(deferred_free_mutex());
+    deferred_deleters().emplace_back([p] { delete p; });
+  }
+};
+}  // namespace jlcxx
 
 struct WrapDefault {
   template <typename TypeWrapperT>
@@ -94,16 +86,15 @@ struct WrapDefault {
 };
 
 // Register Scalar(StrictlyTypedNumber<T>) for each numeric element type.
-// apply_combination is for Parametric types; for_each_type walks a ParameterList
-// and adds constructors on a single non-parametric TypeWrapper.
+// apply_combination is for Parametric types; for_each_type walks a
+// ParameterList and adds constructors on a single non-parametric TypeWrapper.
 struct WrapScalarStrictCtors {
   jlcxx::TypeWrapper<Scalar> wrapped;
 
   template <typename T>
   void operator()() {
-    wrapped.constructor([](jlcxx::StrictlyTypedNumber<T> v) {
-      return new Scalar(v.value);
-    });
+    wrapped.constructor(
+        [](jlcxx::StrictlyTypedNumber<T> v) { return new Scalar(v.value); });
   }
 };
 
@@ -171,9 +162,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
       .method("is_readable", &PhysicalStore::is_readable)
       .method("is_writable", &PhysicalStore::is_writable)
       .method("is_reducible", &PhysicalStore::is_reducible)
-      .method("valid", &PhysicalStore::valid)
-      .method("get_obj_ptr",
-              [](PhysicalStore& s) { return static_cast<void*>(&s); });
+      .method("valid", &PhysicalStore::valid);
 
   mod.add_type<LogicalStore>("LogicalStoreImpl");
   mod.add_type<LogicalStorePartition>("LogicalStorePartitionImpl");
@@ -190,6 +179,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("slice", [](LogicalStore& s, int32_t dim, legate::Slice sl) {
     return s.slice(dim, sl);
   });
+  mod.method("slice",
+             [](LogicalStore& s, int32_t dim, int64_t start, int64_t stop) {
+               return s.slice(dim, legate::Slice{start, stop});
+             });
   mod.method(
       "get_physical_store",
       [](LogicalStore& s, std::optional<legate::mapping::StoreTarget> target) {
@@ -198,6 +191,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("equal_storage", [](LogicalStore& s, LogicalStore& other) {
     return s.equal_storage(other);
   });
+  mod.method("detach", [](LogicalStore& s) { return s.detach(); });
   mod.method("partition_by_tiling", [](LogicalStore& store,
                                        std::vector<uint64_t> tile_shape) {
     return legate_wrapper::data::partition_by_tiling(store, tile_shape);
@@ -238,6 +232,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
         for (int i = 0; i < arr.dim(); i++) result.push_back(s[i]);
         return result;
       });
+  mod.method("array_from_store",
+             [](const LogicalStore& store) { return LogicalArray{store}; });
 
   mod.add_type<AutoTask>("AutoTask")
       .method("add_input", static_cast<Variable (AutoTask::*)(LogicalArray)>(
@@ -291,17 +287,20 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
               [](ManualTask& t) { return static_cast<void*>(&t); });
 
   /* runtime */
-  mod.add_type<Runtime>("Runtime").method(
-      "get_obj_ptr", [](Runtime& r) { return static_cast<void*>(&r); });
+  mod.add_type<Runtime>("Runtime");
 
   mod.method("start_legate", &legate_wrapper::runtime::start_legate);
   mod.method("legate_finish", &legate_wrapper::runtime::legate_finish);
+  // Drain GC-enqueued LogicalStore/LogicalArray frees; call on the launch
+  // thread.
+  mod.method("legate_drain_frees", []() { drain_deferred_frees(); });
   mod.method("get_runtime", &legate_wrapper::runtime::get_runtime);
   mod.method("has_started", &legate_wrapper::runtime::has_started);
   mod.method("has_finished", &legate_wrapper::runtime::has_finished);
   mod.method("runtime_sync", &legate_wrapper::runtime::runtime_sync);
   /* tasking */
   mod.method("align", &legate_wrapper::tasking::align);
+  mod.method("bloat", &legate_wrapper::tasking::bloat);
   mod.method("domain_from_shape", &legate_wrapper::tasking::domain_from_shape);
   mod.method("create_manual_task",
              &legate_wrapper::tasking::create_manual_task);
@@ -345,6 +344,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
   mod.method("attach_external_store_fbmem",
              &legate_wrapper::data::attach_external_store_fbmem);
   mod.method("_get_ptr", &legate_wrapper::data::get_ptr);
+  mod.method("set_gpu_tasking_active",
+             &legate_wrapper::data::set_gpu_tasking_active);
+  mod.method("make_scalar", &legate_wrapper::data::make_scalar);
   /* type management */
   mod.method("string_to_scalar", &legate_wrapper::data::string_to_scalar);
   /* timing */
@@ -363,4 +365,66 @@ JLCXX_MODULE define_julia_module(jlcxx::Module& mod) {
              &legate_wrapper::runtime::issue_mapping_fence);
 
   wrap_ufi(mod);
+}
+
+extern "C" void legate_logical_store_detach(void* store_ptr) {
+  reinterpret_cast<legate::LogicalStore*>(store_ptr)->detach();
+}
+
+extern "C" void legate_issue_copy(void* dest_ptr, void* src_ptr) {
+  auto& dest = *reinterpret_cast<legate::LogicalStore*>(dest_ptr);
+  auto& src = *reinterpret_cast<const legate::LogicalStore*>(src_ptr);
+  legate::Runtime::get_runtime()->issue_copy(dest, src);
+}
+
+extern "C" void legate_issue_execution_fence_blocking() {
+  legate::Runtime::get_runtime()->issue_execution_fence(/*block=*/true);
+}
+
+namespace {
+// Julia < 1.12 cannot mark a ccall GC-safe, so transition inside the wrapper.
+class JuliaGcSafeRegion {
+ public:
+  JuliaGcSafeRegion()
+      : ptls_(reinterpret_cast<jl_ptls_t>(jl_get_ptls_states())),
+        state_(jl_gc_safe_enter(ptls_)) {}
+  ~JuliaGcSafeRegion() { jl_gc_safe_leave(ptls_, state_); }
+
+  JuliaGcSafeRegion(const JuliaGcSafeRegion&) = delete;
+  JuliaGcSafeRegion& operator=(const JuliaGcSafeRegion&) = delete;
+
+ private:
+  jl_ptls_t ptls_;
+  int8_t state_;
+};
+
+template <typename Task>
+const char* submit_task_gc_safe(void* runtime_ptr, void* task_ptr) noexcept {
+  static thread_local std::string error;
+  auto* runtime = reinterpret_cast<legate::Runtime*>(runtime_ptr);
+  auto* task = reinterpret_cast<Task*>(task_ptr);
+  try {
+    {
+      JuliaGcSafeRegion gc_safe;
+      runtime->submit(std::move(*task));
+    }
+    error.clear();
+    return nullptr;
+  } catch (const std::exception& exception) {
+    error = exception.what();
+    return error.c_str();
+  } catch (...) {
+    return "unknown C++ exception";
+  }
+}
+}  // namespace
+
+extern "C" const char* legate_submit_auto_task_gc_safe(void* runtime_ptr,
+                                                       void* task_ptr) {
+  return submit_task_gc_safe<legate::AutoTask>(runtime_ptr, task_ptr);
+}
+
+extern "C" const char* legate_submit_manual_task_gc_safe(void* runtime_ptr,
+                                                         void* task_ptr) {
+  return submit_task_gc_safe<legate::ManualTask>(runtime_ptr, task_ptr);
 }

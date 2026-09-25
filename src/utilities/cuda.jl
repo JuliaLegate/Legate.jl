@@ -31,6 +31,8 @@ end
 function _check_cuda(::JLL)
     _cpu_only_config() && return nothing
     get(legate_jll.host_platform.tags, "cuda", "none") == "none" && return nothing
-    has_cuda_gpu(true) || error("Legate's GPU JLL found no visible CUDA GPUs. Check CUDA_VISIBLE_DEVICES or run with --gpus 0.")
+    has_cuda_gpu(true) || error(
+        "Legate's GPU JLL found no visible CUDA GPUs. Check CUDA_VISIBLE_DEVICES or run with --gpus 0."
+    )
     return _check_cuda_version(CUDACore.driver_version())
 end

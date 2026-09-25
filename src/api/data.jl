@@ -58,6 +58,7 @@ Create an array with a specified shape.
 function create_array(shape::Vector{B}, ty::Type{T};
     nullable::Bool=false,
     optimize_scalar::Bool=false) where {T<:SUPPORTED_TYPES,B<:Integer}
+    drain_pending_frees!()
     lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type
     impl = LegateInternal.create_array(lshape, to_legate_type(ty), nullable, optimize_scalar) # cxxwrap call
     return LogicalArray{T,length(shape)}(impl, Tuple(shape))
@@ -108,7 +109,7 @@ Create a store from a scalar value.
 """
 function create_store(scalar::T; shape::Vector{B}=[1]) where {T<:SUPPORTED_TYPES,B<:Integer}
     lshape = Legate.Shape(to_cxx_vector(shape)) # convert to CxxWrap type   
-    impl = LegateInternal.store_from_scalar(Legate.Scalar(scalar), lshape) # cxxwrap call
+    impl = LegateInternal.store_from_scalar(Legate.Scalar(scalar).impl, lshape) # cxxwrap call
     return LogicalStore{T,length(shape)}(impl, Tuple(shape))
 end
 
@@ -199,6 +200,22 @@ Return a sliced view of the logical store according to the given indices.
 function slice(store::LogicalStore, indices...)
     impl = LegateInternal.slice(store.handle, indices...)
     return LogicalStore{eltype(store),Int(LegateInternal.dim(impl))}(impl, nothing)
+end
+
+"""
+    slice(array::LogicalArray, dim, start, stop) -> LogicalArray
+
+Return a view of the half-open interval `[start, stop)` in zero-based dimension `dim`.
+"""
+function slice(
+    array::LogicalArray{T,N}, dim::Integer, start::Integer, stop::Integer
+) where {T,N}
+    store = LegateInternal.slice(
+        LegateInternal.data(array.handle), Int32(dim), Int64(start), Int64(stop)
+    )
+    impl = LegateInternal.array_from_store(store)
+    dims = Tuple(Int.(collect(LegateInternal.shape(impl))))
+    return LogicalArray{T,N}(impl, dims, array.order)
 end
 
 """

@@ -17,6 +17,8 @@
  *            Ethan Meitz <emeitz@andrew.cmu.edu>
  */
 
+#include <atomic>
+
 #include "legate.h"
 #include "legate/io/hdf5/interface.h"
 #include "legate/mapping/machine.h"
@@ -72,7 +74,7 @@ inline bool has_finished() { return legate::has_finished(); }
 inline void runtime_sync() {
   Runtime::get_runtime()->issue_execution_fence(true);
 }
-  
+
 /**
  * @ingroup legate_wrapper
  * @brief Provide number of runtime processors.
@@ -105,6 +107,20 @@ namespace tasking {
  */
 inline Constraint align(const Variable& a, const Variable& b) {
   return legate::align(a, b);
+}
+
+/**
+ * @ingroup legate_wrapper
+ * @brief Bloat target partitions around their aligned source partitions.
+ */
+inline Constraint bloat(const Variable& source, const Variable& target,
+                        const std::vector<std::uint64_t>& low_offsets,
+                        const std::vector<std::uint64_t>& high_offsets) {
+  return legate::bloat(
+      source, target,
+      legate::Span<const std::uint64_t>{low_offsets.data(), low_offsets.size()},
+      legate::Span<const std::uint64_t>{high_offsets.data(),
+                                        high_offsets.size()});
 }
 
 /**
@@ -213,6 +229,17 @@ inline Scalar string_to_scalar(std::string str) { return Scalar(str); }
 
 /**
  * @ingroup legate_wrapper
+ * @brief Create a Scalar from a pointer and type.
+ *
+ * @param ptr Pointer to the scalar data.
+ * @param ty The type of the scalar.
+ */
+inline Scalar make_scalar(void* ptr, const Type& ty) {
+  return Scalar(ty, ptr, true);
+}
+
+/**
+ * @ingroup legate_wrapper
  * @brief Create an unbound array.
  *
  * @param ty The type of the array elements.
@@ -282,8 +309,8 @@ inline LogicalStore store_from_scalar(const Scalar& scalar,
  * @brief Attach an external store in system memory with row-major (C) ordering.
  */
 inline LogicalStore attach_external_store_sysmem_row_major(void* ptr,
-                                                          const Shape& shape,
-                                                          const Type& ty) {
+                                                           const Shape& shape,
+                                                           const Type& ty) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
       ptr, shape.volume() * ty.size());
   legate::mapping::DimOrdering ordering =
@@ -296,11 +323,12 @@ inline LogicalStore attach_external_store_sysmem_row_major(void* ptr,
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in system memory with col-major (Fortran) ordering.
+ * @brief Attach an external store in system memory with col-major (Fortran)
+ * ordering.
  */
 inline LogicalStore attach_external_store_sysmem_col_major(void* ptr,
-                                                          const Shape& shape,
-                                                          const Type& ty) {
+                                                           const Shape& shape,
+                                                           const Type& ty) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_sysmem(
       ptr, shape.volume() * ty.size());
   legate::mapping::DimOrdering ordering =
@@ -322,12 +350,14 @@ inline LogicalStore attach_external_store_sysmem(void* ptr, const Shape& shape,
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in frame buffer memory with row-major (C) ordering.
+ * @brief Attach an external store in frame buffer memory with row-major (C)
+ * ordering.
  */
-inline LogicalStore attach_external_store_fbmem_row_major(int device_id, void* ptr,
-                                                         const Shape& shape,
-                                                         const Type& ty,
-                                                         bool readonly) {
+inline LogicalStore attach_external_store_fbmem_row_major(int device_id,
+                                                          void* ptr,
+                                                          const Shape& shape,
+                                                          const Type& ty,
+                                                          bool readonly) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_fbmem(
       device_id, ptr, shape.volume() * ty.size(), readonly);
   legate::mapping::DimOrdering ordering =
@@ -340,12 +370,14 @@ inline LogicalStore attach_external_store_fbmem_row_major(int device_id, void* p
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in frame buffer memory with col-major (Fortran) ordering.
+ * @brief Attach an external store in frame buffer memory with col-major
+ * (Fortran) ordering.
  */
-inline LogicalStore attach_external_store_fbmem_col_major(int device_id, void* ptr,
-                                                         const Shape& shape,
-                                                         const Type& ty,
-                                                         bool readonly) {
+inline LogicalStore attach_external_store_fbmem_col_major(int device_id,
+                                                          void* ptr,
+                                                          const Shape& shape,
+                                                          const Type& ty,
+                                                          bool readonly) {
   legate::ExternalAllocation alloc = legate::ExternalAllocation::create_fbmem(
       device_id, ptr, shape.volume() * ty.size(), readonly);
   legate::mapping::DimOrdering ordering =
@@ -358,7 +390,8 @@ inline LogicalStore attach_external_store_fbmem_col_major(int device_id, void* p
 
 /**
  * @ingroup legate_wrapper
- * @brief Attach an external store in frame buffer memory (defaults to row-major).
+ * @brief Attach an external store in frame buffer memory (defaults to
+ * row-major).
  */
 inline LogicalStore attach_external_store_fbmem(int device_id, void* ptr,
                                                 const Shape& shape,
@@ -389,9 +422,30 @@ struct GetPtrFunctor {
  *
  * @param store Pointer to the PhysicalStore.
  */
+// Set true once a GPU UFI task is submitted (see submit_task). Only then does
+// the blocking accessor below need to be GC-safe, so CPU-only programs keep the
+// original (GC-unsafe) path untouched.
+inline std::atomic<bool>& gpu_tasking_active() {
+  static std::atomic<bool> flag{false};
+  return flag;
+}
+inline void set_gpu_tasking_active(bool v) { gpu_tasking_active().store(v); }
+
 inline void* get_ptr(legate::PhysicalStore* store) {
   int dim = store->dim();
   legate::Type::Code code = store->type().code();
+  // wait_until_valid blocks until the store is ready. With a GPU UFI task in
+  // flight this must run GC-safe so the Julia GC can stop-the-world while this
+  // thread is parked in Legate; otherwise a UFI worker compiling/allocating
+  // deadlocks against a GC-unsafe main thread stuck here
+  // (jl_gc_wait_for_the_world).
+  if (gpu_tasking_active().load(std::memory_order_relaxed)) {
+    jl_task_t* ct = jl_current_task;
+    int8_t gc_state = jl_gc_safe_enter(ct->ptls);
+    void* p = legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
+    jl_gc_safe_leave(ct->ptls, gc_state);
+    return p;
+  }
   return legate::double_dispatch(dim, code, GetPtrFunctor{}, store);
 }
 
