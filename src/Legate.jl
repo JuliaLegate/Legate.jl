@@ -98,8 +98,21 @@ if !isfile(WRAPPER_LIB_PATH)
     )
 end
 
-#! DO I NEED TO DLOPEN ANYTHING HERE FIRST?
-@wrapmodule(() -> WRAPPER_LIB_PATH)
+module LegateInternal
+    using CxxWrap
+    import ..WRAPPER_LIB_PATH
+    @wrapmodule(() -> WRAPPER_LIB_PATH)
+    function init()
+        @initcxx
+    end
+end
+
+# Expose C++ types to the main Legate namespace for use in other files
+using .LegateInternal: Library, Variable, Constraint, LocalTaskID, GlobalTaskID,
+    AutoTask, ManualTask, StoreTarget, Shape, Scalar, Slice,
+    StoreTargetOptional, PhysicalStore, PhysicalArray,
+    LogicalStoreImpl, LogicalArrayImpl, LogicalStorePartitionImpl,
+    LegateType, Domain, Runtime, Scope
 
 include("utilities/type_map.jl")
 #include("ufi.jl")
@@ -133,10 +146,10 @@ function _finish_runtime()
     #Legate.shutdown_ufi() # shutdown UFI
     #end
 
-    Legate.has_finished() && return nothing
+    LegateInternal.has_finished() && return nothing
 
     # finish legate runtime
-    return Legate.legate_finish()
+    return LegateInternal.legate_finish()
 end
 
 function _configure_realm_backtrace!()
@@ -153,7 +166,7 @@ function _start_runtime()
     Libdl.dlopen(LEGATE_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
     Libdl.dlopen(WRAPPER_LIB_PATH, Libdl.RTLD_GLOBAL | Libdl.RTLD_NOW)
 
-    Legate.start_legate()
+    LegateInternal.start_legate()
     LegatePreferences.maybe_warn_prerelease()
     #Legate.init_ufi()
 
@@ -187,7 +200,7 @@ function __init__()
 
     LegatePreferences.check_unchanged()
 
-    @initcxx
+    LegateInternal.init()
 
     _is_precompiling() && return nothing
 

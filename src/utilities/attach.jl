@@ -41,7 +41,9 @@ layout. `shape` may differ from `size(arr)` when `prod(shape) == length(arr)`,
 e.g. when attaching a transposed buffer that holds C-order bytes for `shape`.
 """
 function attach_external_row_major(arr::Array{T,N}; shape::Dims{N}=size(arr)) where {T,N}
-    return _attach_external_sysmem(arr, shape, attach_external_store_sysmem_row_major)
+    return _attach_external_sysmem(
+        arr, shape, LegateInternal.attach_external_store_sysmem_row_major
+    )
 end
 
 """
@@ -51,7 +53,9 @@ Attach a Julia `Array` as an external Legate store with **col-major (Fortran-ord
 layout. Reserved for future use; prefer `attach_external_row_major` for cuNumeric.
 """
 function attach_external_col_major(arr::Array{T,N}; shape::Dims{N}=size(arr)) where {T,N}
-    return _attach_external_sysmem(arr, shape, attach_external_store_sysmem_col_major)
+    return _attach_external_sysmem(
+        arr, shape, LegateInternal.attach_external_store_sysmem_col_major
+    )
 end
 
 """
@@ -71,7 +75,7 @@ end
 function _get_physical_store(x::LogicalArray, target)
     # LogicalArray -> PhysicalArray -> PhysicalStore
     phys_arr = Legate.get_physical_array(x, target)
-    return Legate.data(phys_arr)
+    return LegateInternal.data(phys_arr)
 end
 
 function Base.copyto!(
@@ -81,8 +85,8 @@ function Base.copyto!(
     # PhysicalStore accessors must run on the Legate/Legion toplevel task thread.
     # @threadcall uses a libuv worker thread, which 26.06+ rejects with:
     # "Invalid request to wait until a physical region is valid outside of Toplevel Task".
-    phys_dest = _get_physical_store(dest, Legate.SYSMEM)
-    phys_src = _get_physical_store(src, Legate.SYSMEM)
+    phys_dest = _get_physical_store(dest, LegateInternal.SYSMEM)
+    phys_src = _get_physical_store(src, LegateInternal.SYSMEM)
 
     dest_ptr = Ptr{T}(Legate.get_ptr(phys_dest))
     src_ptr = Ptr{T}(Legate.get_ptr(phys_src))

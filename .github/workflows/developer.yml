@@ -1,44 +1,10 @@
 # Develeper CI test. This will build the workflow using Jlls and building wrappers from SRC
 name: Develeper CI test
 
+# Called by ci.yml (gated on wrapper changes / main); also runnable manually.
 on:
+  workflow_call:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to build instead'
-        required: false
-        default: ''
-      mark_as_latest:
-        description: 'Mark as latest'
-        type: boolean
-        required: false
-        default: false
-  push:
-    paths:
-      - 'src/**'
-      - 'scripts/**'
-      - 'deps/build.jl'
-      - 'deps/buildtools/**'
-      - 'Project.toml'
-      - 'lib/legate_jl_wrapper/src/**'
-      - 'lib/legate_jl_wrapper/include/**'
-      - 'lib/LegatePreferences/src/**'
-      - '.github/workflows/developer.yml'
-    tags:
-      - 'v*'
-    branches:
-      - main
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'scripts/**'
-      - 'deps/build.jl'
-      - 'deps/buildtools/**'
-      - 'Project.toml'
-      - 'lib/legate_jl_wrapper/src/**'
-      - 'lib/legate_jl_wrapper/include/**'
-      - 'lib/LegatePreferences/src/**'
-      - '.github/workflows/developer.yml'
 jobs:
   pkg_resolve:
     uses: ./.github/workflows/pkg_resolve.yml
