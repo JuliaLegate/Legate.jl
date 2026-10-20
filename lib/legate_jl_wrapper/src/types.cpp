@@ -18,10 +18,11 @@
  */
 
 #include "types.h"
-#include "legate.h"
-#include "legion/api/config.h"
 
 #include <vector>
+
+#include "legate.h"
+#include "legion/api/config.h"
 
 // forced to return a std::int32_t instead of enum code
 inline std::int32_t code(legate::Type ty) { return (int32_t)ty.code(); }
@@ -29,52 +30,33 @@ inline std::int32_t code(legate::Type ty) { return (int32_t)ty.code(); }
 void wrap_type_enums(jlcxx::Module& mod) {
   auto lt = mod.add_type<legate::Type>("LegateType");
 
-  mod.add_enum<legate::Type::Code>("TypeCode",
-    std::vector<const char*>({
-      "BOOL",
-      "INT8",
-      "INT16",
-      "INT32",
-      "INT64",
-      "UINT8",
-      "UINT16",
-      "UINT32",
-      "UINT64",
-      "FLOAT16",
-      "FLOAT32",
-      "FLOAT64",
-      "COMPLEX64",
-      "COMPLEX128",
-      "NIL",
-      "BINARY",
-      "FIXED_ARRAY",
-      "STRUCT",
-      "STRING",
-      "LIST"
-    }),
-    std::vector<int>({
-      static_cast<int>(legate::Type::Code::BOOL),
-      static_cast<int>(legate::Type::Code::INT8),
-      static_cast<int>(legate::Type::Code::INT16),
-      static_cast<int>(legate::Type::Code::INT32),
-      static_cast<int>(legate::Type::Code::INT64),
-      static_cast<int>(legate::Type::Code::UINT8),
-      static_cast<int>(legate::Type::Code::UINT16),
-      static_cast<int>(legate::Type::Code::UINT32),
-      static_cast<int>(legate::Type::Code::UINT64),
-      static_cast<int>(legate::Type::Code::FLOAT16),
-      static_cast<int>(legate::Type::Code::FLOAT32),
-      static_cast<int>(legate::Type::Code::FLOAT64),
-      static_cast<int>(legate::Type::Code::COMPLEX64),
-      static_cast<int>(legate::Type::Code::COMPLEX128),
-      static_cast<int>(legate::Type::Code::NIL),
-      static_cast<int>(legate::Type::Code::BINARY),
-      static_cast<int>(legate::Type::Code::FIXED_ARRAY),
-      static_cast<int>(legate::Type::Code::STRUCT),
-      static_cast<int>(legate::Type::Code::STRING),
-      static_cast<int>(legate::Type::Code::LIST)
-    })
-  );
+  mod.add_enum<legate::Type::Code>(
+      "TypeCode",
+      std::vector<const char*>(
+          {"BOOL",    "INT8",        "INT16",     "INT32",      "INT64",
+           "UINT8",   "UINT16",      "UINT32",    "UINT64",     "FLOAT16",
+           "FLOAT32", "FLOAT64",     "COMPLEX64", "COMPLEX128", "NIL",
+           "BINARY",  "FIXED_ARRAY", "STRUCT",    "STRING",     "LIST"}),
+      std::vector<int>({static_cast<int>(legate::Type::Code::BOOL),
+                        static_cast<int>(legate::Type::Code::INT8),
+                        static_cast<int>(legate::Type::Code::INT16),
+                        static_cast<int>(legate::Type::Code::INT32),
+                        static_cast<int>(legate::Type::Code::INT64),
+                        static_cast<int>(legate::Type::Code::UINT8),
+                        static_cast<int>(legate::Type::Code::UINT16),
+                        static_cast<int>(legate::Type::Code::UINT32),
+                        static_cast<int>(legate::Type::Code::UINT64),
+                        static_cast<int>(legate::Type::Code::FLOAT16),
+                        static_cast<int>(legate::Type::Code::FLOAT32),
+                        static_cast<int>(legate::Type::Code::FLOAT64),
+                        static_cast<int>(legate::Type::Code::COMPLEX64),
+                        static_cast<int>(legate::Type::Code::COMPLEX128),
+                        static_cast<int>(legate::Type::Code::NIL),
+                        static_cast<int>(legate::Type::Code::BINARY),
+                        static_cast<int>(legate::Type::Code::FIXED_ARRAY),
+                        static_cast<int>(legate::Type::Code::STRUCT),
+                        static_cast<int>(legate::Type::Code::STRING),
+                        static_cast<int>(legate::Type::Code::LIST)}));
 
   mod.method("code", &code);
 }
@@ -98,16 +80,10 @@ void wrap_type_getters(jlcxx::Module& mod) {
 }
 
 void wrap_privilege_modes(jlcxx::Module& mod) {
-
-  mod.add_enum<legion_privilege_mode_t>("LegionPrivilegeMode",
-    std::vector<const char*>({
-      "LEGION_READ_ONLY",
-      "LEGION_WRITE_DISCARD"
-    }),
-    std::vector<int>({
-      static_cast<int>(legion_privilege_mode_t::LEGION_READ_ONLY),
-      static_cast<int>(legion_privilege_mode_t::LEGION_WRITE_DISCARD)
-    })
-  );
-
+  mod.add_enum<legion_privilege_mode_t>(
+      "LegionPrivilegeMode",
+      std::vector<const char*>({"LEGION_READ_ONLY", "LEGION_WRITE_DISCARD"}),
+      std::vector<int>(
+          {static_cast<int>(legion_privilege_mode_t::LEGION_READ_ONLY),
+           static_cast<int>(legion_privilege_mode_t::LEGION_WRITE_DISCARD)}));
 }

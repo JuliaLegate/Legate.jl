@@ -79,5 +79,13 @@ jobs:
           julia --color=yes -e 'using Pkg; Pkg.build("Legate")'
 
       - name: Perform Test
+        env:
+          LEGATE_CONFIG: "--cpus 2 --gpus 0 --utility 1 --sysmem 4000"
         run: |
-          julia --color=yes -e 'using Pkg; Pkg.test("Legate")'
+          julia --color=yes -e 'using Pkg; Pkg.test("Legate"; julia_args=["--threads=4,1"])'
+
+      - name: CPU tasking stress test
+        env:
+          LEGATE_CONFIG: "--cpus 4 --gpus 0 --utility 1 --sysmem 4000"
+        run: |
+          timeout 180s julia --color=yes --threads=4,1 test/cpu_tasking_stress.jl

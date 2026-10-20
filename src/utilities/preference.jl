@@ -38,10 +38,12 @@ end
 function check_jll(m::Module)
     m.is_available() && return nothing
     selected = get(m.host_platform.tags, "cuda", "unset")
-    error("$m has no artifact for $(m.host_platform). " *
-          "Selected CUDA toolkit: $selected. " *
-          "The selected toolkit tag is not the system driver version. " *
-          "Check CUDA runtime preferences and platform support.")
+    return error(
+        "$m has no artifact for $(m.host_platform). " *
+        "Selected CUDA toolkit: $selected. " *
+        "The selected toolkit tag is not the system driver version. " *
+        "Check CUDA runtime preferences and platform support.",
+    )
 end
 
 function find_paths(
@@ -53,7 +55,7 @@ function find_paths(
         to_mode(mode), legate_jll_module, legate_jll_wrapper_module
     )
     set_preferences!(LegatePreferences, "LEGATE_LIBDIR" => liblegate_path; force=true)
-    set_preferences!(
+    return set_preferences!(
         LegatePreferences, "LEGATE_WRAPPER_LIBDIR" => liblegate_wrapper_path; force=true
     )
 end

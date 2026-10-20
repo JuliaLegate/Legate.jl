@@ -2,13 +2,13 @@
 module CUDAStartupTests
 using Test
 module CUDACore
-const available = Ref(true)
-const version = Ref(v"13.0")
-has_cuda_gpu(show_reason=false) = available[]
-driver_version() = version[]
+    const available = Ref(true)
+    const version = Ref(v"13.0")
+    has_cuda_gpu(show_reason=false) = available[]
+    driver_version() = version[]
 end
 module legate_jll
-const host_platform = (tags=Dict("cuda" => "13.4"),)
+    const host_platform = (tags=Dict("cuda" => "13.4"),)
 end
 abstract type Mode end
 struct JLL <: Mode end

@@ -58,7 +58,7 @@ global const code_type_map = Dict{Int,Type}(
     Int(LegateInternal.STRING) => String, # CxxString?
 )
 
-to_legate_type(T::Type) = Legate.type_map[T]()
+to_legate_type(T::Type) = type_map[T]()
 
 # This is the same function as the above. 
 # TODO, check if anycode depends on LType calls.

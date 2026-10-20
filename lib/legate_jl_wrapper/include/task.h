@@ -19,8 +19,9 @@
 
 #pragma once
 
+#include <legate.h>
+
 #include "jlcxx/jlcxx.hpp"
-#include "legate.h"
 
 namespace ufi {
 enum TaskIDs {
